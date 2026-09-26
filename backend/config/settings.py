@@ -91,6 +91,12 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
 }
 
+# React dev server (Vite)
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
