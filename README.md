@@ -18,6 +18,14 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+Load the question bank:
+
+```bash
+python manage.py loaddata questions/question_bank.json
+```
+
+The fixture has 6 categories, 12 choice questions (with 4 answers each) and 12 numeric questions.
+
 Tests:
 
 ```bash
