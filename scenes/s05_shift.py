@@ -182,16 +182,16 @@ POSES = [
     (22.6, (0.0, Y_B2 - 0.001, Z_PROF), -94.0, 0.182, -3.0, 50.0, 14.0, "cubic"),
     # countershaft / input shaft: pull back (countershaft), then swing to the rear-left
     # and look forward along the gear train (the input gear enters frame once allowed)
-    (24.4, (0.0, -0.634, ZC - 0.056), -90.0, 0.250, 12.0, 50.0, 9.0, "cubic"),
-    (25.4, (0.0, -0.633, ZC - 0.055), -89.0, 0.252, 12.5, 50.0, 9.0, "cubic"),
-    (27.4, (0.0, -0.585, ZC - 0.056), -62.0, 0.427, 19.0, 42.0, 8.0, "cubic"),
-    (29.3, (0.0, -0.587, ZC - 0.054), -64.0, 0.418, 19.0, 42.0, 8.0, "cubic"),
+    (24.4, (0.0, -0.637, ZC - 0.053), -90.0, 0.246, -7.0, 50.0, 14.0, "cubic"),
+    (25.55, (0.0, -0.636, ZC - 0.053), -89.0, 0.248, -6.0, 50.0, 14.0, "cubic"),
+    (27.4, (0.0, -0.585, ZC - 0.056), -62.0, 0.427, 19.0, 42.0, 10.0, "cubic"),
+    (29.3, (0.0, -0.587, ZC - 0.054), -64.0, 0.418, 19.0, 42.0, 10.0, "cubic"),
     # engage: back on 2nd gear's side of the profile
     (32.5, (0.0, Y_B2, Z_PROF), -93.0, 0.182, -3.0, 50.0, 14.0, "cubic"),
     (38.8, (0.0, Y_B2 - 0.002, Z_PROF), -91.0, 0.188, -3.0, 50.0, 14.0, "cubic"),
     # clutch out: pull back to the whole gear train, power path in 2nd
-    (44.6, (0.0, -0.640, ZC - 0.020), -78.0, 0.565, 23.0, 40.0, 8.0, "cubic"),
-    (DUR, (0.0, -0.650, ZC - 0.020), -72.0, 0.625, 24.0, 40.0, 8.0, "cubic"),
+    (44.6, (0.0, -0.640, ZC - 0.020), -78.0, 0.565, 23.0, 40.0, 11.0, "cubic"),
+    (DUR, (0.0, -0.650, ZC - 0.020), -72.0, 0.625, 24.0, 40.0, 11.0, "cubic"),
 ]
 CAM_SMOOTH = 0.35          # s: Gaussian low-pass of the pose parameters
 KEY_OFFSET = -40.0         # key light azimuth relative to the camera azimuth (deg)
@@ -283,8 +283,8 @@ def _smooth_arr(x, sigma_s):
     return _gauss(np.asarray(x, float), max(1e-3, sigma_s * FPS))
 
 
-GLOW_PATH = 0.05           # power-path glow (warm emission; materials.CV_Presentation)
-GLOW_FRICTION = 0.06       # blocker ring + cone of 2nd while they slip
+GLOW_PATH = 0.015          # power-path glow (warm emission; materials.CV_Presentation)
+GLOW_FRICTION = 0.045      # blocker ring + cone of 2nd while they slip
 
 
 def build(quality: str) -> scenebase.SceneBuild:
@@ -398,14 +398,16 @@ def build(quality: str) -> scenebase.SceneBuild:
         "output": (R, (-0.0125, Y_HUB - 0.002, 0.013)),  # output-shaft splines inside the cut hub
     }
     L = Labels()
-    L.add("g2_intro", "2nd gear", an["g2"], wt("intro", "second"), bend("intro") - 0.4, offset=(-0.07, -0.10))
-    L.add("g1_intro", "1st gear", an["g1"], wt("intro", "first"), bend("intro") - 0.4, offset=(0.05, 0.10))
+    L.add("g2_intro", "2nd gear", an["g2"], wt("intro", "second"), bend("intro") - 0.4, offset=(-0.07, -0.10),
+          ignore=(cutter,))
+    L.add("g1_intro", "1st gear", an["g1"], wt("intro", "first"), bend("intro") - 0.4, offset=(0.05, 0.10),
+          ignore=(cutter,))
     L.add("sleeve_n", "Sleeve", an["sleeve"], wt("neutral", "sleeve"), bend("neutral") - 0.3, offset=(0.12, 0.02),
           occlusion=False)
     L.add("blocker_s", "Blocker ring", an["blocker2"], wt("sync", "blocker"), 22.9, offset=(-0.12, -0.05),
           occlusion=False)
     L.add("cone_s", "Cone", an["cone2"], wt("sync", "cone"), 22.9, offset=(-0.12, 0.08), occlusion=False)
-    L.add("g2_s", "2nd gear", an["g2"], wt("sync", "second"), 22.9, offset=(-0.07, -0.08))
+    L.add("g2_s", "2nd gear", an["g2"], wt("sync", "second"), 22.9, offset=(-0.07, -0.08), ignore=(cutter,))
     L.add("cs", "Countershaft", an["cs"], wt("sync", "countershaft"), 28.9, offset=(0.08, 0.0), occlusion=False)
     L.add("input", "Input shaft", an["input"], wt("sync", "input"), 28.9, offset=(0.05, 0.10), occlusion=False)
     L.add("output", "Output shaft", an["output"], wt("sync", "output"), 31.6, offset=(0.04, 0.12),
