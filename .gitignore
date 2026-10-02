@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- carviz project ---
+out/
+*.blend1
+/video/*.tmp.mp4
