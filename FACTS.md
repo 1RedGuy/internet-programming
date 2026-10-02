@@ -898,7 +898,7 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 | s04.shafts.1 | The gearbox has three shafts. | GBX-01, VEH-04 |
 | s04.shafts.2 | The input shaft, driven by the clutch, turns the countershaft below. | GBX-07, GBX-01 |
 | s04.shafts.3 | The output shaft runs out the back, in line with the input. | GBX-01, VEH-04 |
-| s04.neutral.1 | The other countershaft gears each mesh with a gear on the output shaft. | GBX-03, GBX-04, GBX-13 (N8) |
+| s04.neutral.1 | The countershaft's forward gears each mesh with a gear on the output shaft. | GBX-03, GBX-04, GBX-13 (N8) |
 | s04.neutral.2 | They're always in mesh, but the output gears spin freely on bearings. | GBX-02, GBX-12 |
 | s04.neutral.3 | Until one is locked to the shaft, no power gets through: neutral. | GBX-15 |
 | s04.synchro.1 | Synchronizers do the locking. | SYN-01 |
@@ -959,9 +959,9 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 
 1. **N3a, s07.plunge.1** — APPLIED: the line now reads "The inner joint can also slide, as the wheel's distance
    from the differential changes." (the joint-centre spacing of a rigid shaft stays 478 mm; the tripod slides 3.78 mm, CVJ-06).
-2. **N8, s04.neutral.1**: "The other countershaft gears each mesh with a gear on the output shaft." The reverse
-   countershaft gear meshes with the idler, not directly with the output gear (REV-03). Reverse is introduced two
-   beats later, and the beat is at its word limit.
+2. **N8, s04.neutral.1** — APPLIED: was "The other countershaft gears each mesh with a gear on the output shaft."
+   (the reverse countershaft gear meshes with the idler, REV-03); now "The countershaft's forward gears each mesh with
+   a gear on the output shaft."
 3. **N9, s02.flywheel.2**: "one half of the clutch" is loose but fair: the flywheel and pressure plate are the two
    clamping members (FLY-02).
 4. **N10, s06.diffparts.2**: "one splined to each driveshaft". As built the side gear is splined to an output stub

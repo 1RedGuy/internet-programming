@@ -14,10 +14,12 @@ the camera and the studio lights ride with the car root):
                        vertical: pin and spiders explode straight up/down, case halves, side
                        gears and stubs sideways along the axle.  Time resumes at the end.
   straight             15 km/h straight, x20 (spiders still on their pin, wheels equal)
-  turn                 curvature eases to 1/5 m^-1 (left, R = 5 m) while the speed eases to
-                       10 km/h; x20 -> x14 while the tyres are in frame (tread limit), then
-                       x8 for the close-up on the spiders (ring/pinion limit x7.1 at 10 km/h;
-                       tyres out of frame).  Left (inner) wheel 0.852 x, right 1.148 x case.
+  turn                 road speed held at 15 km/h while the curvature eases to 1/5 m^-1 (left,
+                       R = 5 m): the outer (right) wheel speeds up 130.5 -> 149.8 rpm, the
+                       inner slows to 111.1 rpm, the case stays exactly 130.5 rpm (FACTS
+                       DIF-07).  x20 while the tyres are in frame (outer tread 0.33 pitch/
+                       frame), then x12 for the close-up on the spiders (ring/pinion 0.31
+                       pitch/frame; tyres out of frame).
 
 Every rotation comes from the Track (axle/wheels/gearbox drive()); only presentation
 (fades, explode, glow, camera, labels, HUD, floor guide lines) is keyed here.
@@ -69,12 +71,10 @@ def wt(b, word, occ=1):
 # Drivetrain plan
 # ---------------------------------------------------------------------------
 GEAR = 1
-V_CRUISE = 15.0                     # km/h
-V_TURN = 10.0
+V_CRUISE = 15.0                     # km/h, held for the whole scene (case rpm constant in the turn)
 KAPPA = 0.2                         # 1/m, left turn (R = 5 m)
 SLOW_CRUISE = 1.0 / 20.0
-SLOW_WIDE = 1.0 / 14.0              # turn, tyres in frame
-SLOW_CLOSE = 1.0 / 8.0              # turn, close-up on the spiders (tyres out of frame)
+SLOW_CLOSE = 1.0 / 12.0             # turn, close-up on the spiders (tyres out of frame)
 T_FREEZE = (20.55, 21.55)           # slowmo -> 0
 T_THAW = (31.45, 32.45)             # 0 -> SLOW_CRUISE
 T_TURN = (41.0, 44.6)               # curvature / speed ease-in
@@ -93,14 +93,11 @@ def program(wheel0=0.0, pose0=(0.0, 0.0, 0.0)):
     s.key(T_FREEZE[1], 0.0, "ease")
     s.key(T_THAW[0], 0.0, "linear")
     s.key(T_THAW[1], SLOW_CRUISE, "ease")
-    s.key(T_TURN[0], SLOW_CRUISE, "linear")
-    s.key(T_TURN[1], SLOW_WIDE, "ease")
-    s.key(T_CLOSE[0], SLOW_WIDE, "linear")
+    s.key(T_CLOSE[0], SLOW_CRUISE, "linear")
     s.key(T_CLOSE[1], SLOW_CLOSE, "ease")
-    P.speed_kmh.key(0.0, V_CRUISE, "step").key(T_TURN[0], V_CRUISE, "linear").key(T_TURN[1], V_TURN, "ease")
+    P.speed_kmh.key(0.0, V_CRUISE, "step")
     P.curvature.key(0.0, 0.0, "step").key(T_TURN[0], 0.0, "linear").key(T_TURN[1], KAPPA, "ease")
-    r0, r1 = S.engine_rpm_at(V_CRUISE, GEAR), S.engine_rpm_at(V_TURN, GEAR)
-    P.throttle_rpm.key(0.0, r0, "step").key(T_TURN[0], r0, "linear").key(T_TURN[1], r1, "ease")
+    P.throttle_rpm.key(0.0, S.engine_rpm_at(V_CRUISE, GEAR), "step")
     return P
 
 

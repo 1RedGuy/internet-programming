@@ -183,7 +183,7 @@ line with the input.
 
 40
 00:03:11,250 --> 00:03:16,821
-The other countershaft gears each mesh
+The countershaft's forward gears each mesh
 with a gear on the output shaft.
 
 41

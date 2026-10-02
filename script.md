@@ -44,7 +44,7 @@ Every claim is backed by an entry in FACTS.md (see the narration-to-facts table 
 | Time | Line | Words | Slot / speech |
 |---|---|---|---|
 | 2:58.0–3:11.0 | The gearbox has three shafts. The input shaft, driven by the clutch, turns the countershaft below. The output shaft runs out the back, in line with the input. | 28 | 13.0 s / 12.0 s |
-| 3:11.0–3:27.5 | The other countershaft gears each mesh with a gear on the output shaft. They're always in mesh, but the output gears spin freely on bearings. Until one is locked to the shaft, no power gets through: neutral. | 37 | 16.5 s / 15.9 s |
+| 3:11.0–3:27.5 | The countershaft's forward gears each mesh with a gear on the output shaft. They're always in mesh, but the output gears spin freely on bearings. Until one is locked to the shaft, no power gets through: neutral. | 37 | 16.5 s / 15.9 s |
 | 3:27.5–3:43.5 | Synchronizers do the locking. A hub is splined to the shaft, and a sleeve slides on it. Each gear carries dog teeth and a cone, with a brass blocker ring between cone and sleeve. | 34 | 16.0 s / 14.6 s |
 | 3:43.5–3:51.0 | Slide the sleeve over the dog teeth, and the gear is locked to the shaft. | 15 | 7.5 s / 6.4 s |
 | 3:51.0–4:01.5 | Forks on shift rails move the sleeves. Moving the lever sideways picks a rail; forward or back slides it. | 19 | 10.5 s / 8.1 s |

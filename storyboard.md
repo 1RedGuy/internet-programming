@@ -101,7 +101,7 @@ _Three shafts, constant mesh, synchronisers, linkage, ratios, reverse._
 *Picture:* Gearbox case becomes a cutaway. Labels: Input shaft, Countershaft, Output shaft. Neutral, clutch engaged, engine idling, car stationary (output shaft still).
 
 **3:11.0–3:27.5** [13.0–29.5 s] `s04.neutral`  
-*Narration:* “The other countershaft gears each mesh with a gear on the output shaft. They're always in mesh, but the output gears spin freely on bearings. Until one is locked to the shaft, no power gets through: neutral.”  
+*Narration:* “The countershaft's forward gears each mesh with a gear on the output shaft. They're always in mesh, but the output gears spin freely on bearings. Until one is locked to the shaft, no power gets through: neutral.”  
 *Picture:* Slow track along the gear train. All gears turn, but the output shaft and synchro hubs stand still. Label: Free-spinning gears. HUD gear N.
 
 **3:27.5–3:43.5** [29.5–45.5 s] `s04.synchro`  

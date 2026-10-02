@@ -184,7 +184,7 @@ SCENES = [
              "Gearbox case becomes a cutaway. Labels: Input shaft, Countershaft, Output shaft. Neutral, clutch "
              "engaged, engine idling, car stationary (output shaft still)."),
         Beat("neutral", 16.5,
-             "The other countershaft gears each mesh with a gear on the output shaft. They're always in mesh, "
+             "The countershaft's forward gears each mesh with a gear on the output shaft. They're always in mesh, "
              "but the output gears spin freely on bearings. Until one is locked to the shaft, no power gets "
              "through: neutral.",
              "Slow track along the gear train. All gears turn, but the output shaft and synchro hubs stand "
