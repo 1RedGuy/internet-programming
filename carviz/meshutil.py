@@ -1046,16 +1046,27 @@ def _cut_with_object(obj, cutter, section_material_name, delete_cutter, tol):
     mi = np.zeros(len(result.polygons), dtype=np.int32)
     result.polygons.foreach_get("material_index", mi)
     sec = []
-    for p in result.polygons:
-        loc, _nrm, _idx, dist = bvh.find_nearest(p.center)
-        if loc is not None and dist < tol:
-            mi[p.index] = sec_slot
-            sec.append(p.index)
-    result.polygons.foreach_set("material_index", mi)
+    # A face is a section face only if EVERY one of its triangles lies on the
+    # cutter surface with a parallel normal (a concave face's vertex average can
+    # sit on the cutter even when the face itself does not).
+    result.calc_loop_triangles()
+    tri_ok = {}
+    for t in result.loop_triangles:
+        c = (result.vertices[t.vertices[0]].co + result.vertices[t.vertices[1]].co
+             + result.vertices[t.vertices[2]].co) / 3.0
+        loc, nrm, _idx, dist = bvh.find_nearest(c)
+        ok = loc is not None and dist < tol and abs(nrm.dot(result.polygons[t.polygon_index].normal)) > 0.995
+        tri_ok[t.polygon_index] = tri_ok.get(t.polygon_index, True) and ok
+    for pi, ok in tri_ok.items():
+        if ok:
+            mi[pi] = sec_slot
+            sec.append(pi)
     old = obj.data
+    # rebuild the slot list FIRST: materials.clear() resets every face to slot 0
     result.materials.clear()
     for m in old.materials:
         result.materials.append(m)
+    result.polygons.foreach_set("material_index", mi)
     obj.data = result
     if old.users == 0:
         bpy.data.meshes.remove(old)

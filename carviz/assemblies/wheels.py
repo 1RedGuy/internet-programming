@@ -2651,6 +2651,8 @@ def _drive(asm, track, pres):
         for var, d in cp.items():
             for key in d["kept"] + d["removed"]:
                 vis[key] = np.zeros(n, bool)
+            for key in d["replaces"]:
+                vis[key] = np.ones(n, bool)
     if pres.get("boot_opacity") is not None:
         bo = _arr(pres.get("boot_opacity"), n, 1.0)
         for key in asm.meta["group_names"].get("boots", []):

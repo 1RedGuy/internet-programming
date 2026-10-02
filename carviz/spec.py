@@ -319,11 +319,11 @@ PEDAL_ARM = 0.300                 # pivot -> pad centre (matches kin.clutch_geom
 PEDAL_REST_ANGLE = 0.38           # rad: arm leans rearward from vertical at rest (pad behind pivot)
 BRAKE_PEDAL_X = -0.385
 THROTTLE_PEDAL_X = -0.265
-MASTER_CYL_POS = (-0.505, -0.420, 0.640)       # master cylinder body centre (engine side of firewall)
+MASTER_CYL_POS = (-0.505, -0.420, 0.650)       # master cylinder body centre (engine side of firewall; as built, 6:1 pedal lever)
 MASTER_CYL_AXIS = (0.0, 1.0, 0.0)              # pushrod pushes forward (+Y) into the master cylinder
-SLAVE_CYL_POS = (-0.125, -0.415, 0.395)        # external slave on the bellhousing, left side
-RELEASE_FORK_PIVOT = (-0.060, -0.400, 0.360)   # ball stud inside the bellhousing (approx.)
-Y_RELEASE_BEARING = Y_DISC_CENTRE - 0.050      # release bearing face at rest (approx.)
+SLAVE_CYL_POS = (-0.1851, -0.415, 0.360)       # external slave on the bellhousing, left side (as built: outside the wall)
+RELEASE_FORK_PIVOT = (-0.0697, -0.4092, 0.360) # ball stud inside the bellhousing (as built: exact 1.655 fork ratio)
+Y_RELEASE_BEARING = -0.3751                    # release bearing face at rest (as built)
 H_POINT = (X_DRIVER, -1.520, 0.420)            # driver hip point
 STEERING_WHEEL_CENTRE = (X_DRIVER, -1.020, 0.900)
 SHIFT_KNOB_REST = (0.0, Y_SHIFT_LEVER - 0.040, 0.880)
@@ -339,3 +339,7 @@ RELEASE_FORK_RATIO_EFFECTIVE = SLAVE_WORKING_STROKE / RELEASE_BEARING_TRAVEL    
 # Flat (bucket) tappet three-arc cams (appended): base circle and nose radius.
 CAM_BASE_RADIUS = 18.0 * MM
 CAM_NOSE_RADIUS = 5.0 * MM
+
+# Clutch-disc / input-shaft splines (appended; shared by clutch and gearbox)
+CLUTCH_SPLINE_D_MAJOR = 25.4 * MM
+CLUTCH_SPLINE_D_MINOR = 21.5 * MM

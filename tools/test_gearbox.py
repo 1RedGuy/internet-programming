@@ -126,9 +126,11 @@ def bvh_world(ob, dg):
     co = co.reshape(-1, 3)
     M = np.array(mw)
     co = co @ M[:3, :3].T + M[:3, 3]
-    polys = [tuple(p.vertices) for p in me.polygons]
+    me.calc_loop_triangles()          # Blender's own triangulation (concave n-gons from booleans)
+    tri = np.zeros(len(me.loop_triangles) * 3, dtype=np.int64)
+    me.loop_triangles.foreach_get("vertices", tri)
     ev.to_mesh_clear()
-    return BVHTree.FromPolygons([Vector(v) for v in co], polys, epsilon=0.0)
+    return BVHTree.FromPolygons([Vector(v) for v in co], tri.reshape(-1, 3).tolist(), epsilon=0.0)
 
 
 def collide_pairs(pairs, frames, static=()):

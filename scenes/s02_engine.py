@@ -13,7 +13,8 @@ changes:
 
 The valvetrain factor is solved (bisection on the same sub-step integral the
 state integrator uses) so cylinder 1 reaches its firing TDC exactly at
-T_FIRE1, two seconds into the firing beat, after the camera has settled.
+T_FIRE1, 1.5 s into the firing beat, just after the camera has settled (firings
+at 63.0 / 66.0 / 69.0 / 72.0 s in the order 1-3-4-2).
 `P.align_engine(intake start, 360)` puts cylinder 1 at TDC starting its intake
 stroke exactly when the "intake" beat starts.
 
@@ -160,7 +161,7 @@ def _region_calc(asm, P, V):
     return "all"
 
 
-def _to_all(asm, P, r, V, w):
+def _to_all(P, r, V, w):
     """Objects/opacity while part P goes from region r (variant V) to whole (w 0..1)."""
     if r == "all":
         return {P: 1.0}
@@ -169,7 +170,7 @@ def _to_all(asm, P, r, V, w):
     return {P: w}
 
 
-def _from_all(asm, P, r, V, w):
+def _from_all(P, r, V, w):
     """Part P going from whole to region r of variant V (w 0..1)."""
     if r == "all":
         return {P: 1.0}
@@ -190,17 +191,17 @@ def _part_state(asm, P, t):
             two = kind == "via" or (rA == "kept" and rB == "kept")
             if two:
                 if u < 0.5:
-                    return _to_all(asm, P, rA, cur, _smooth(2 * u))
-                return _from_all(asm, P, rB, V, _smooth(2 * u - 1))
+                    return _to_all(P, rA, cur, _smooth(2 * u))
+                return _from_all(P, rB, V, _smooth(2 * u - 1))
             s = _smooth(u)
             if rA == "all" and rB == "all":
                 return {P: 1.0}
             if rA == "none" and rB == "none":
                 return {}
             if rB == "all":
-                return _to_all(asm, P, rA, cur, s)
+                return _to_all(P, rA, cur, s)
             if rA == "all":
-                return _from_all(asm, P, rB, V, s)
+                return _from_all(P, rB, V, s)
             if rA == "kept":                    # kept -> none
                 return {f"{P}__{cur}_kept": 1.0 - s}
             return {f"{P}__{V}_kept": s}        # none -> kept
@@ -281,21 +282,21 @@ POSES = [
     # cycle: swing wide around the front-left corner while the engine closes up, then
     # push in on the cylinder-1 section
     (16.9, (0.0, -0.02, 0.48), -150.0, 2.15, 0.30, 50.0, 5.6, "cubic"),
-    (19.8, (0.0, 0.06, 0.555), -180.0, 1.52, 0.07, 50.0, 5.6, "ease"),
-    (21.0, (0.0, 0.06, 0.555), -179.6, 1.51, 0.07, 50.0, 5.6, "linear"),
-    (27.6, (-0.012, 0.06, 0.552), -176.5, 1.48, 0.06, 50.0, 5.6, "ease"),
-    (34.6, (-0.004, 0.06, 0.570), -179.0, 1.36, 0.06, 50.0, 5.6, "ease"),
-    (41.6, (0.0, 0.06, 0.558), -180.0, 1.46, 0.07, 50.0, 5.6, "ease"),
-    (48.8, (0.012, 0.06, 0.555), -183.5, 1.50, 0.06, 50.0, 5.6, "ease"),
+    (19.8, (0.0, 0.06, 0.555), -180.0, 1.52, 0.07, 50.0, 5.6, "cubic"),
+    (21.0, (0.0, 0.06, 0.555), -179.6, 1.51, 0.07, 50.0, 5.6, "cubic"),
+    (27.6, (-0.012, 0.06, 0.552), -176.5, 1.48, 0.06, 50.0, 5.6, "cubic"),
+    (34.6, (-0.004, 0.06, 0.570), -179.0, 1.36, 0.06, 50.0, 5.6, "cubic"),
+    (41.6, (0.0, 0.06, 0.558), -180.0, 1.46, 0.07, 50.0, 5.6, "cubic"),
+    (48.8, (0.012, 0.06, 0.555), -183.5, 1.50, 0.06, 50.0, 5.6, "cubic"),
     # valvetrain: rise to look down on the cams, then settle on the chain drive
-    (52.4, (0.0, -0.03, 0.64), -148.0, 1.30, 0.98, 50.0, 5.6, "ease"),
-    (53.6, (0.0, -0.02, 0.635), -150.0, 1.31, 0.95, 50.0, 5.6, "linear"),
-    (56.4, (-0.01, 0.10, 0.54), -160.0, 1.66, 0.38, 50.0, 5.6, "ease"),
-    (59.6, (-0.01, 0.12, 0.54), -163.0, 1.58, 0.36, 50.0, 5.6, "ease"),
+    (52.4, (0.0, -0.03, 0.64), -148.0, 1.30, 0.98, 50.0, 5.6, "cubic"),
+    (53.6, (0.0, -0.02, 0.635), -150.0, 1.31, 0.95, 50.0, 5.6, "cubic"),
+    (56.4, (-0.01, 0.10, 0.54), -160.0, 1.66, 0.38, 50.0, 5.6, "cubic"),
+    (59.6, (-0.01, 0.12, 0.54), -163.0, 1.58, 0.36, 50.0, 5.6, "cubic"),
     # firing: swing wide to the left side of the lengthwise section
     (61.1, (0.0, -0.03, 0.57), -122.0, 1.85, 0.32, 50.0, 6.3, "cubic"),
-    (62.6, (0.0, -0.08, 0.585), -90.0, 1.30, 0.10, 50.0, 6.3, "ease"),
-    (73.4, (0.0, -0.08, 0.585), -95.0, 1.26, 0.10, 50.0, 6.3, "linear"),
+    (62.6, (0.0, -0.08, 0.585), -90.0, 1.30, 0.10, 50.0, 6.3, "cubic"),
+    (73.4, (0.0, -0.08, 0.585), -95.0, 1.26, 0.10, 50.0, 6.3, "cubic"),
     # flywheel: around the back (engine closing up), ending on the friction face
     (76.2, (0.0, -0.18, 0.47), -50.0, 1.95, 0.36, 50.0, 5.6, "cubic"),
     (78.8, (0.0, -0.28, 0.42), -16.0, 1.50, 0.24, 50.0, 5.6, "cubic"),
@@ -316,13 +317,27 @@ def _pose_curves():
     return cs
 
 
+CAM_SMOOTH = 0.3          # s: Gaussian low-pass of the pose parameters (softens starts/stops)
+
+
+def _gauss(x, sigma_frames):
+    r = int(3 * sigma_frames)
+    k = np.exp(-0.5 * (np.arange(-r, r + 1) / sigma_frames) ** 2)
+    k /= k.sum()
+    xp = np.r_[np.full(r, x[0]), x, np.full(r, x[-1])]
+    return np.convolve(xp, k, mode="valid")
+
+
 def camera_samples(t):
+    """Per-frame (eye, target, lens, f-stop, azimuth deg) for frame times t (uniform)."""
     cs = _pose_curves()
-    T = np.stack([cs["tx"](t), cs["ty"](t), cs["tz"](t)], 1)
-    az = np.radians(cs["az"](t))
-    r, h = cs["r"](t), cs["h"](t)
+    sig = CAM_SMOOTH * FPS
+    p = {k: _gauss(c(t), sig) for k, c in cs.items()}
+    T = np.stack([p["tx"], p["ty"], p["tz"]], 1)
+    az = np.radians(p["az"])
+    r, h = p["r"], p["h"]
     eye = T + np.stack([r * np.sin(az), -r * np.cos(az), h], 1)
-    return eye, T, cs["lens"](t), cs["f"](t), np.degrees(az)
+    return eye, T, p["lens"], p["f"], np.degrees(az)
 
 
 def ring_in_frame(eye, tgt, lens, sensor=36.0, aspect=16 / 9, margin=1.06):
@@ -441,7 +456,6 @@ def build(quality: str) -> scenebase.SceneBuild:
 
     # ---------------- labels --------------------------------------------
     L = Labels()
-    pcs = E.meta["cutaway_pieces"]
 
     def pieces(*keys):
         return tuple(E.parts[k] for k in keys if k in E.parts)
