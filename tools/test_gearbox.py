@@ -460,6 +460,65 @@ def sample_frames(T, n=26):
 
 
 # ---------------------------------------------------------------------------
+# Integration with the neighbouring assemblies (engine flywheel / crank, clutch)
+# ---------------------------------------------------------------------------
+
+def integration_checks(no_collide=False):
+    """Build engine + clutch + gearbox together (as in the car) and check the
+    interfaces: pilot in the crank spigot bore, splines vs flywheel and disc hub,
+    shaft vs guide tube, case vs bellhousing."""
+    import importlib
+    print("integration (engine + clutch + gearbox):")
+    fresh()
+    asm = {}
+    for name, opts in (("engine", {"detail": "low"}), ("clutch", {"detail": "low"}),
+                       ("gearbox", {"detail": "high"})):
+        try:
+            mod = importlib.import_module(f"carviz.assemblies.{name}")
+            asm[name] = mod.build(opts)
+        except Exception as e:  # pragma: no cover - neighbours are built by other agents
+            print(f"  skip {name}: {type(e).__name__}: {e}")
+    if "gearbox" not in asm or len(asm) < 2:
+        return
+    P = state.Program(None, duration=3.0)
+    P.slowmo.key(0, 1 / 60, "step")
+    P.throttle_rpm.key(0, 850, "step")
+    P.pedal.key(0, 0, "step"); P.pedal.key(1.0, 0, "linear"); P.pedal.key(2.5, 1, "ease")
+    T = P.run()
+    sc = bpy.context.scene
+    sc.frame_start, sc.frame_end = 1, T.n
+    for a in asm.values():
+        a.drive(T, {})
+    G_ = asm["gearbox"].parts
+    pairs = []
+
+    def add(na, oa, nb, ob):
+        if oa is not None and ob is not None and oa.type == "MESH" and ob.type == "MESH":
+            pairs.append((na, oa, nb, ob))
+    E_ = asm["engine"].parts if "engine" in asm else {}
+    C_ = asm["clutch"].parts if "clutch" in asm else {}
+    for en in ("flywheel", "crankshaft", "ring_gear"):
+        for gn in ("input_shaft", "spigot_bush"):
+            add(f"engine.{en}", E_.get(en), f"gearbox.{gn}", G_.get(gn))
+    for cn in ("disc", "pressure_plate", "diaphragm_spring", "cover", "release_bearing", "bearing_race",
+               "guide_tube", "bellhousing", "fork", "ball_stud"):
+        for gn in ("input_shaft", "case", "spigot_bush", "brg_input_inner", "brg_input_outer"):
+            add(f"clutch.{cn}", C_.get(cn), f"gearbox.{gn}", G_.get(gn))
+    if not pairs:
+        return
+    frames = [1, T.n // 3, 2 * T.n // 3, T.n]
+    bad = collide_pairs(pairs, frames)
+    for (a, b), lst in sorted(bad.items()):
+        print(f"     overlap {a} x {b}: frames {[f for f, n in lst]} (max {max(n for f, n in lst)} tri pairs)")
+    check(not bad, f"integration: gearbox clear of the engine flywheel/crank and the clutch "
+                   f"({len(pairs)} pairs x {len(frames)} frames)")
+    # pilot inside the crank spigot bore, splines aft of the flywheel's solid centre
+    sp = asm["gearbox"].meta["input_shaft_radii"]
+    check(sp["splines_y"][0] < -0.3245, f"clutch splines start at Y {sp['splines_y'][0]:.4f} (aft of the flywheel "
+                                        f"centre at -0.3235) - only the r {sp['pilot'] * 1e3:.1f} mm pilot is forward")
+
+
+# ---------------------------------------------------------------------------
 # Renders
 # ---------------------------------------------------------------------------
 
@@ -637,6 +696,7 @@ def main():
     ap.add_argument("--no-render", action="store_true")
     ap.add_argument("--no-collide", action="store_true")
     ap.add_argument("--only-render", action="store_true")
+    ap.add_argument("--no-integration", action="store_true")
     ap.add_argument("--samples", type=int, default=16)
     ap.add_argument("--out", default=os.path.join(ROOT, "out", "test_gearbox"))
     args = ap.parse_args()
@@ -767,6 +827,9 @@ def main():
         bad = {k: v for k, v in bad.items() if fam(k[0]) != fam(k[1])}
         check(not bad, f"exploded group parts clear of each other {sorted(bad)}")
         A.drive(T, {"explode": np.zeros(T.n)})
+
+    if not args.only_render and not args.no_integration:
+        integration_checks(args.no_collide)
 
     if not args.no_render:
         print("renders:")

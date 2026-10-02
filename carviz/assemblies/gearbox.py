@@ -76,7 +76,8 @@ Anchors (object, local offset) - never on a spinning frame (labels do not orbit)
   input_shaft, countershaft, output_shaft, gear_1, gear_2, gear_3, gear_5, gear_R, idler,
   hub_12, sleeve_12, blocker_2, blocker_1, dogs_2, dogs_1, cone_2, fork_12, rail_12,
   rail_34, rail_5R, lever, knob, case, needle_bearing_2 (+ hub_34, sleeve_34, hub_5R,
-  sleeve_5R, fork_34, fork_5R, input_gear, cs_drive, finger, output_flange)
+  sleeve_5R, fork_34, fork_5R, input_gear, cs_drive, finger, output_flange, and
+  dogs_<g> / cone_<g> / blocker_<g> for every g in 1 2 3 4 5 R)
 
 Explode (presentation key ``explode`` 0..1, exploded 1-2 synchroniser along Y)
 ------------------------------------------------------------------------------
@@ -94,7 +95,9 @@ meta
 ``groups`` (named part lists), ``cutaway_pieces`` {variant: {'kept','removed','replaces'}},
 ``explode_hide``, ``explode_group``, ``synchro`` (synchro dimensions / phase positions),
 ``lever`` (pivot, lever lengths, gate), ``input_splines`` (n, d_major, d_minor),
-``input_shaft_radii``, ``case_length``, ``dims``, ``triangles``, ``build_time``.
+``input_shaft_radii``, ``case_length``, ``dims``, ``sections``, ``bearings`` (sizes, contact
+radii), ``detents``, ``carriers`` / ``slides`` (Empty names), ``gear_y`` / ``cs_y`` (gear
+centre planes), ``variants``, ``triangles``, ``build_time``, ``timings``.
 
 Presentation keys: ``explode`` (0..1 per frame, or scalar).
 
@@ -122,12 +125,18 @@ face widths input 22 / 3rd 20 / 2nd 21 / 1st 24 / R 16 / 5th 19 mm (countershaft
 equal); synchro hub 18.5 mm wide, sleeve 24 mm wide, OD 85 mm, fork groove 7 x 3.5 mm;
 dog / blocker / hub teeth (32, r 30 - 33.5 mm), 120 deg chamfers; single cone, half angle
 6.5 deg, mean diameter ~52 mm, blocker ring 6.5 mm long with 3 lugs in 3 hub slots
-(+-2.81 deg index); 3 struts with detent humps; output shaft 37 mm under the gears with
-3 x 18 mm needle rollers (gear bore 43 mm); bearings 6207 (input), 6208 (output centre and
+(+-2.81 deg index); 3 struts with detent humps; output shaft 37 mm under the gears on
+3 mm needle rollers (gear bore 43 mm); bearings 6207 (input), 6208 (output centre and
 rear), NU 30x62x16 (countershaft); countershaft 28 mm; case wall 6.5 mm; shift rails 16 mm
-at 95 mm above the main axis (x +24 / 0 / -24 mm for 1-2 / 3-4 / 5-R); lever ratio
-55/8.5 = 6.5 (pivot 165 mm above the main axis); reverse train profile shifted
-+0.15 / -0.15 / +0.15 (15T / 22T / 38T, centre distances unchanged; FACTS REV-05).
+at 95 mm above the main axis (x +24 / 0 / -24 mm for 1-2 / 3-4 / 5-R, slotted heads 4.67 mm
+apart under the finger, SEL-05/06); lever ratio 55/8.5 = 6.5 (ball pivot 167 mm above the
+main axis, see meta['lever']); reverse train profile shifted +0.15 / -0.15 / +0.15
+(15T / 22T / 38T, centre distances unchanged; FACTS REV-05).
+Interfaces: input shaft 23T clutch splines 25.4 x 21.5 mm from Y -0.326 to -0.356 (spun
+with theta_in, tooth 0 on +X), only the r 7.5 mm pilot runs forward through the flywheel
+centre into the crank spigot bore (brass spigot bush); case front locating spigot r 44 mm
+(3 mm proud of Y_GEARBOX_FRONT) for the bellhousing bore; output flange face at
+Y_GEARBOX_REAR, OD 100 mm, 4 x M8 on PCD 80 mm at 45 deg (propshaft yoke flange).
 """
 from __future__ import annotations
 
@@ -358,6 +367,11 @@ U["lever"] = (Y0 - S.Y_SHIFT_LEVER) / MM                   # 490
 U["tail_end"] = U["flange_face"] - 26.0
 U["disc"] = (Y0 - S.Y_DISC_CENTRE) / MM                    # negative: in the bellhousing
 U["pilot_tip"] = (Y0 - (S.Y_CRANK_FLANGE + 0.0105)) / MM
+# Everything forward of Y -0.3245 must be the slim pilot (r 7.5 mm): the engine flywheel is
+# solid at its centre down to Y -0.3235 (bore r 10.5 mm).  The 23T splines start at Y -0.3260,
+# 1.2 mm ahead of the clutch-disc hub's front end (hub 21 mm long, centred 3.5 mm behind
+# Y_DISC_CENTRE).
+U_SPL0 = (Y0 - (-0.3260)) / MM
 
 SYNCHRO_SIDES = {"12": {+1: 2, -1: 1}, "34": {+1: 4, -1: 3}, "5R": {+1: "R", -1: 5}}
 GEAR_HUB = {2: ("12", +1), 1: ("12", -1), 4: ("34", +1), 3: ("34", -1), "R": ("5R", +1), 5: ("5R", -1)}
@@ -1033,10 +1047,10 @@ def _input_shaft():
     """Input shaft: pilot, 23T clutch splines, bearing journal, gear body, hollow rear
     (pilot bore for the output shaft).  Origin at the case front face (u = 0)."""
     up, ud = U["pilot_tip"], U["disc"]
-    us0, us1 = ud - 12.0, ud + 22.0                 # clutch spline length
+    us0, us1 = U_SPL0, ud + 22.0                    # clutch splines: aft of the flywheel's solid centre
     ug0, ug1 = U["input_gear"]
     u_end = U["hub_34"] - U_CONE_SMALL
-    prof = [(0.0, up), (6.8, up), (7.5, up + 0.7), (7.5, us0 - 1.0), (8.5, us0 - 0.5), (10.6, us0 - 0.5),
+    prof = [(0.0, up), (6.8, up), (7.5, up + 0.7), (7.5, us0 - 1.3), (8.6, us0 - 0.9), (10.6, us0 - 0.5),
             (10.6, us1 + 0.3), (12.2, us1 + 0.3), (13.0, us1 + 1.1), (13.0, -9.0), (14.0, -8.6), (15.0, -8.0),
             (15.0, -1.0), (16.0, -0.6), (17.5, -0.6), (17.5, U["brg_input"][1] + 0.5), (19.5, U["brg_input"][1] + 1.0),
             (20.5, ug0 - 2.5), (23.2, ug0 - 1.0), (23.2, ug1 + 0.8), (21.5, ug1 + 1.6), (21.5, u_end - 0.4),
@@ -1092,14 +1106,14 @@ def _output_flange():
     """Companion flange (origin u = 0).  Rear face at Y_GEARBOX_REAR."""
     uf = U["flange_face"]
     pts = [(15.05, uf - 38.0), (23.5, uf - 38.0), (24.0, uf - 37.5), (24.0, uf - 12.0), (26.0, uf - 10.0),
-           (46.0, uf - 10.0), (47.0, uf - 9.0), (47.0, uf - 0.8), (46.2, uf), (18.6, uf), (18.0, uf - 0.6),
+           (49.0, uf - 10.0), (50.0, uf - 9.0), (50.0, uf - 0.8), (49.2, uf), (18.6, uf), (18.0, uf - 0.6),
            (18.0, uf - 9.6), (15.05, uf - 9.6)]
     fl = _lathe("output_flange_body", [(r, _yl(u)) for r, u in pts], _seg(96), "steel_forged")
     cut = []
     for k in range(4):
         a = TAU * (k + 0.5) / 4
-        c = (38.0 * math.cos(a), 38.0 * math.sin(a))
-        cut.append(_cyl_along(f"fl_h{k}", (c[0], _yl(uf - 12.0), c[1]), (c[0], _yl(uf + 1.0), c[1]), 5.5, seg=20))
+        c = (40.0 * math.cos(a), 40.0 * math.sin(a))          # 4 x M8 on PCD 80 at 45 deg (axle yoke)
+        cut.append(_cyl_along(f"fl_h{k}", (c[0], _yl(uf - 12.0), c[1]), (c[0], _yl(uf + 1.0), c[1]), 4.25, seg=20))
     _bool(fl, cut)
     r_n = 30.0 / 2 / math.cos(PI / 6)            # M20 nut, 30 AF, in the flange recess (r 18)
     nut = _prism("flange_nut", _circle((0, 0), r_n, 6, a0=PI / 6), 0.0, 8.0, holes=[_circle((0, 0), _cr(10.08, 32), 32)],
@@ -1894,7 +1908,7 @@ def build(opts=None):
         "lever": (parts["lever"], tuple(np.array(LEVER["knob_vec"]) * 0.55)),
         "knob": (parts["knob"], tuple(np.array(LEVER["knob_vec"]) + np.array((0.0, 0.0, 0.021)))),
         "finger": (parts["lever"], (0.0, 0.0, -LEVER["L_f"] + 0.012)),
-        "output_flange": at(carriers["output_flange"], 0.0, -U["flange_face"] + 5.0, 47.0),
+        "output_flange": at(carriers["output_flange"], 0.0, -U["flange_face"] + 5.0, 50.0),
     }
     for g in (1, 2, 3, 5, "R"):
         anchors[f"gear_{g}"] = (carriers[f"gear_{g}"], (0.0, 0.0, parts[f"gear_{g}"]["gear_r_tip"]))
@@ -1972,7 +1986,7 @@ def build(opts=None):
         input_splines=(S.CLUTCH_DISC_SPLINE_TEETH, 0.0254, 0.0215),
         input_shaft_radii=dict(pilot=0.0075, splines_major=0.0127, plain=0.013, seal=0.015, bearing=0.0175,
                                pilot_tip_y=_ycar(U["pilot_tip"]) * MM,
-                               splines_y=(_ycar(U["disc"] - 12.0) * MM, _ycar(U["disc"] + 22.0) * MM)),
+                               splines_y=(_ycar(U_SPL0) * MM, _ycar(U["disc"] + 22.0) * MM)),
         case_length=U["case_end"] * MM, bearings=brg_meta, detents=det_info,
         dims=dict(face=FACE, centre_distance=S.GEARBOX_CENTRE_DISTANCE, idler=kin.reverse_idler_centre(),
                   case_section_mm=dict(main_r=64.0, cs_r=57.0, wall=6.5), oil=bool(opts.get("oil"))),
