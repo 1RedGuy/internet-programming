@@ -34,7 +34,6 @@ sys.path.insert(0, ROOT)
 import bpy  # noqa: E402
 import numpy as np  # noqa: E402
 from mathutils import Vector  # noqa: E402
-from mathutils.bvhtree import BVHTree  # noqa: E402
 
 from carviz import collide, kin, state  # noqa: E402
 from carviz import spec as S  # noqa: E402
@@ -394,7 +393,6 @@ def main():
 
     # ------------------------------------------------------------------ geometry facts
     print("geometry:")
-    import shapely  # noqa: F401
     vc = 0.0
     xs = np.linspace(-E.BORE_R, E.BORE_R, 2001)
     for x in xs:

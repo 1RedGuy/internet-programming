@@ -2,101 +2,141 @@
 
     from carviz.assemblies import engine
     E = engine.build({"cutaways": ["none", "long", "cyl1", "front"], "detail": "high"})
-    E.drive(track, {"variant": "long"})
+    E.drive(track, {"variant": "long"})          # bakes every moving part from the Track
 
 Frame / origin
 --------------
 ``E.root`` (Empty ``eng_root``) sits on the crank axis at (X_CRANK, 0, Z_CRANK), no
 rotation.  Every child uses ROOT-LOCAL coordinates: x, y exactly as the car frame,
 z measured up from the crank axis.  Cylinder 1 is at the FRONT (+Y), intake side = -X,
-exhaust side = +X, crank turns clockwise seen from the front (kin handles signs).
+exhaust side = +X, crank turns clockwise seen from the front (kin handles the signs).
 
 Parts (``E.parts`` keys; object names are ``eng_<key>``)
 -------------------------------------------------------
-moving (all motion baked from the Track through carviz.kin / the helpers below):
-  crankshaft, crank_sprocket, damper, flywheel, ring_gear (child of flywheel),
-  conrod1..4, piston1..4 (rings + gudgeon pin included, multi-material),
-  cam_intake, cam_exhaust, cam_sprocket_intake, cam_sprocket_exhaust, timing_chain,
-  valve_<c><i|e><0|1>     valve + collets + retainer + bucket tappet (e.g. valve_1i0 =
-                          cylinder 1, intake, front valve; 1 = rear valve of the pair)
-  spring_<c><i|e><0|1>    valve spring (shape key 'open' = compression by lift)
-  gas_<c>_<kind>          kind in intake|compressed|burning|exhaust (full set)
-  gas_<set>_<c>_<kind>    clipped gas sets for cutaways ('long', 'cyl1')
-  spark<c>                emissive flash at the plug gap
+moving (motion baked per frame from the Track; spinning parts turn about local +Y):
+  crankshaft, flywheel (+ child ring_gear, 132T), damper, crank_sprocket (21T),
+  conrod1..4 (I-beam, cap, bolts, shells, small-end bush),
+  piston1..4 (3 rings, gudgeon pin, crown dish + valve reliefs; multi-material),
+  cam_intake, cam_exhaust (three-arc lobes), cam_sprocket_intake/_exhaust (42T),
+  timing_chain (126-link 3/8" roller chain on a Curve modifier; child of eng_chain_path),
+  valve_<c><i|e><0|1>   valve + collets + retainer + bucket tappet (valve_1i0 = cyl 1,
+                        intake, front valve; 1 = rear valve of the pair); parent = Empty
+                        eng_vf_<c><i|e><0|1> whose local +Y is the valve axis (toward the cam)
+  spring_<c><i|e><0|1>  valve spring, shape key 'open' (end coils rigid)
+  wp_pulley, belt_idler, alt_pulley   accessory-drive pulleys (belt-ratio spin)
+  gas_<c>_<kind>        kind in intake|compressed|burning|exhaust (full set); shape key
+                        'stroke' moves the floor with the crown, cv_opacity from kin.gas_mix
+  gas_<set>_<c>_<kind>  clipped gas sets for the 'long' / 'cyl1' cutaways
+  spark<c>              emissive flash at the plug gap (cv_opacity = kin.spark)
 static:
-  block, main_caps (5 caps), main_bolts, main_shells, head, head_gasket, valve_guides,
-  valve_seats, stem_seals, cam_caps, cam_cover, coils, spark_plug1..4, timing_cover,
-  oil_pan, chain_guide (tight side), tensioner_arm, tensioner, intake_manifold
-  (runners + plenum + throttle body), fuel_rail (rail + injectors), exhaust_manifold,
-  oil_filter
+  block (+ brass core plugs, dipstick), main_caps, main_bolts, main_shells, head (water
+  jacket, ports, chambers, bucket bores, cam valleys), head_gasket, valve_guides (guides +
+  stem seals + spring seats), valve_seats (inserts), cam_caps, cam_cover (+ filler cap),
+  coils (stick coils), spark_plug1..4, timing_cover, oil_pan, chain_guide (tight side),
+  tensioner_arm, tensioner (hydraulic), intake_manifold (runners, plenum, throttle body +
+  plate), fuel_rail (rail + 4 injectors), exhaust_manifold (4-into-1 header + downpipe),
+  oil_filter, water_pump, alternator, idler_arm, accessory_belt
 cutaway pieces: ``<part>__<variant>_kept`` / ``<part>__<variant>_removed``.
 
 Opts
 ----
 ``cutaways``  list of 'none' | 'long' | 'cyl1' | 'front'   (default ['none'])
-   'long'  - x=0 section, -X half of every housing removed (moving parts whole).
-   'cyl1'  - transverse section at cylinder 1 seen from the front.  Bottom end (block,
-             sump, crank, piston 1, rod 1, gasket, plug 1) cut through the cylinder-1
-             axis (y = Y_CYL1); head, cam cover, cams, valves, manifolds cut through the
-             FRONT valve pair axes (y = Y_CYL1 + VALVE_Y) with a 24 mm slot down to
-             the cylinder axis around the spark plug (stepped section, so valves,
-             springs, buckets, lobes, ports, plug, piston, rod and crank throw all
-             show in section).  Moving parts that straddle a section plane get
-             kept/removed cut copies (planes y=const are invariant under every engine
-             motion, so the build-time cuts stay valid while they move).
+   'long'  - x=0 section, -X half of every housing removed (block, caps, head, gasket,
+             guides/seats, cam caps, cam cover, coils, plugs, timing cover, sump); parts
+             wholly on -X (intake manifold, fuel rail, oil filter, alternator, idler,
+             belt) removed.  Moving parts stay whole.
+   'cyl1'  - transverse section at cylinder 1 seen from the front (stepped section):
+             block, sump, gasket, caps, plug 1, coils, manifolds, crank, piston 1, rod 1 cut
+             through the cylinder-1 axis (y = Y_CYL1); head, cam cover, cam caps, guides,
+             seats, both cams and the front valve pair of cylinder 1 (valves, buckets,
+             springs) cut through the FRONT valve-pair axes (y = Y_CYL1 + 19.5 mm), with a
+             24 mm slot down to the cylinder axis around the spark plug.  Everything in
+             front (timing cover, chain, sprockets, guides, damper, accessories) is a
+             removed piece.  Moving parts that straddle a plane get kept/removed cut copies
+             (planes y=const are invariant under every engine motion, so the build-time
+             cuts stay valid while the parts move) baked like the originals.
    'front' - cam cover + coils removed, timing cover cut back to a 14 mm rim, crank
              damper and the belt-driven water pump/idler/belt removed (as when a real
              timing cover is taken off) so chain, all three sprockets, guides, tensioner
              and cams with their phasing are visible from the front-top.
-   'none'  - the whole engine.  If 'none' is not requested the whole housings are
-             not kept (only the pieces).
-``detail``    'high' (default) | 'low'
-``gas``       build combustion-gas volumes (default True)
-``collection`` collection name (default 'engine')
+   'none'  - the whole engine.  If 'none' is not requested, whole housings that every
+             requested variant replaces are not kept (only their pieces).
+``detail``      'high' (default) | 'low'
+``gas``         build combustion-gas volumes + spark flashes (default True)
+``manifolds``   build intake/exhaust manifolds, fuel rail, oil filter (default True)
+``accessories`` build the accessory drive (default True)
+``collection``  collection name (default 'engine')
+
+Anchors
+-------
+cyl1..cyl4 (top of each bore), piston1, conrod1, crankshaft, cam_intake, cam_exhaust,
+intake_valve1, exhaust_valve1, intake_valve_head1, valve_spring1, bucket1, spark_plug1,
+spark_gap1, timing_chain, crank_sprocket, cam_sprocket (intake), cam_sprocket_exhaust,
+flywheel (friction-face centre), flywheel_rim, ring_gear, block, head, cam_cover,
+timing_cover, oil_pan, intake_manifold, throttle_body, exhaust_manifold, tensioner,
+chain_guide, combustion_chamber1, intake_port1, exhaust_port1, alternator, water_pump,
+accessory_belt.  (Anchors of cut parts fall back to the cyl1 kept piece.)
+
+explode: {'flywheel': (0, -0.10, 0)} (flywheel + ring gear slide back 100 mm).
 
 meta
 ----
 ``cutaway_pieces[variant]`` = {'kept': [...], 'removed': [...], 'replaces': [...]}:
    show kept, fade/slide removed away, hide replaces (the whole objects the pieces
-   stand for).  Moving cut copies are baked like their originals.
-``gas_sets`` {set: {cyl: {kind: name}}}, ``power_path``, ``groups``, ``y`` (axial
-positions), ``valve_frames``, ``chain`` (layout numbers), ``cam_spacing``,
-``lift_law``, ``dims`` (key dimensions), ``variants``.
+   stand for); ``variant_objects(asm, v)`` returns the objects to show/fade/hide.
+``gas_sets`` {set: {cyl: {kind: part key}}}, ``power_path``, ``groups`` (bottom_end,
+valvetrain, timing, housings, manifolds, ignition, flywheel, sparks, accessories),
+``y`` (axial positions: chain plane, cut planes, mains, cylinders ...), ``valve_frames``
+{'1i0': (face centre, axis)}, ``chain`` (n_links, length, push, sprocket phases, pitch,
+roller_layout), ``cam_spacing``, ``lift_law``, ``dims``, ``variants``, ``build_time``.
 
-presentation keys (all optional, per-frame arrays or scalars)
+presentation keys (all optional; per-frame arrays or scalars)
 --------------------------------------------------------------
-``explode``  0..1   flywheel moves back (-Y) by 100 mm (explode carrier = its location)
-``gas``      0..1   global multiplier on gas opacity (default 1)
-``gas_sets`` {set: 0..1}  per gas set multiplier (default: the set matching the single
-             requested cutaway, else 'full' = 1, others 0)
-``spark``    0..1   multiplier on the spark flash (default 1)
-``variant``  name or per-frame list of names: bakes visibility of whole objects /
-             variant pieces (CONSTANT keys)
+``explode``  0..1   flywheel explode (Assembly.bake_explode)
+``variant``  name or per-frame list of names: bakes hide_render/hide_viewport (CONSTANT
+             keys, only at changes) of whole objects and variant pieces
 ``removed``  0..1   cv_opacity of the removed pieces while a cut variant is shown
-             (default 0 = hidden)
+             (default 0 = hidden); use it to fade the removed half away
+``gas``      0..1   global multiplier on gas opacity (default 1)
+``gas_sets`` {set: 0..1}  per gas-set multiplier (default: the set matching the shown
+             variant: 'long'/'cyl1' sets for those cuts, else 'full')
+``spark``    0..1   multiplier on the spark flash (default 1)
+
+Kinematics used (all from the Track's theta_e)
+----------------------------------------------
+crank/flywheel/damper = theta; crank sprocket = theta + phase; cams = kin.cam_angle(theta)
+(lobes phased with kin.cam_lobe_psi toward each valve); cam sprockets = cam + phase;
+pistons = kin.piston_height; rods = kin.slider_crank (big-end location + rod_theta);
+valves/buckets/retainers translate along each valve axis by valve_lift_ft; springs
+compress by the same lift (shape key); chain travel = CHAIN_TRAVEL (exact z*p per turn);
+accessory pulleys = theta * belt pitch-radius ratio (idler backside, reversed);
+gas = kin.gas_mix / combustion, spark = kin.spark, gas floor = piston crown.
 
 Dimensions not in spec (typical 2.0 L DOHC values)
 --------------------------------------------------
 main journals 56 x 22 mm, crankpins 48 x 22.4 mm, webs 24.6 mm with counterweights
-R 71 mm, rod I-beam 21.5 mm wide, piston compression height from spec, 3 rings,
-22 mm gudgeon pin, pent-roof chamber (apex 13 mm, roof planes at 20 deg = valve
-angle), valves on a 39 mm pair spacing at +-16.5 mm from the bore axis, 6 mm stems,
-bucket tappets 37/36 mm, cam base circle 36 mm, springs 40 mm installed (7 coils,
-3.6 mm wire), head gasket 1.2 mm MLS, single-row 3/8" roller chain (06B: roller
-6.35 mm, inner width 5.72 mm).
+R 71 mm, rod I-beam 21.5 mm wide, 3 rings, 22 mm gudgeon pin, 1.9 mm crown dish (gives the
+spec CR 10.5 with the modelled chamber), pent-roof chamber (apex 13 mm, roof planes at the
+20 deg valve angle), valves on a 39 mm pair spacing at +-16.5 mm from the bore axis, 6 mm
+stems, valve length 127 mm, bucket tappets 37/36 mm, cam base circle 36 mm, springs 40 mm
+installed (7 coils, 3.6 mm wire), head gasket 1.2 mm MLS, single-row 3/8" roller chain
+(06B: roller 6.35 mm, inner width 5.72 mm) with curved guide/tensioner shoes (R 1.4 m),
+poly-V accessory belt (damper 153 mm, water pump 100 mm, alternator 62 mm, idler 66 mm).
 
-Deviations from shared modules (see the report / requests):
-* cam centre spacing: two 42T 3/8" sprockets have a 132.7 mm tip diameter, so the
-  spec's 130 mm cam spacing would make them clash; this module uses
-  CAM_SPACING = max(spec, tip diameter + 2 mm) = 134.7 mm.
-* chain travel: a roller chain advances exactly z*p per sprocket turn, i.e. at
-  z*p/(2pi) per radian, not at the pitch radius (kin.chain_travel drifts 0.037
-  link/rev); CHAIN_TRAVEL(theta) below uses the exact law.
-* valve lift: kin.valve_lift (sin^2 over 240 deg) cannot be produced by a flat
-  bucket tappet (needs a negative nose radius: ~3.4 mm interference).  Valves follow
-  ``valve_lift_ft`` - a classic three-arc flat-tappet cam (base circle 18 mm, nose
-  radius 5 mm) with the SAME opening/closing angles and peak lift as spec/kin; the
-  lobes are exactly that cam, so the bucket rides on the lobe at every angle.
+Deviations from shared modules (requested changes are listed in the report)
+-------------------------------------------------------------------------
+* cam centre spacing: two 42T 3/8" sprockets have a 132.8 mm tip diameter, so the spec's
+  130 mm spacing would make them clash.  CAM_SPACING is the smallest spacing >= tip
+  diameter + 2 mm for which the chain loop is an exact even number of pitches with a
+  6 mm tensioner push: 135.5 mm (126 links).
+* chain travel: a roller chain advances exactly z*p per sprocket turn, i.e. z*p/(2pi) per
+  radian, not pitch radius * angle (kin.chain_travel drifts 0.037 link per crank turn);
+  ``chain_travel`` below uses the exact law, roller centres run on R_eff = z*p/(2pi).
+* valve lift: kin.valve_lift (sin^2 over 240 deg) cannot be produced by a flat bucket
+  tappet (needs a negative nose radius: ~3.4 mm interference or gap).  Valves follow
+  ``valve_lift_ft`` - a classic three-arc flat-tappet cam (base circle 18 mm, nose radius
+  5 mm, flank radius ~114/97 mm) with the SAME opening/closing angles and peak lift as
+  spec/kin; the lobes are exactly that cam, so the bucket rides on the lobe at every angle.
 """
 from __future__ import annotations
 
@@ -201,7 +241,7 @@ X_SLOT = 12.0 * MM                          # cyl1 slot half width
 Y_P0 = Y_CYL[0]                             # cyl1 cut plane through the cylinder axis
 Y_P1 = Y_CYL[0] + VALVE_Y                   # cyl1 cut plane through the front valve pair
 
-GAS_ALPHA = {"intake": 0.42, "compressed": 0.50, "burning": 0.80, "exhaust": 0.50}
+GAS_ALPHA = {"intake": 0.36, "compressed": 0.42, "burning": 0.55, "exhaust": 0.42}
 GAS_KINDS = ("intake", "compressed", "burning", "exhaust")
 
 
@@ -908,7 +948,6 @@ def _add_spring_key(ob, kind):
 
 def _build_cam(kind):
     key = "cam_" + kind
-    sx = -1.0 if kind == "intake" else 1.0
     seg = _seg(40)
     y_rear = Y_MAIN[-1] - CAM_JOURNAL_W / 2 - 0.004
     prof = [(0.0, y_rear), (CAM_SHAFT_R - 0.001, y_rear), (CAM_SHAFT_R, y_rear + 0.001)]
@@ -1485,7 +1524,7 @@ def _build_head():
                          collection=_COL, material="machined_aluminium")
         _translate(fb, (sx * X_CAM, 0, Z_CAM))
         cut += [jb, fb]
-    if _DETAIL == "high" or True:
+    if True:     # coolant jacket + transfer holes (visible in every head section)
         cut.append(_head_jacket())
         for c in range(1, 5):
             for sx in (-1, 1):
@@ -1563,12 +1602,10 @@ def _build_gasket():
 
 
 def _build_cam_cover():
-    half = [(HEAD_W_TOP - 0.002, Z_CAM + COVER_H - 0.004), (HEAD_W_TOP - 0.002, Z_CAM + 0.0002)]
     prof = np.array([(-0.062, Z_CAM + COVER_H), (0.062, Z_CAM + COVER_H), (0.086, Z_CAM + COVER_H - 0.006),
                      (HEAD_W_TOP - 0.002, Z_CAM + 0.016), (HEAD_W_TOP - 0.002, Z_CAM + 0.0002),
                      (-HEAD_W_TOP + 0.002, Z_CAM + 0.0002), (-HEAD_W_TOP + 0.002, Z_CAM + 0.016),
                      (-0.086, Z_CAM + COVER_H - 0.006)])
-    del half
     cov = MU.extrude_polygon(_nm("cam_cover"), prof, YR + 0.001, YF - 0.0005, chamfer=0.006, collection=_COL,
                              material="cast_aluminium")
     add = []
@@ -2429,7 +2466,7 @@ def build(opts=None):
         cam_spacing=CAM_SPACING, lift_law="flat-tappet three-arc cam (engine.valve_lift_ft)",
         dims=dict(z_deck=ZD, z_head=ZH, z_cam=Z_CAM, z_apex=Z_APEX, valve_len=VLEN, bucket_top=BUCKET_TOP,
                   x_cam=X_CAM, valve_x=VALVE_X, valve_y=VALVE_Y, valve_angle=VALVE_ANGLE),
-        build_time=None, _movers=movers, _frames=frames, _path=path, _root_children=None,
+        build_time=None, _movers=movers, _frames=frames, _path=path,
     )
     asm = rig.Assembly(name="engine", root=root, parts=parts, anchors=anchors,
                        explode={"flywheel": (0.0, -0.10, 0.0)}, meta=meta, _driver=_drive)

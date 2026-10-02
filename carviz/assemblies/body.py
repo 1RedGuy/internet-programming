@@ -1,7 +1,7 @@
 """Car body + interior (prefix ``body_``): a compact 4-door RWD saloon.
 
     from carviz.assemblies import body
-    B = body.build({"detail": "high"})          # ~1 M triangles, ~20 s
+    B = body.build({"detail": "high"})          # ~0.48 M triangles, ~10-15 s ('low': 0.27 M, ~4 s)
     B.drive(track, {"exterior_opacity": arr})   # optional per-group fades (no moving parts)
 
 Everything is in car coordinates (spec.py): ``B.root`` (Empty ``body_root``) sits
