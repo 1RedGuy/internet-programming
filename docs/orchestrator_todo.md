@@ -22,3 +22,6 @@ FACTS.md must reflect the as-built model:
   would land ~50 rpm lower). Take-off: slip from 4.79 s, lock at 6.25 s (8.6 km/h, 1073 rpm).
 - state.status reads DISENGAGED whenever clutch capacity < 2 %, even if the speeds still differ.
 - s02: flywheel motion-blurred during the x85 firing beat (ring gear would strobe otherwise).
+- PRS-02/PRS-11: s02 flywheel is now visible all scene; ring gear de-strobed by per-object motion
+  blur (only flywheel + ring gear) with a keyed shutter = 1 tooth pitch of smear (1.0 frame at
+  x198-230, 1.09 at x85, up to ~1.9 in the ramps). Remove "faded out 17.4-75.0 s".
