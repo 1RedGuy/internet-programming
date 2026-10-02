@@ -16,7 +16,7 @@ The painted skin is a Catmull-Clark control cage in cube topology (rings along
 the car + front/rear face caps, creases on the shoulder line, cowl, deck and
 hood/boot edges), subdivided and APPLIED at build time (level 4 'high', 3
 'low').  One Manifold boolean then cuts every opening (windows, wheel arches,
-lamps, grille, intake, fog lamps, cowl, mirror sails, B-pillar) and every
+lamps, grille, intake, corner vents, cowl, mirror sails, B-pillar) and every
 4.5 mm panel gap (hood, doors, boot lid, bumpers, fuel flap, plate recess) out
 of the closed surface; panel gaps are box-section ribbons swept along curves
 ray-projected onto the surface.  Every cut edge gets a rolled flange (2 mm
@@ -30,11 +30,13 @@ exterior   shell (car_paint: body, doors, hood, boot lid, roof, fenders)
            bumpers (car_paint: front + rear bumper covers, split by real gaps)
            glass (glass: windscreen, 4 door glasses, rear screen; 4 mm inside the frames)
            trim (plastic_black window surrounds, front lip, rear diffuser, cowl panel,
-                 grille backing, intake mesh, wipers; body_gloss_black B-pillars, mirror
-                 sails, screen frit bands, roof antenna; chrome grille surround + twin
-                 exhaust tips; grey grille slats)
-           lights_front (glass lens, chrome projector bowls + bezel, black housing,
-                 body_led DRL light guide, fog lamps)  - emission OFF
+                 110 mm deep grille duct, intake + corner-vent ducts, wipers;
+                 body_gloss_black grille/intake slats, B-pillars, mirror sails, screen
+                 frit bands, roof antenna; chrome grille surround + twin exhaust tips)
+           lights_front (slim wrap-around units tucked under the hood shut line:
+                 body_lens_clear lens, body_lamp_silver reflector housing, 2 projector
+                 modules + 2 chrome bowls, black bezel, body_led DRL light guide; round
+                 fog lamps recessed in the corner vents)  - emission OFF
            lights_rear (body_lens_red lens, red housing, chrome reflector, light guide)
            mirrors (car_paint housing, chrome glass, plastic_black base)
            handles (car_paint pulls on plastic_black gaskets)
@@ -80,7 +82,9 @@ meta
 Typical values used (not in spec.py; 2.0 L front-engine RWD compact saloon):
     wheel-arch opening radius 0.350 m about (axle, z 0.300) -> 34 mm over the tyre at
     rest; wheelhouse liners radius 0.40 m (room for +-60 mm travel and ~32 deg lock);
-    hood 0.87-0.95 m over the engine (cam cover top ~0.80); cowl 0.957 m at y -0.64;
+    wedge hood: leading-edge crease 0.744 m, 0.88-0.93 m over the engine (cam cover top
+    ~0.80), hood shut line on the nose at z 0.724; cowl 0.957 m at y -0.64;
+    trapezoid grille 0.66/0.54 m wide x 0.19 m tall in the bumper; lower intake 1.04 m wide;
     windscreen rake 62 deg from vertical; roof 1.42 m at y -1.95; belt 0.976-1.012 m;
     sill bottom ~0.185 m; floor top spec.Z_FLOOR; tunnel 0.51 x 0.615 m at the
     bellhousing, 0.27 x 0.45 m at the propshaft; rear H-point (y -2.22, z 0.50); boot
@@ -154,11 +158,13 @@ def _hood_top(z_c, xs, edge_drop=0.028):
     return dict(kind="hood", pts=pts)
 
 
-def _hood_top_front(z_c, xs):
+def _hood_top_front(z_c, xs, ridge_x=0.34):
     """Top for the front-fender rows: crisp fender crown, the hood sitting
     slightly lower between the fenders (shut-line valley), crowned centre."""
-    pts = [(xs - 0.080, z_c + 0.006), (xs - 0.150, z_c - 0.006), (0.50, z_c - 0.001),
-           (0.34, z_c + 0.006), (0.17, z_c + 0.012), (0.0, z_c + 0.014)]
+    # hood: shallow channels outboard, two raised character ridges (c=15) that run
+    # from the cowl to the grille's top corners, slightly lower centre panel
+    pts = [(xs - 0.080, z_c + 0.006), (xs - 0.150, z_c - 0.006), (0.50, z_c - 0.002),
+           (ridge_x, z_c + 0.013), (0.17, z_c + 0.012), (0.0, z_c + 0.014)]
     return dict(kind="hood", pts=pts, corner_in=0.028, corner_up=0.028)
 
 
@@ -187,10 +193,10 @@ def shell_cage():
     # --- body rows: y, xs, z_low, zb, z_sh, top
     defs = []
     # front fender rows: wedge (hood falls ~11 deg toward the nose), crisp fender crowns
-    defs.append((0.50, 0.858, 0.285, 0.272, 0.775, _hood_top_front(0.800, 0.858)))
-    defs.append((0.28, 0.879, 0.235, 0.210, 0.815, _hood_top_front(0.850, 0.879)))
-    defs.append((0.00, 0.881, 0.200, 0.180, 0.845, _hood_top_front(0.890, 0.881)))
-    defs.append((-0.34, 0.879, 0.190, 0.170, 0.866, _hood_top_front(0.926, 0.879)))
+    defs.append((0.50, 0.858, 0.285, 0.272, 0.775, _hood_top_front(0.800, 0.858, 0.335)))
+    defs.append((0.28, 0.879, 0.235, 0.210, 0.815, _hood_top_front(0.850, 0.879, 0.345)))
+    defs.append((0.00, 0.881, 0.200, 0.180, 0.845, _hood_top_front(0.890, 0.881, 0.360)))
+    defs.append((-0.34, 0.879, 0.190, 0.170, 0.866, _hood_top_front(0.926, 0.879, 0.375)))
     # cowl (windscreen base): greenhouse collapsed onto the cowl
     cowl = dict(kind="cowl", pts=[(0.795, 0.952), (0.760, 0.956), (0.715, 0.960), (0.52, 0.958),
                                   (0.27, 0.957), (0.0, 0.957)], corner_in=0.045, corner_up=0.03)
@@ -330,6 +336,7 @@ def shell_cage():
     row_crease(len(rows) - 1, 11, NC, 0.85)       # boot lid trailing edge
     col_crease(11, 0, 5, 0.75)                    # front fender shoulder (crisp)
     col_crease(12, 0, 5, 0.35)                    # front fender crown
+    col_crease(15, 0, 4, 0.55)                    # hood character ridges
     col_crease(11, 11, len(rows) - 1, 0.45)       # rear fender top edge (boot side)
     col_crease(7, 1, len(rows) - 2, 0.40)         # sill / rocker crease
     meta = dict(rows=len(rows), ring_idx=ring_idx, cap_front=Gf, cap_rear=Gr)
@@ -798,8 +805,8 @@ def _gap_curves():
                   [(40.0, zb), (50, zb), (58, zb - 0.002), (66, zb - 0.010), (74, zb - 0.024), (82, 0.625),
                    (90, 0.605), (97, 0.580), (104, 0.552), (112, 0.52), (122, 0.48)], False))
         # bumper / lamp junction at the lamp's inner end (closes the bumper's top edge)
-        g.append(("y+", [(sgn * (LAMP_X_IN + 0.0012), LAMP_Z_BOT - 0.008),
-                         (sgn * (LAMP_X_IN + 0.0012), _hood_gap_z(LAMP_X_IN) + 0.007)], False))
+        g.append(("y+", [(sgn * (LAMP_X_IN + 0.0012), LAMP_Z_BOT - 0.0035),
+                         (sgn * (LAMP_X_IN + 0.0012), _hood_gap_z(LAMP_X_IN) + 0.003)], False))
         # rear bumper upper edge around the corner: under the tail light -> rear arch
         g.append((("polar", (sgn * 0.30, -3.10)),
                   [(180.0, 0.772), (155, 0.772), (135, 0.772), (118, 0.770), (105, 0.762), (95, 0.738),
