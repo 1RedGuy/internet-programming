@@ -80,7 +80,9 @@ def apply_quality(sc, quality, sb=None, threads=0):
         sc.display.render_aa = "8"
         sc.view_settings.view_transform = "Standard"
         if sb is not None:
+            from .rig import remove_fcurves
             for ob in sb.preview_hide:
+                remove_fcurves(ob, ("hide_render", "hide_viewport"))   # keyed fades would re-show it
                 ob.hide_render = True
         r.use_motion_blur = False
         return

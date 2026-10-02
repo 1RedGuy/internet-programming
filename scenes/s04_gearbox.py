@@ -96,7 +96,7 @@ LOCK_SELECT = (T_LOCK + 0.10, 0.45)            # lever across to the 1-2 plane (
 LOCK_ENGAGE = dict(t0=T_LOCK + 0.65, travel=0.6, hold=1.4, through=0.9, seat=0.5)
 
 # presentation timing
-CASE_FADE = (0.9, 2.9)                         # removed half of the case/bellhousing fades out
+CASE_FADE = (0.5, 3.0)                         # removed half of the case/bellhousing fades out
 EXPLODE = (31.6, 33.6, 43.3, 44.9)             # explode out / hold / back in
 HIDE_FADE = (30.4, 31.5, 45.0, 45.9)           # parts the explode passes through
 SEL_FADE = (30.4, 31.5, 52.7, 53.6)            # rails, forks, shift heads, detents
@@ -372,7 +372,9 @@ def build(quality: str) -> scenebase.SceneBuild:
     explode = curve(t, [(0.0, 0.0, "step"), (EXPLODE[0], 0.0, "linear"), (EXPLODE[1], 1.0, "ease"),
                         (EXPLODE[2], 1.0, "linear"), (EXPLODE[3], 0.0, "ease")])
     G.drive(track, {"explode": explode})
-    case_rm = curve(t, [(0.0, 1.0, "step"), (CASE_FADE[0], 1.0, "linear"), (CASE_FADE[1], 0.0, "ease")])
+    # (1 - s)^2: a faded closed shell still hides 1 - (1 - a)^2 of what is behind it, so a
+    # plain smoothstep would read as a late, quick dissolve
+    case_rm = (1.0 - kin.smoothstep(CASE_FADE[0], CASE_FADE[1], t)) ** 2
     C.drive(track, {"variant": "half", "removed": case_rm})
 
     # ---------------- presentation (opacity, glow) ----------------------
@@ -387,7 +389,10 @@ def build(quality: str) -> scenebase.SceneBuild:
     for k, ob in CP.items():
         if ob.type != "MESH" or k.startswith("bellhousing"):
             continue
-        if k in CLUTCH_SHOW:
+        if k in ("slave_cylinder", "slave_pushrod"):
+            # bright, nearest the camera and without its hose: dropped for the driving shots
+            pres.set(ob, (t < T_RAT).astype(float))
+        elif k in CLUTCH_SHOW:
             pres.set(ob, np.ones(n))
         else:
             ob.hide_render = True

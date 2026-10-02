@@ -99,6 +99,30 @@ def _fcurve(obj, data_path, index=-1):
     return fc
 
 
+def remove_fcurves(obj, data_paths):
+    """Delete the obj's fcurves for the given data paths (works with Blender 5 layered actions)."""
+    ad = obj.animation_data
+    if ad is None or ad.action is None:
+        return 0
+    act = ad.action
+    n = 0
+    bags = []
+    try:
+        for layer in act.layers:
+            for strip in layer.strips:
+                bags.extend(strip.channelbags)
+    except AttributeError:
+        bags = []
+    if not bags and hasattr(act, "fcurves"):
+        bags = [act]
+    for bag in bags:
+        for fc in list(bag.fcurves):
+            if fc.data_path in data_paths:
+                bag.fcurves.remove(fc)
+                n += 1
+    return n
+
+
 def bake_channel(obj, data_path, index, frames, values, interpolation="LINEAR"):
     """Write one keyframe per frame on obj.<data_path>[index] (index -1 = scalar)."""
     frames = np.asarray(frames, dtype=np.float64)

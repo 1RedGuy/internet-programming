@@ -23,11 +23,27 @@ the camera and the studio lights ride with the car root):
 
 Every rotation comes from the Track (axle/wheels/gearbox drive()); only presentation
 (fades, explode, glow, camera, labels, HUD, floor guide lines) is keyed here.
+
+Presentation
+  * The car root is keyed from the Track for the whole scene (the car really drives ~10 m);
+    camera (CameraPath parented to the car root) and the dark-studio light rig (Child Of
+    the car root, key kept ~50 deg right of the camera) ride with it.  The cyclorama is
+    world-fixed, centred on the path and enlarged; its floor gets a scene-local jointed
+    concrete material (1.5 m slabs, world space) so the motion and the turn read.
+  * Axle housing: whole until 6.8 s, then the 'half' cut (removed half fades out); the kept
+    half fades out for the exploded view and back in after it.  Case halves ghosted
+    (cv_opacity 0.15) from 32 s so the spiders show inside.  Rear corners hidden while the
+    differential is exploded / in the straight close-up, back for the turn.  Body: faint
+    x-ray shell (0.08) + feature lines, only for the wide turn shot (hidden in previews).
+  * Turn: blue guide lines on the floor = the rear-wheel contact paths of the whole turn
+    (extended to 90 deg of heading): the outer path is visibly longer.
+  * Aliasing is validated for pinion/ring/ring bolts/side gears/spiders/U-joints/bearing
+    rollers always, and for the tyre tread (64) and brake-disc vents (36) whenever a rear
+    tyre is inside the camera frustum (frustum test, no occlusion credit).
 """
 from __future__ import annotations
 
 import math
-import os
 
 import bpy
 import numpy as np
@@ -47,7 +63,6 @@ except Exception as _e:  # pragma: no cover
     GBX = None
 
 SCENE_ID = "s06"
-STRICT = os.environ.get("S06_LAX") is None     # exploration only: report instead of raising
 SC = timeline.scene(SCENE_ID)
 BT = {b.id: b for b in SC.beats}
 FPS = S.FPS
@@ -149,7 +164,7 @@ def _compress(frames, vals, interp):
 
 
 def bake_vis(ob, frames, op, glow=None):
-    """cv_opacity (only keyed when partial) + hide_render/hide_viewport (CONSTANT)."""
+    """cv_opacity (compressed LINEAR keys) + hide_render/hide_viewport (CONSTANT keys)."""
     if ob is None or ob.type != "MESH":
         return
     a = np.round(np.clip(np.asarray(op, dtype=float), 0.0, 1.0), 4)
@@ -329,7 +344,6 @@ def _wheel_paths(track, i0, extra_deg=90.0):
     hy = np.cos(track.car_heading)
     rx = track.car_x - hx * S.WHEELBASE
     ry = track.car_y - hy * S.WHEELBASE
-    rgt = np.stack([np.cos(track.car_heading), np.sin(track.car_heading)], 1)   # car +X in world
     pts_c = np.stack([rx, ry], 1)[i0:]
     hd = track.car_heading[i0:]
     # extend
@@ -592,7 +606,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     for k in pc["removed"]:
         bake_vis(PA.get(k), fr, np.where(half, removed_op * housing_out, 0.0))
     # ghosted case after reassembly (spiders visible inside)
-    CASE_GHOST = 0.22
+    CASE_GHOST = 0.15
     case_op = curve(t, [(0.0, 1.0, "step"), (31.9, 1.0, "linear"), (33.0, CASE_GHOST, "ease")])
     for k in ("case_left", "case_right"):
         bake_vis(PA[k], fr, case_op)
@@ -694,9 +708,7 @@ def build(quality: str) -> scenebase.SceneBuild:
         "brake disc vents RL (36)": (track.theta_RL, TAU / 36, vis["RL"]),
         "brake disc vents RR (36)": (track.theta_RR, TAU / 36, vis["RR"]),
     }
-    viol = track.validate(strict=STRICT, aliasing=aliasing)
-    if viol:
-        print("[s06] VIOLATIONS:\n  " + "\n  ".join(viol))
+    track.validate(aliasing=aliasing)          # raises on any violation
 
     # ---------------- labels -------------------------------------------------
     L = Labels()
@@ -730,8 +742,9 @@ def build(quality: str) -> scenebase.SceneBuild:
     L.add("ring", "Ring gear 41T", AN["ring_gear"], wt("ringpinion", "ring"), 15.9, offset=(-0.12, 0.03))
     L.add("ring_top", "Ring gear 41T", AN["ring_gear"], 17.3, 19.6, offset=(-0.12, 0.03))
     L.add("ring2", "Ring gear", AN["ring_gear"], wt("diffparts", "ring"), 23.7, offset=(-0.07, -0.08))
-    L.add("case", "Differential case", AN["diff_case"], wt("diffparts", "differential"), 25.3,
-          offset=(0.08, -0.08))
+    # left (flange) half, outboard of the ring: the side the camera sees in this beat
+    L.add("case", "Differential case", (PA["x_case_left"], (0.0, -0.072, 0.040)), wt("diffparts", "differential"),
+          25.3, offset=(0.08, -0.08), occlusion=False)
     L.add("spiders", "Spider gears", AN["spider_gear"], wt("diffparts", "spider"), 30.4, offset=(0.08, -0.06))
     L.add("sides", "Side gears", AN["side_gear_right"], wt("diffparts", "side"), 30.4, offset=(0.07, 0.07))
     L.add("stub", "Driveshaft stub", AN["stub_right"], wt("diffparts", "driveshaft"), 31.4, offset=(0.05, 0.10))

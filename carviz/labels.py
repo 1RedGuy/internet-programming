@@ -90,22 +90,35 @@ class Labels:
                     continue
                 occ = False
                 if it["occlusion"]:
+                    a = it["anchor"]
+                    owners = set(o.name for o in it["ignore"])
+                    if isinstance(a, (tuple, list)) and len(a) == 2 and hasattr(a[0], "matrix_world"):
+                        owners.add(a[0].name)
+                        kids = list(a[0].children_recursive)
+                        # an anchor on a part (or a part's frame Empty) owns its few children;
+                        # an anchor on an assembly ROOT must not own the whole assembly
+                        if a[0].type != "EMPTY" or len(kids) <= 12:
+                            owners.update(c.name for c in kids)
                     d = p - cam_pos
                     dist = d.length
                     if dist > 1e-6:
-                        hit, loc, nrm, idx, hob, mat = scene.ray_cast(dg, cam_pos, d.normalized(), distance=dist - 0.004)
-                        if hit:
-                            a = it["anchor"]
-                            owners = set()
-                            if isinstance(a, (tuple, list)) and len(a) == 2 and hasattr(a[0], "matrix_world"):
-                                owners.add(a[0].name)
-                                kids = list(a[0].children_recursive)
-                                # an anchor on a part (or a part's frame Empty) owns its few children;
-                                # an anchor on an assembly ROOT must not own the whole assembly
-                                if a[0].type != "EMPTY" or len(kids) <= 12:
-                                    owners.update(c.name for c in kids)
-                            owners.update(o.name for o in it["ignore"])
-                            occ = hob.name not in owners if hob is not None else True
+                        dirn = d.normalized()
+                        origin = cam_pos.copy()
+                        remaining = dist - 0.004
+                        for _ in range(12):   # walk through ghosted shells / owned parts
+                            hit, loc, nrm, idx, hob, mat = scene.ray_cast(dg, origin, dirn, distance=remaining)
+                            if not hit:
+                                break
+                            ghost = hob is not None and float(hob.get("cv_opacity", 1.0)) < 0.5
+                            if hob is not None and (hob.name in owners or ghost):
+                                step = (loc - origin).length + 1e-4
+                                origin = loc + dirn * 1e-4
+                                remaining -= step
+                                if remaining <= 0:
+                                    break
+                                continue
+                            occ = True
+                            break
                 raw.setdefault(it["id"], []).append((f, co.x, 1.0 - co.y, co.z, occ, al))
         # resolve offsets (auto = away from frame centre, fixed per label)
         for it in self.items:

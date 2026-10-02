@@ -223,10 +223,11 @@ POSES = [
     # sync: 2nd gear's side (blocker ring on the cone, dog teeth)
     (19.0, (0.0, Y_B2, Z_PROF), -93.0, 0.174, -3.0, 50.0, 20.0, "cubic"),
     (22.6, (0.0, Y_B2 - 0.001, Z_PROF), -94.0, 0.170, -3.0, 50.0, 20.0, "cubic"),
-    # countershaft / input shaft: pull back (countershaft), then swing to the rear-left
-    # and look forward along the gear train (the input gear enters frame once allowed)
-    (24.4, (0.0, -0.637, ZC - 0.062), -90.0, 0.246, -7.0, 50.0, 18.0, "cubic"),
-    (25.55, (0.0, -0.636, ZC - 0.062), -89.0, 0.248, -6.0, 50.0, 18.0, "cubic"),
+    # countershaft / input shaft: tilt down to the countershaft under 2nd gear and the
+    # synchro, then swing to the rear-left and look forward along the gear train (the
+    # input gear enters frame only once the synchro has slowed it: see aliasing)
+    (24.4, (0.0, -0.636, ZC - 0.064), -90.0, 0.250, 10.0, 50.0, 18.0, "cubic"),
+    (25.55, (0.0, -0.636, ZC - 0.064), -89.0, 0.250, 10.0, 50.0, 18.0, "cubic"),
     (27.4, (0.0, -0.585, ZC - 0.056), -62.0, 0.427, 19.0, 42.0, 10.0, "cubic"),
     (29.3, (0.0, -0.587, ZC - 0.054), -64.0, 0.418, 19.0, 42.0, 10.0, "cubic"),
     # engage: closer on the upper profile: sleeve, blocker ring, 2nd gear's dog teeth

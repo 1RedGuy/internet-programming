@@ -10,12 +10,12 @@ sits exactly at its Track pose).
 Picture (beats from carviz.timeline; every glow/label time is a narration word time):
   car     0-7    opaque car, 3/4 front-left, slow orbit at eye height (1.30 m, 50 mm);
                  fade up from black, title card 0.6-5.6 s.
-  inside  7-14   the orbit flows into a push-in over the front-left wing; the paint fades to
-                 an x-ray shell (exterior 1 -> 0.13 from 8 to 12 s, glass and the cabin
-                 (seats, dash, headliner, door cards) -> 0, floor/tunnel -> 0 so the
-                 drivetrain under it reads; feature lines fade in).  The camera passes in
-                 through the faint shell and ends high above-left of the engine bay with the
-                 whole drivetrain revealed.
+  inside  7-14   the orbit flows into a push-in over the front-left wing (50 -> 30 mm); the
+                 paint fades to an x-ray shell (exterior 1 -> 0.15 from 8 to 12 s, black trim
+                 and lamps to half that, glass and the cabin (seats, dash, headliner, door
+                 cards, pedals) -> 0, floor/tunnel/firewall -> 0 so the drivetrain under them
+                 reads; feature lines fade in).  The camera ends high above-left of the engine
+                 bay with the whole drivetrain revealed through the faint shell.
   path    14-29  high 3/4 from the left travelling front -> rear along the drivetrain; each
                  stage glows (warm pulse, then a dimmer steady glow) and gets its label at
                  its spoken word: Engine, Clutch, Gearbox, Propeller shaft, Differential,
@@ -33,7 +33,6 @@ invisible.
 from __future__ import annotations
 
 import math
-import os
 
 import bpy
 import numpy as np
@@ -96,6 +95,8 @@ CABIN_FADE = (8.4, 11.2)                      # seats/dash/headliner/door cards 
 FLOOR_FADE = (8.6, 11.6)                      # floor pan / tunnel / firewall 1 -> 0
 EDGES_FADE = (9.2, 12.4)                      # x-ray feature lines 0 -> EDGES
 EDGES = 0.55
+TRIM_REL = 0.5                                # trim + lamps ghost at X_RAY * TRIM_REL
+MIRROR_REL = 0.25                             # door mirrors ghost at X_RAY * MIRROR_REL
 # follow beat: everything but the engine fades away
 OUT_FADE = (29.35, 30.9)
 GLOW_OUT = (29.3, 31.3)
@@ -143,8 +144,8 @@ def build_program():
 # ---------------------------------------------------------------------------
 # Camera: a smooth C2 path through key poses (eye, target) + eased lens / f-stop
 # ---------------------------------------------------------------------------
-ORBIT_C = (0.0, -1.20, 0.55)                   # orbit centre / look-at during `car`
-ORBIT_R = 6.9
+ORBIT_C = (0.0, -1.20, 0.63)                   # orbit centre / look-at during `car`
+ORBIT_R = 7.4
 ORBIT_Z = 1.30                                 # eye height
 
 
@@ -378,6 +379,14 @@ def build(quality: str) -> scenebase.SceneBuild:
     # cabin trim (door cards, headliner, parcel shelf) belongs to the exterior group but
     # would double the shell's veil from above: it leaves with the cabin
     rig.bake_fade([B.parts["cabin_trim"]], fr, cabin)
+    # black plastic trim (grille / intake ducts, window surrounds) and the lamp internals
+    # (chrome bowls, reflectors) are many glossy layers: ghost them fainter than the paint
+    ext_trim = ramp(t, *EXT_FADE, 1.0, X_RAY * TRIM_REL) * ramp(t, *OUT_FADE, 1.0, 0.0)
+    rig.bake_fade([B.parts["trim"], B.parts["lights_front"], B.parts["lights_rear"]], fr, ext_trim)
+    # the left door mirror sits between the travelling camera and the engine/gearbox (a large
+    # out-of-focus ghost): mirrors ghost fainter still
+    ext_mirror = ramp(t, *EXT_FADE, 1.0, X_RAY * MIRROR_REL) * ramp(t, *OUT_FADE, 1.0, 0.0)
+    rig.bake_fade([B.parts["mirrors"]], fr, ext_mirror)
     # the clutch pedal box is in the footwell: it leaves with the body's pedals
     pedal_objs = visible_meshes(objs_of(CL, CL.meta["groups"]["pedal_box"]))
     rig.bake_fade(pedal_objs, fr, cabin)
@@ -451,7 +460,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     H = Hud(track)
     H.add("fade", 0.0, 1.2, fade=0.0, color="black", alpha=lambda i: float(1.0 - ss(t[i] / 0.9)))
     H.add("title_card", 0.6, 5.6, fade=0.7, title="How a Manual Car Works",
-          subtitle="Inside a front-engine, rear-wheel-drive car", pos=[0.5, 0.20])
+          subtitle="Inside a front-engine, rear-wheel-drive car", pos=[0.5, 0.125])
     H.add("fade", BLACK[0], DUR + 1.0, fade=0.0, color="black",
           alpha=lambda i: float(ss((t[i] - BLACK[0]) / (BLACK[1] - BLACK[0]))))
 
