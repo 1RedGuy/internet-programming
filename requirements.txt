@@ -1,0 +1,5 @@
+bpy==5.0.1          # Blender as a Python module (requires Python 3.11)
+numpy>=1.26,<2
+pillow>=10
+shapely>=2.0
+scipy>=1.11

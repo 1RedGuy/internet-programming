@@ -304,3 +304,25 @@ if __name__ == "__main__":  # quick self-report
     print(f"final drive {FINAL_DRIVE:.3f}; slave stroke {SLAVE_STROKE*1000:.1f} mm; fork ratio {RELEASE_FORK_RATIO:.2f}")
     print("1->2 at 3000 rpm lands at", round(3000 * GEAR_RATIOS[2] / GEAR_RATIOS[1]), "rpm;",
           "2->3 at 3000 rpm lands at", round(3000 * GEAR_RATIOS[3] / GEAR_RATIOS[2]), "rpm")
+
+
+# ---------------------------------------------------------------------------
+# Cabin / pedal box / clutch hydraulics layout (LHD).  Shared by the clutch,
+# body and engine assemblies so nothing collides.  (appended)
+# ---------------------------------------------------------------------------
+X_DRIVER = -0.370                 # steering-column / driver centreline
+Y_FIREWALL = -0.450               # firewall (engine-bay side face) at pedal-box height
+Z_FLOOR = 0.200                   # cabin floor (footwell) height
+CLUTCH_PEDAL_PIVOT = (-0.505, -0.560, 0.700)   # pedal-box pivot (hanging pedals)
+PEDAL_ARM = 0.300                 # pivot -> pad centre (matches kin.clutch_geometry default)
+PEDAL_REST_ANGLE = 0.38           # rad: arm leans rearward from vertical at rest (pad behind pivot)
+BRAKE_PEDAL_X = -0.385
+THROTTLE_PEDAL_X = -0.265
+MASTER_CYL_POS = (-0.505, -0.420, 0.640)       # master cylinder body centre (engine side of firewall)
+MASTER_CYL_AXIS = (0.0, 1.0, 0.0)              # pushrod pushes forward (+Y) into the master cylinder
+SLAVE_CYL_POS = (-0.125, -0.415, 0.395)        # external slave on the bellhousing, left side
+RELEASE_FORK_PIVOT = (-0.060, -0.400, 0.360)   # ball stud inside the bellhousing (approx.)
+Y_RELEASE_BEARING = Y_DISC_CENTRE - 0.050      # release bearing face at rest (approx.)
+H_POINT = (X_DRIVER, -1.520, 0.420)            # driver hip point
+STEERING_WHEEL_CENTRE = (X_DRIVER, -1.020, 0.900)
+SHIFT_KNOB_REST = (0.0, Y_SHIFT_LEVER - 0.040, 0.880)

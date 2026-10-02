@@ -43,6 +43,22 @@ class Beat:
     def speak_time(self):
         return self.words / WPM * 60.0
 
+    def word_time(self, word, occurrence=1, scene_relative=True):
+        """Time (s) at which `word` (case-insensitive, punctuation ignored;
+        may be a multi-word phrase) starts being spoken, at WPM from LEAD.
+        Scene-relative by default (add Scene.start for global time)."""
+        import re
+        toks = [re.sub(r"[^\w'-]", "", w).lower() for w in self.text.replace("—", " ").split()]
+        target = [re.sub(r"[^\w'-]", "", w).lower() for w in word.split()]
+        seen = 0
+        for i in range(len(toks) - len(target) + 1):
+            if toks[i:i + len(target)] == target:
+                seen += 1
+                if seen == occurrence:
+                    t = LEAD + i * 60.0 / WPM
+                    return (self.start if scene_relative else self.gstart) + t
+        raise KeyError(f"word {word!r} not in beat {self.id!r}")
+
 
 @dataclass
 class Scene:
