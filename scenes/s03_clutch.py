@@ -228,15 +228,17 @@ POSES = [
     (8.7, (0.0, -0.63, 0.38), -66.0, 1.00, 0.36, 40.0, 6.3, "cubic"),
     # assembly: drift in toward the clutch
     (10.9, (0.0, -0.40, 0.38), -88.0, 0.80, 0.20, 45.0, 6.3, "cubic"),
-    # splines: section sweep, then push in on the hub
+    # splines: section sweep, then push in on the hub (swing forward so the bellhousing's
+    # kept slave-mount patch leaves the frame early)
+    (12.0, (0.0, -0.355, 0.372), -104.0, 0.44, 0.13, 48.0, 7.0, "cubic"),
     (13.2, (0.0, -0.342, 0.368), -98.0, 0.25, 0.05, 50.0, 8.0, "cubic"),
     (17.9, (0.0, -0.345, 0.368), -102.0, 0.24, 0.05, 50.0, 8.0, "cubic"),
     # engaged: the whole half-section
     (20.6, (0.0, -0.39, 0.385), -96.0, 0.80, 0.27, 45.0, 6.3, "cubic"),
     (25.2, (0.0, -0.39, 0.385), -88.0, 0.78, 0.26, 45.0, 6.3, "cubic"),
     # "...the input shaft turns with the engine": the shaft behind the clutch (ring gear out)
-    (27.3, (0.0, -0.445, 0.372), -97.0, 0.37, 0.08, 55.0, 8.0, "cubic"),
-    (29.4, (0.0, -0.445, 0.372), -100.0, 0.36, 0.08, 55.0, 8.0, "cubic"),
+    (27.3, (0.0, -0.42, 0.385), -95.0, 0.40, 0.20, 50.0, 8.0, "cubic"),
+    (29.4, (0.0, -0.42, 0.385), -98.0, 0.39, 0.19, 50.0, 8.0, "cubic"),
     # release: pull back to the whole chain (front-left: pedal ... clutch)
     (31.6, (-0.22, -0.45, 0.50), -125.0, 1.00, 0.35, 35.0, 6.3, "cubic"),
     (35.0, (-0.22, -0.45, 0.50), -119.0, 0.98, 0.34, 35.0, 6.3, "cubic"),
@@ -244,21 +246,21 @@ POSES = [
     (37.5, (-0.08, -0.395, 0.37), -96.0, 0.30, 0.36, 38.0, 6.3, "cubic"),
     (40.0, (-0.07, -0.395, 0.37), -99.0, 0.29, 0.35, 38.0, 6.3, "cubic"),
     # fingers (front-left, ahead of the slave hose)
-    (41.7, (0.0, -0.362, 0.398), -103.0, 0.25, 0.06, 55.0, 8.0, "cubic"),
+    (41.7, (0.0, -0.372, 0.385), -100.0, 0.26, 0.18, 50.0, 8.0, "cubic"),
     # macro on the facings / pressure plate (1.8 mm lift, ~0.6 mm per face clearance)
     (43.2, (0.0, -0.343, 0.452), -96.0, 0.135, 0.012, 60.0, 8.0, "cubic"),
     (46.5 - 1e-3, (0.0, -0.343, 0.452), -97.5, 0.13, 0.012, 60.0, 8.0, "cubic"),
     # --- cut: the clutch section (1st gear selected, the disc stops) ...
-    (46.5, (0.0, -0.335, 0.41), -108.0, 0.42, 0.10, 45.0, 6.3, "step"),
-    (48.5, (0.0, -0.335, 0.41), -112.0, 0.41, 0.10, 45.0, 6.3, "cubic"),
+    (46.5, (0.0, -0.34, 0.40), -100.0, 0.48, 0.10, 45.0, 6.3, "step"),
+    (48.5, (0.0, -0.34, 0.40), -103.0, 0.47, 0.10, 45.0, 6.3, "cubic"),
     # ... pull back for the pedal coming up ...
     (50.4, (-0.20, -0.43, 0.46), -121.0, 0.86, 0.30, 38.0, 6.3, "cubic"),
     (51.5, (-0.20, -0.43, 0.46), -119.0, 0.85, 0.30, 38.0, 6.3, "cubic"),
     # ... and in on the section for the slip (disc hub, damper springs, facings)
-    (54.0, (0.0, -0.336, 0.405), -106.0, 0.33, 0.08, 45.0, 8.0, "cubic"),
-    (59.6, (0.0, -0.336, 0.405), -100.0, 0.32, 0.08, 45.0, 8.0, "cubic"),
+    (54.0, (0.0, -0.335, 0.41), -104.0, 0.37, 0.07, 45.0, 8.0, "cubic"),
+    (59.6, (0.0, -0.335, 0.41), -101.0, 0.36, 0.07, 45.0, 8.0, "cubic"),
     # locks: ease back
-    (DUR, (0.0, -0.345, 0.41), -108.0, 0.48, 0.12, 45.0, 6.3, "cubic"),
+    (DUR, (0.0, -0.35, 0.40), -100.0, 0.52, 0.10, 45.0, 6.3, "cubic"),
 ]
 CUTS = [T_CUT]
 CAM_SMOOTH = 0.3
@@ -562,7 +564,9 @@ def build(quality: str) -> scenebase.SceneBuild:
     _glow([E.parts["flywheel"], E.parts["ring_gear"]], fr, gl["flywheel"])
     _glow([C.parts["disc"], C.parts["damper_springs"]], fr, gl["disc"])
     _glow([C.parts["pressure_plate"], C.parts["straps"]], fr, gl["plate"])
-    _glow([C.parts["diaphragm_spring"], C.parts["fulcrum"], C.parts["cover"]], fr, gl["spring"])
+    # the cover only glows with the power path (it is not named in the parts beat)
+    _glow([C.parts["diaphragm_spring"], C.parts["fulcrum"]], fr, gl["spring"])
+    _glow([C.parts["cover"]], fr, np.maximum(path(t_sp), tq))
     _glow(gb_keep[:4], fr, gl["shaft"])
 
     # ---------------- camera + lights + motion blur -----------------------
@@ -673,10 +677,11 @@ def build(quality: str) -> scenebase.SceneBuild:
     L.add("disc2", "Disc", A["disc"], wt("release", "disc") - 0.2, T_CUT - 0.1, offset=(-0.08, 0.06),
           occlusion=False)
     # slip
-    L.add("disc3", "Friction disc", A["disc"], wt("slip", "disc") + 0.6, 58.8, offset=(-0.05, -0.12), occlusion=False)
-    L.add("fly3", "Flywheel", fly_anchor(0.09), wt("slip", "flywheel"), 58.8,
-          offset=(-0.06, 0.15), occlusion=False)
-    L.add("plate3", "Pressure plate", A["pressure_plate"], wt("slip", "pressure"), 58.8, offset=(0.09, -0.06),
+    L.add("disc3", "Friction disc", (C.parts["disc_ex"], (0.0, 0.0, 0.085)), wt("slip", "disc") + 0.6, 58.8,
+          offset=(-0.10, -0.05), occlusion=False)
+    L.add("fly3", "Flywheel", fly_anchor(0.07), wt("slip", "flywheel"), 58.8,
+          offset=(-0.08, 0.12), occlusion=False)
+    L.add("plate3", "Pressure plate", plate_face, wt("slip", "pressure"), 58.8, offset=(0.10, 0.02),
           occlusion=False)
 
     # ---------------- HUD -----------------------------------------------

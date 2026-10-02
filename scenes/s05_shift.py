@@ -6,7 +6,9 @@ the hub, sleeve, struts, both blocker rings, both gear cones and dog rings and t
 fork are cut by a static box (x < 0, z > axis, between 3rd gear and the web) with
 per-frame Boolean modifiers (Manifold solver, ~0.2 s/frame), so the parts turn inside a
 cut that always faces the camera.  The upper half then reads like the textbook synchro
-profile (sleeve / blocker ring on the cone / dog teeth, cut faces in section red), and
+profile (sleeve / blocker ring on the cone / dog teeth; cut faces in shades of section
+red per part so neighbours do not merge: sleeve red, hub darker, blocker rings orange,
+gear cone + dog ring maroon), and
 the lower half keeps the whole parts, where the brass blocker teeth (output speed) and
 2nd gear's steel dog teeth (gear speed) run side by side: the viewer sees them slip,
 slow and lock in step.  (gearbox opts['sections'] cuts in each part's LOCAL frame, so
@@ -128,10 +130,49 @@ def program():
 # Section (world-fixed quarter cut through the 1-2 synchroniser)
 # ---------------------------------------------------------------------------
 ZC = S.Z_CRANK
-Y_HUB = -0.64124
-SECTION_Y = (-0.6937, -0.5913)          # web gap .. 3rd/2nd gap (car Y)
+_U = GB.U                               # gearbox axial layout (mm behind the case front)
+Y_HUB = GB.yu(_U["hub_12"])                                   # 1-2 hub centre, car Y (-0.6412)
+Y_G2 = GB.yu(0.5 * (_U["gear_2"][0] + _U["gear_2"][1]))       # 2nd gear centre (-0.6063)
+Y_G1 = GB.yu(0.5 * (_U["gear_1"][0] + _U["gear_1"][1]))       # 1st gear centre (-0.6777)
+Y_INPUT_GEAR = GB.yu(0.5 * (_U["input_gear"][0] + _U["input_gear"][1]))
+# cut box spans from the 1st-gear/web gap to the 3rd/2nd-gear gap (-0.6937 .. -0.5913)
+SECTION_Y = (GB.yu(0.5 * (_U["gear_1"][1] + _U["web"][0])), GB.yu(0.5 * (_U["gear_3"][1] + _U["gear_2"][0])))
 SECTION_PARTS = ("hub_12", "sleeve_12", "strut_12_0", "strut_12_1", "strut_12_2", "blocker_1", "blocker_2",
                  "cone_1", "cone_2", "dogs_1", "dogs_2", "fork_12")
+
+
+# Shade of each part's cut faces (all in the section-red family, but adjacent parts must
+# not merge into one red blob: sleeve red, hub/struts darker, blocker rings orange (brass),
+# 2nd/1st gear's cone and dog ring deep maroon, fork mid red).  Index into SECTION_SHADES.
+SECTION_SHADE_OF = {"sleeve_12": 0, "hub_12": 1, "strut_12_0": 1, "strut_12_1": 1, "strut_12_2": 1,
+                    "blocker_1": 2, "blocker_2": 2, "cone_1": 3, "cone_2": 3, "dogs_1": 3, "dogs_2": 3,
+                    "fork_12": 4}
+SECTION_SHADES = (materials.SECTION_RED, (0.17, 0.016, 0.012), (0.50, 0.13, 0.022), (0.085, 0.008, 0.010),
+                  (0.26, 0.05, 0.04))
+
+
+def section_material():
+    """section_cut variant whose colour comes from the cut object's 's05_sec' property."""
+    base = materials.get("section_cut")
+    m = base.copy()
+    m.name = "s05_section_cut"
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    attr = nt.nodes.new("ShaderNodeAttribute")
+    attr.attribute_type = "OBJECT"
+    attr.attribute_name = "s05_sec"
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.interpolation = "CONSTANT"
+    els = ramp.color_ramp.elements
+    n = len(SECTION_SHADES)
+    while len(els) < n:
+        els.new(0.5)
+    for k, col in enumerate(SECTION_SHADES):
+        els[k].position = k / n
+        els[k].color = (*col, 1.0)
+    nt.links.new(attr.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    return m
 
 
 def add_section(G):
@@ -142,20 +183,22 @@ def add_section(G):
     bmesh.ops.create_cube(bm, size=1.0)
     bm.to_mesh(me)
     bm.free()
-    me.materials.append(materials.get("section_cut"))
+    me.materials.append(section_material())
     cutter = bpy.data.objects.new("s05_section_cutter", me)
     rig.link(cutter, G.root.users_collection[0])
     cutter.scale = (0.30, y1 - y0, 0.30)
     cutter.location = (-0.15, 0.5 * (y0 + y1), ZC + 0.15)
     cutter.hide_render = True
     cutter.display_type = "WIRE"
+    n = len(SECTION_SHADES)
     for name in SECTION_PARTS:
         ob = G.parts[name]
+        ob["s05_sec"] = (SECTION_SHADE_OF[name] + 0.5) / n
         md = ob.modifiers.new("s05_section", "BOOLEAN")
         md.operation = "DIFFERENCE"
         md.object = cutter
         md.solver = "MANIFOLD"
-        md.material_mode = "TRANSFER"          # cut faces get section_cut (cutter material)
+        md.material_mode = "TRANSFER"          # cut faces get the cutter's section material
     return cutter
 
 
@@ -174,28 +217,28 @@ POSES = [
     (6.6, (0.0, -0.644, ZC - 0.004), -95.0, 0.262, 17.0, 50.0, 9.0, "cubic"),
     # clutch_in: push in to the synchro profile (seen from just below the axis: the cut
     # profile above, the whole lower half with its teeth rows below)
-    (11.8, (0.0, Y_B1, Z_PROF), -88.0, 0.192, -3.0, 50.0, 14.0, "cubic"),
+    (11.8, (0.0, Y_B1, Z_PROF), -88.0, 0.192, -3.0, 50.0, 20.0, "cubic"),
     # neutral: the sleeve slides off 1st gear's dog teeth
-    (16.4, (0.0, Y_B1 + 0.002, Z_PROF), -89.0, 0.188, -3.0, 50.0, 14.0, "cubic"),
+    (16.4, (0.0, Y_B1 + 0.002, Z_PROF), -89.0, 0.188, -3.0, 50.0, 20.0, "cubic"),
     # sync: 2nd gear's side (blocker ring on the cone, dog teeth)
-    (19.0, (0.0, Y_B2, Z_PROF), -93.0, 0.186, -3.0, 50.0, 14.0, "cubic"),
-    (22.6, (0.0, Y_B2 - 0.001, Z_PROF), -94.0, 0.182, -3.0, 50.0, 14.0, "cubic"),
+    (19.0, (0.0, Y_B2, Z_PROF), -93.0, 0.174, -3.0, 50.0, 20.0, "cubic"),
+    (22.6, (0.0, Y_B2 - 0.001, Z_PROF), -94.0, 0.170, -3.0, 50.0, 20.0, "cubic"),
     # countershaft / input shaft: pull back (countershaft), then swing to the rear-left
     # and look forward along the gear train (the input gear enters frame once allowed)
-    (24.4, (0.0, -0.637, ZC - 0.053), -90.0, 0.246, -7.0, 50.0, 14.0, "cubic"),
-    (25.55, (0.0, -0.636, ZC - 0.053), -89.0, 0.248, -6.0, 50.0, 14.0, "cubic"),
+    (24.4, (0.0, -0.637, ZC - 0.062), -90.0, 0.246, -7.0, 50.0, 18.0, "cubic"),
+    (25.55, (0.0, -0.636, ZC - 0.062), -89.0, 0.248, -6.0, 50.0, 18.0, "cubic"),
     (27.4, (0.0, -0.585, ZC - 0.056), -62.0, 0.427, 19.0, 42.0, 10.0, "cubic"),
     (29.3, (0.0, -0.587, ZC - 0.054), -64.0, 0.418, 19.0, 42.0, 10.0, "cubic"),
-    # engage: back on 2nd gear's side of the profile
-    (32.5, (0.0, Y_B2, Z_PROF), -93.0, 0.182, -3.0, 50.0, 14.0, "cubic"),
-    (38.8, (0.0, Y_B2 - 0.002, Z_PROF), -91.0, 0.188, -3.0, 50.0, 14.0, "cubic"),
+    # engage: closer on the upper profile: sleeve, blocker ring, 2nd gear's dog teeth
+    (32.6, (0.0, Y_HUB + 0.012, ZC + 0.022), -93.0, 0.146, -2.0, 50.0, 22.0, "cubic"),
+    (38.8, (0.0, Y_HUB + 0.011, ZC + 0.022), -91.0, 0.152, -2.0, 50.0, 22.0, "cubic"),
     # clutch out: pull back to the whole gear train, power path in 2nd
     (44.6, (0.0, -0.640, ZC - 0.020), -78.0, 0.565, 23.0, 40.0, 11.0, "cubic"),
     (DUR, (0.0, -0.650, ZC - 0.020), -72.0, 0.625, 24.0, 40.0, 11.0, "cubic"),
 ]
 CAM_SMOOTH = 0.35          # s: Gaussian low-pass of the pose parameters
 KEY_OFFSET = -40.0         # key light azimuth relative to the camera azimuth (deg)
-FOCUS_NEAR = 0.012         # m: profile shots focus slightly in front of the cut plane
+FOCUS_NEAR = 0.016         # m: profile shots focus slightly in front of the cut plane
 
 
 def _pose_curves():
@@ -387,14 +430,14 @@ def build(quality: str) -> scenebase.SceneBuild:
     R = G.root
     sl_sleeve, sl_blk2 = A["sleeve_12"][0], A["blocker_2"][0]
     an = {
-        "g2": (R, (-0.0459, -0.60633, 0.010)),          # 2nd gear 37T, near flank
-        "g1": (R, (-0.0545, -0.67765, 0.014)),          # 1st gear 44T, near flank
+        "g2": (R, (-0.0459, Y_G2, 0.010)),              # 2nd gear 37T (tip r 48 mm), near flank
+        "g1": (R, (-0.0545, Y_G1, 0.014)),              # 1st gear 44T (tip r 57 mm), near flank
         "sleeve": (sl_sleeve, (-0.0005, 0.0, 0.036)),   # sleeve section (moves with it)
         "blocker2": (sl_blk2, (-0.0005, 0.0035, 0.0275)),
         "cone2": (R, (-0.0005, Y_HUB + 0.0130, 0.0240)),
         "dogs2": (R, (-0.0005, Y_HUB + 0.0198, 0.0317)),
         "cs": (R, (-0.0142, Y_HUB, -S.GEARBOX_CENTRE_DISTANCE)),   # bare countershaft, cs_2..cs_1
-        "input": (R, (-0.033, -0.507, 0.008)),         # input gear (on the input shaft), near flank
+        "input": (R, (-0.033, Y_INPUT_GEAR, 0.008)),   # input gear (on the input shaft), near flank
         "output": (R, (-0.0125, Y_HUB - 0.002, 0.013)),  # output-shaft splines inside the cut hub
     }
     L = Labels()

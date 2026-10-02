@@ -4,12 +4,11 @@ Dark studio, engine (+ flywheel) only.  The engine idles at 850 rpm in neutral
 with the clutch engaged and the car stationary; only the slow-motion factor
 changes:
 
-  inline4, crank, valvetrain, flywheel   x230    (flywheel ring gear 132T in shot:
-                                                  needs >= x223, FACTS PRS-04)
+  inline4, crank, valvetrain, flywheel   x230    (ring gear 132T at 0.34 tooth/frame)
   intake .. exhaust                      x198.3  (pi / (7 s * omega_idle): each 7.0 s
                                                   stroke beat is exactly 180 deg)
   firing                                 x85     (all four firings 1-3-4-2, 3.0 s apart;
-                                                  the flywheel is hidden, PRS-11)
+                                                  ring gear motion-blurred into a band)
 
 The valvetrain factor is solved (bisection on the same sub-step integral the
 state integrator uses) so cylinder 1 reaches its firing TDC exactly at
@@ -18,11 +17,16 @@ at 63.0 / 66.0 / 69.0 / 72.0 s in the order 1-3-4-2).
 `P.align_engine(intake start, 360)` puts cylinder 1 at TDC starting its intake
 stroke exactly when the "intake" beat starts.
 
-The flywheel (and its 132T ring gear) is faded out while the camera swings to
-the front in "cycle" (it is behind the engine then) and faded back in as the
-flywheel is introduced in the last beat; the ring gear's aliasing mask is
-"opacity > 0 and inside the camera frustum" (no occlusion credit), so the
-validator proves the x223 rule for every frame in which it could be seen.
+The flywheel and its 132T ring gear stay visible for the whole scene.  The ring
+(>= x223 needed without blur, FACTS PRS-04) is de-strobed with PER-OBJECT Cycles
+motion blur: only eng_flywheel and eng_ring_gear have ob.cycles.use_motion_blur
+(everything else, camera included, is unblurred, so render cost is unchanged
+elsewhere).  The scene shutter is keyed per frame from the ring's tooth pitch p
+moved per frame: 1/p while p >= 0.5 (the smear is exactly one tooth pitch: a
+uniform band, nothing to step backwards) blending to 1.0 frame below p = 0.4
+(the smear joins consecutive positions; motion reads forward).  The ring's
+aliasing mask keeps only frames where it is in frame AND that blur does not
+hide strobing (none, by construction).
 
 Cutaway changes never pop: `_bake_variants` cross-fades between the engine's
 cut variants per part ('direct': fade only what differs; 'via': close the
@@ -72,9 +76,7 @@ T_FIRING = bstart("firing")                    # 61.5
 T_FLYB = bstart("flywheel")                    # 74.0
 T_FIRE1 = T_FIRING + 1.5                       # cyl 1 firing TDC (camera settled at ~62.5)
 
-# flywheel visibility (fades) and the slow-motion ramps around it
-FLY_OUT = (16.4, 17.4)                         # hidden while the camera swings to the front
-FLY_IN = (75.0, 76.3)                          # re-introduced in the flywheel beat
+# slow-motion ramps
 SLOW_RAMPS = dict(to_stroke=(17.6, T_INTAKE - 0.6), to_valve=(T_VALVE, T_VALVE + 1.5),
                   to_fire=(T_FIRING - 0.5, T_FIRING + 1.0), to_ring=(T_FIRE1 + 9.6, T_FLYB + 0.6))
 
@@ -369,6 +371,21 @@ def ring_in_frame(eye, tgt, lens, sensor=36.0, aspect=16 / 9, margin=1.06):
     return out
 
 
+def ring_pitch_per_frame(theta):
+    """Starter-ring teeth passing per frame (centred difference of the crank angle)."""
+    d = np.abs(np.diff(theta)) / (2 * math.pi / S.FLYWHEEL_RING_TEETH)
+    return 0.5 * (np.r_[d[0], d] + np.r_[d, d[-1]])
+
+
+def shutter_for_pitch(p):
+    """Shutter (frames) for the ring's motion blur: one full tooth pitch of smear while the
+    ring moves >= 0.5 pitch/frame, easing back to a 1-frame shutter below 0.4 pitch/frame."""
+    p = np.asarray(p, dtype=float)
+    full = 1.0 / np.maximum(p, 1e-6)
+    w = kin.smoothstep(0.4, 0.5, p)
+    return np.clip(1.0 + (np.minimum(full, 2.0) - 1.0) * w, 1.0, 2.0) * (p < 1.0) + 1.0 * (p >= 1.0)
+
+
 # ---------------------------------------------------------------------------
 # build
 # ---------------------------------------------------------------------------
@@ -404,8 +421,6 @@ def build(quality: str) -> scenebase.SceneBuild:
     n = track.n
 
     # ---------------- presentation arrays -------------------------------
-    fly_op = _fade_curve(t, [(0.0, 1.0, "step"), (FLY_OUT[0], 1.0, "linear"), (FLY_OUT[1], 0.0, "ease"),
-                             (FLY_IN[0], 0.0, "linear"), (FLY_IN[1], 1.0, "ease")])
     dom = [_dominant_variant(x) for x in t]
     gas_long = np.array([0.7 if (d == "long" and x < 20) else (1.0 if d == "long" else 0.0)
                          for d, x in zip(dom, t)])
@@ -418,7 +433,12 @@ def build(quality: str) -> scenebase.SceneBuild:
     v_last = VARIANT_STEPS[-1]
     gas_long = gas_long * np.where(t > v_last[1], 1.0 - kin.smoothstep(v_last[1], v_last[1] + 1.4, t), 1.0)
     E.drive(track, {"gas_sets": {"full": np.zeros(n), "long": gas_long, "cyl1": gas_cyl1}})
-    op = _bake_variants(E, track, {"flywheel": fly_op, "ring_gear": fly_op})
+    op = _bake_variants(E, track, {})
+
+    # ---------------- per-object motion blur: flywheel + ring gear only -------
+    p_ring = ring_pitch_per_frame(th)
+    shutter = shutter_for_pitch(p_ring)
+    rig.bake_channel(sc, "render.motion_blur_shutter", -1, track.frames, shutter)
 
     # glow: connecting rods, then crankshaft (crank beat)
     t_rod, t_crank = wt("crank", "Connecting"), wt("crank", "crankshaft")
@@ -442,16 +462,28 @@ def build(quality: str) -> scenebase.SceneBuild:
     key_off = _fade_curve(t, KEY_OFFSET)
     rig.bake_channel(studio["rig"], "rotation_euler", 2, track.frames,
                      np.radians(np.unwrap(az, period=360.0) + key_off - 225.0))
+    # Cycles motion blur only on the flywheel + ring gear (set after every object exists:
+    # the camera's own flag also controls camera-motion blur, which must stay off)
+    blurred = {E.parts["flywheel"].name, E.parts["ring_gear"].name}
+    for ob in sc.objects:
+        ob.cycles.use_motion_blur = ob.name in blurred
 
     # ---------------- validation ----------------------------------------
-    ring_vis = ring_in_frame(eye, tgt, lens) & (fly_op > 0.02)
+    ring_vis = ring_in_frame(eye, tgt, lens)
     ring_vis = ring_vis | np.r_[ring_vis[1:], False] | np.r_[False, ring_vis[:-1]]
+    # The ring gear is motion-blurred in every frame (per-object blur, keyed shutter).  Frames
+    # where that blur hides strobing are excluded from its aliasing check: the smear covers
+    # >= 0.95 of a tooth pitch (uniform band) or the ring moves <= 0.5 pitch/frame (the smear
+    # joins consecutive positions, so the motion cannot read backwards).  Every other frame
+    # in which the ring is in frame is still checked against the 0.35 pitch/frame limit.
+    blur_hides = (shutter * p_ring >= 0.95) | (p_ring <= 0.5)
+    ring_check = ring_vis & ~blur_hides
     aliasing = {
-        "flywheel ring gear 132T": (th, 2 * math.pi / S.FLYWHEEL_RING_TEETH, ring_vis),
+        "flywheel ring gear 132T (unless motion-blurred)": (th, 2 * math.pi / S.FLYWHEEL_RING_TEETH, ring_check),
         "crank sprocket 21T": (th, 2 * math.pi / S.CRANK_SPROCKET_TEETH, None),
         "cam sprockets 42T": (kin.cam_angle(th), 2 * math.pi / S.CAM_SPROCKET_TEETH, None),
         "timing chain (pitch)": (kin.chain_travel(th), S.CHAIN_PITCH, None),
-        "flywheel bolt holes 6": (th, 2 * math.pi / 6, fly_op > 0.02),
+        "flywheel bolt holes 6": (th, 2 * math.pi / 6, None),
     }
     track.validate(aliasing=aliasing)
 
@@ -529,6 +561,7 @@ def build(quality: str) -> scenebase.SceneBuild:
         return best
     H.add("firing_ticker", T_FIRING + 0.5, bend("firing") - 0.3, cylinder=firing_cyl)
 
-    sb = scenebase.SceneBuild(SCENE_ID, track, cam, L, H, motion_blur=False, preview_hide=())
-    sb.extra.update(engine=E, k_valve=k_valve, ring_visible=ring_vis, opacity=op, studio=studio)
+    sb = scenebase.SceneBuild(SCENE_ID, track, cam, L, H, motion_blur=True, shutter=1.0, preview_hide=())
+    sb.extra.update(engine=E, k_valve=k_valve, ring_visible=ring_vis, ring_pitch=p_ring, shutter=shutter,
+                    opacity=op, studio=studio)
     return sb

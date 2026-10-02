@@ -638,22 +638,24 @@ def build(quality: str) -> scenebase.SceneBuild:
             glow[m.name] = np.maximum(glow.get(m.name, np.zeros(n)), arr)
 
     t_prop = wt("prop", "propeller")
-    add_glow([k for k in PA if k.startswith("prop_")], pulse(t, t_prop, 4.2, 0.6 * GP))   # dark tube
+    GD = 0.4 * GP       # dark parts (painted tube, cast case): the emission dominates their base colour
+    add_glow([k for k in PA if k.startswith("prop_")], pulse(t, t_prop, 4.2, GD))
     add_glow(["pinion", "companion_flange"], pulse(t, wt("ringpinion", "pinion"), 11.6, GP))
     add_glow(["ring_gear"], pulse(t, wt("ringpinion", "ring"), 13.2, GP))
     # "turning the drive through a right angle": pinion -> ring -> both output stubs
     add_glow(["pinion", "companion_flange", "ring_gear", "stub_left", "stub_right"],
              pulse(t, wt("ringpinion", "turning"), 18.8, GP))
     add_glow(["ring_gear"], pulse(t, wt("diffparts", "bolted"), 24.0, GP))
-    add_glow(["case_left", "case_right"], pulse(t, wt("diffparts", "differential"), 25.6, GP))
+    add_glow(["case_left", "case_right"], pulse(t, wt("diffparts", "differential"), 25.6, GD))
     add_glow(["spider_1", "spider_2"], pulse(t, wt("diffparts", "spider"), 28.0, GP))
     add_glow(["side_gear_left", "side_gear_right"], pulse(t, wt("diffparts", "side"), 29.7, GP))
     add_glow(["stub_left", "stub_right"], pulse(t, wt("diffparts", "splined"), 31.2, GP))
     t_one = wt("straight", "Everything")
-    add_glow(["case_left", "case_right", "ring_gear", "spider_1", "spider_2", "side_gear_left",
-              "side_gear_right", "cross_pin", "stub_left", "stub_right"], pulse(t, t_one, t_one + 2.6, GP))
+    add_glow(["ring_gear", "spider_1", "spider_2", "side_gear_left", "side_gear_right", "cross_pin", "stub_left",
+              "stub_right"], pulse(t, t_one, t_one + 2.6, GP))
+    add_glow(["case_left", "case_right"], pulse(t, t_one, t_one + 2.6, GD))
     add_glow(["spider_1", "spider_2"], pulse(t, 47.8, 53.6, GP))
-    add_glow(["case_left", "case_right"], pulse(t, wt("turn", "case"), 57.8, 0.06, 0.035))   # ghosted
+    add_glow(["case_left", "case_right"], pulse(t, wt("turn", "case"), 57.8, 0.03, 0.02))   # ghosted, dark
     by_name = {o.name: o for o in A.meshes()}
     for name, g in glow.items():
         bake_glow(by_name.get(name) or bpy.data.objects[name], fr, np.clip(g, 0.0, 0.1))

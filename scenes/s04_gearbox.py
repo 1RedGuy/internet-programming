@@ -295,8 +295,8 @@ POSES = [
     (T_5TH, (0.0, -0.70, 0.34), -79.0, 1.10, 0.14, 50.0, 6.3),
     (T_REV - 0.01, (0.0, -0.70, 0.34), -83.0, 1.06, 0.14, 50.0, 6.3),
     # --- reverse: +X side (the idler is on +X), housings removed
-    (T_REV, (0.02, -0.765, 0.335), 97.0, 0.76, 0.05, 50.0, 7.1),
-    (DUR, (0.02, -0.765, 0.335), 91.0, 0.72, 0.05, 50.0, 7.1),
+    (T_REV, (0.02, -0.86, 0.34), 95.0, 0.86, 0.05, 50.0, 7.1),
+    (DUR, (0.02, -0.86, 0.34), 90.0, 0.83, 0.05, 50.0, 7.1),
 ]
 KEY_OFFSET = 50.0           # key light azimuth relative to the camera (deg)
 CAM_SMOOTH = 0.35           # s, Gaussian low-pass of the pose parameters (within a shot)
@@ -618,9 +618,9 @@ def make_labels(G, C):
     L.add("g5", "23T", A["gear_5"], T_5TH + 0.4, e5, offset=(0.05, -0.10), occlusion=False)
     # reverse
     L.add("idler", "Idler gear", (GP["ex_idler"], (0.009, 0.0, 0.0)), wt("reverse", "idler"), DUR - 0.5,
-          offset=(0.09, 0.03), occlusion=False)
-    L.add("out_r", "Output shaft", (root, (0.0, -0.88, 0.0165)), wt("reverse", "output"), DUR - 0.5,
-          offset=(0.0, -0.12), occlusion=False)
+          offset=(-0.09, 0.05), occlusion=False)
+    L.add("out_r", "Output shaft", (root, (0.0, -1.05, 0.0165)), wt("reverse", "output"), DUR - 0.5,
+          offset=(0.04, -0.10), occlusion=False)
     return L
 
 
