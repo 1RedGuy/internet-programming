@@ -29,8 +29,8 @@ from . import timeline
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Final-quality Cycles settings (chosen from the benchmark; see NOTES.md)
-FINAL_SAMPLES = 16          # chosen by A/B on real frames: 16 ~= 32 after OIDN (NOTES.md)
-FINAL_ADAPTIVE_THRESHOLD = 0.03
+FINAL_SAMPLES = 12          # A/B on real 720p frames: 8 slightly soft, 16 ~= 32 after OIDN; 12 = budget compromise (NOTES.md)
+FINAL_ADAPTIVE_THRESHOLD = 0.05
 
 QUALITY = {
     "preview": dict(engine="BLENDER_WORKBENCH", res=S.RES_PREVIEW),
@@ -89,7 +89,7 @@ def apply_quality(sc, quality, sb=None, threads=0):
     cy.samples = q["samples"]
     cy.use_adaptive_sampling = True
     cy.adaptive_threshold = q["threshold"]
-    cy.adaptive_min_samples = 0
+    cy.adaptive_min_samples = 4
     cy.use_denoising = True
     cy.denoiser = "OPENIMAGEDENOISE"
     cy.denoising_input_passes = "RGB_ALBEDO_NORMAL"
