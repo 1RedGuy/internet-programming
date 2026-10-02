@@ -221,3 +221,6 @@ __marimo__/
 out/
 *.blend1
 /video/*.tmp.mp4
+/video/*_preview*.mp4
+/video/*_draft*.mp4
+/video/*_hq*.mp4
