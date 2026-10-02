@@ -36,13 +36,16 @@ def main():
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--crf", type=int, default=None)
     ap.add_argument("--suffix", default="")
+    ap.add_argument("--shard", default=None, help="i/n: render every n-th frame starting at i (no overlay/encode)")
+    ap.add_argument("--no-meta", action="store_true", help="do not recompute labels/hud json")
     a = ap.parse_args()
     from carviz import render
     fr = tuple(int(x) for x in a.range.split("-")) if a.range else None
     frames = [int(x) for x in a.frames.split(",")] if a.frames else None
     render.run(a.scene, a.quality, every=a.every, frange=fr, frames=frames, force_meta=a.force_meta,
                no_render=a.no_render, no_overlay=a.no_overlay, no_encode=a.no_encode, save_blend=a.save_blend,
-               threads=a.threads, workers=a.workers, crf=a.crf, suffix=a.suffix)
+               threads=a.threads, workers=a.workers, crf=a.crf, suffix=a.suffix,
+               shard=tuple(int(x) for x in a.shard.split("/")) if a.shard else None, no_meta=a.no_meta)
 
 
 if __name__ == "__main__":

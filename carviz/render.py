@@ -29,7 +29,7 @@ from . import timeline
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Final-quality Cycles settings (chosen from the benchmark; see NOTES.md)
-FINAL_SAMPLES = 24
+FINAL_SAMPLES = 16          # chosen by A/B on real frames: 16 ~= 32 after OIDN (NOTES.md)
 FINAL_ADAPTIVE_THRESHOLD = 0.03
 
 QUALITY = {
@@ -104,7 +104,7 @@ def apply_quality(sc, quality, sb=None, threads=0):
     cy.caustics_refractive = False
     cy.blur_glossy = 1.0
     cy.sample_clamp_indirect = 4.0
-    cy.use_light_tree = True
+    cy.use_light_tree = False   # measured: with ~6 area lights + HDRI the light tree costs ~38% render time
     cy.seed = 7
     cy.use_animated_seed = False
     r.film_transparent = False
@@ -206,7 +206,11 @@ def encode(scene_id, quality, d, frames, every=1, crf=18, suffix=""):
 
 
 def run(scene_id, quality="preview", every=None, frange=None, frames=None, force_meta=False, no_render=False,
-        no_overlay=False, no_encode=False, save_blend=False, threads=0, workers=2, crf=None, suffix=""):
+        no_overlay=False, no_encode=False, save_blend=False, threads=0, workers=2, crf=None, suffix="",
+        shard=None, no_meta=False):
+    """shard=(i, n): render only every n-th frame of the list starting at i (run n processes
+    with fewer threads each to overlap per-frame serial overhead); sharded runs skip
+    overlay/encode — finish with a --no-render run."""
     if every is None:
         every = 2 if quality == "preview" else 1
     t0 = time.time()
@@ -216,10 +220,15 @@ def run(scene_id, quality="preview", every=None, frange=None, frames=None, force
     apply_quality(sc, quality, sb, threads=threads)
     d = out_dir(scene_id, quality)
     fl = frame_list(scene_id, every, frange, frames)
+    if shard is not None:
+        si, sn = shard
+        fl = fl[si::sn]
+        no_overlay = no_encode = True
     print(f"[build] {scene_id} built in {time.time() - t0:.1f}s; {len(fl)} frames; violations: {sb.track.violations}")
     if save_blend:
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(d, f"{scene_id}.blend"), compress=True)
-    write_meta(sb, sc, d, list(range(1, timeline.scene(scene_id).frames + 1)))
+    if not no_meta:
+        write_meta(sb, sc, d, list(range(1, timeline.scene(scene_id).frames + 1)))
     if not no_render:
         render_frames(sc, d, fl)
     if not no_overlay:
