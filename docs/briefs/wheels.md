@@ -45,3 +45,6 @@ wheels.
 Presentation keys: none required; optional `boot_opacity`.
 Test with a program that drives forward at ~10 km/h in slow motion with the RR suspension
 oscillating ±60 mm, and a left turn (curvature 1/5) to check steering and wheel speeds.
+Also publish `meta['power_groups'] = {'shafts': [...both driveshafts incl. joints...],
+'rear_wheels': [...rear hubs, discs, wheels, tyres...]}` (used by carviz/assemblies/car.py
+for the power-path glow in scenes 1 and 8).

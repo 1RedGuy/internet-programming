@@ -1,0 +1,425 @@
+1
+00:00:00,250 --> 00:00:05,214
+This is a front-engine, rear-wheel-drive
+car with a five-speed manual gearbox.
+
+2
+00:00:07,250 --> 00:00:13,071
+Let's look inside, at the parts that turn
+burning fuel into turning wheels.
+
+3
+00:00:14,250 --> 00:00:16,393
+Power starts in the engine.
+
+4
+00:00:16,393 --> 00:00:19,393
+It flows through the clutch and gearbox,
+
+5
+00:00:19,393 --> 00:00:24,107
+along the propeller shaft to the
+differential at the rear axle,
+
+6
+00:00:24,107 --> 00:00:27,786
+and out through two driveshafts to the
+wheels.
+
+7
+00:00:29,250 --> 00:00:30,786
+Let's follow it.
+
+8
+00:00:32,250 --> 00:00:36,964
+The engine is an inline four: four
+cylinders in a row,
+
+9
+00:00:36,964 --> 00:00:39,357
+each with a sliding piston.
+
+10
+00:00:40,250 --> 00:00:43,679
+Connecting rods link the pistons to the
+crankshaft,
+
+11
+00:00:43,679 --> 00:00:46,071
+turning up-and-down motion into rotation.
+
+12
+00:00:47,250 --> 00:00:51,786
+Each cylinder repeats a four-stroke cycle
+over two crankshaft turns.
+
+13
+00:00:53,250 --> 00:00:55,393
+Intake: the piston moves down,
+
+14
+00:00:55,393 --> 00:00:59,929
+drawing air and fuel in through the open
+intake valves.
+
+15
+00:01:00,250 --> 00:01:05,214
+Compression: both valves close, and the
+rising piston squeezes the mixture.
+
+16
+00:01:07,250 --> 00:01:13,500
+Power: a spark ignites the mixture, and
+the hot gas forces the piston down.
+
+17
+00:01:14,250 --> 00:01:20,500
+Exhaust: with the exhaust valves open, the
+rising piston pushes the burnt gas out.
+
+18
+00:01:21,250 --> 00:01:22,964
+Camshafts open the valves.
+
+19
+00:01:22,964 --> 00:01:28,536
+A timing chain drives them from the
+crankshaft at exactly half its speed,
+
+20
+00:01:28,536 --> 00:01:32,643
+because each valve opens only once every
+two turns.
+
+21
+00:01:33,750 --> 00:01:38,893
+Only the power stroke drives the
+crankshaft, so the cylinders take turns,
+
+22
+00:01:38,893 --> 00:01:45,143
+firing in the order one, three, four, two:
+a power stroke every half turn.
+
+23
+00:01:46,250 --> 00:01:50,536
+At the back, a heavy flywheel smooths out
+the pulses.
+
+24
+00:01:50,536 --> 00:01:54,214
+Its face is one half of the clutch.
+
+25
+00:01:54,750 --> 00:02:00,750
+Between the engine and the gearbox sits
+the clutch: the flywheel, a friction disc,
+
+26
+00:02:00,750 --> 00:02:04,429
+and a pressure plate with a diaphragm
+spring.
+
+27
+00:02:05,750 --> 00:02:12,429
+The disc's hub is splined to the gearbox
+input shaft, so they always turn together.
+
+28
+00:02:13,250 --> 00:02:14,964
+With the pedal up,
+
+29
+00:02:14,964 --> 00:02:20,107
+the spring clamps the disc between the
+pressure plate and the flywheel,
+
+30
+00:02:20,107 --> 00:02:23,357
+and the gearbox turns with the engine.
+
+31
+00:02:24,250 --> 00:02:30,250
+Press the pedal, and fluid flows from the
+master cylinder to the slave cylinder.
+
+32
+00:02:30,250 --> 00:02:34,964
+It pushes the release fork and bearing
+against the spring's fingers.
+
+33
+00:02:34,964 --> 00:02:40,786
+The spring flexes, the pressure plate
+pulls back, and the disc is free.
+
+34
+00:02:43,250 --> 00:02:46,679
+To pull away, the pedal comes up slowly.
+
+35
+00:02:46,679 --> 00:02:52,250
+The disc slips against the flywheel,
+speeding up as it passes on torque,
+
+36
+00:02:52,250 --> 00:02:55,500
+until it matches the engine and locks.
+
+37
+00:02:58,250 --> 00:03:00,393
+The gearbox has three shafts.
+
+38
+00:03:00,393 --> 00:03:05,107
+The input shaft, driven by the clutch,
+turns the countershaft below.
+
+39
+00:03:05,107 --> 00:03:10,500
+The output shaft runs out the back, in
+line with the input.
+
+40
+00:03:11,250 --> 00:03:16,821
+The other countershaft gears each mesh
+with a gear on the output shaft.
+
+41
+00:03:16,821 --> 00:03:21,964
+They're always in mesh, but the output
+gears spin freely on bearings.
+
+42
+00:03:21,964 --> 00:03:27,357
+Until one is locked to the shaft, no power
+gets through: neutral.
+
+43
+00:03:27,750 --> 00:03:29,464
+Synchronizers do the locking.
+
+44
+00:03:29,464 --> 00:03:35,036
+A hub is splined to the shaft, and a
+sleeve slides on it.
+
+45
+00:03:35,036 --> 00:03:39,750
+Each gear carries a ring of dog teeth and
+a cone,
+
+46
+00:03:39,750 --> 00:03:43,000
+with a brass blocker ring in between.
+
+47
+00:03:43,750 --> 00:03:50,429
+Slide the sleeve over the dog teeth, and
+the gear is locked to the shaft.
+
+48
+00:03:51,250 --> 00:03:54,250
+Forks on shift rails move the sleeves.
+
+49
+00:03:54,250 --> 00:03:59,643
+Moving the lever sideways picks a rail;
+forward or back slides it.
+
+50
+00:04:01,750 --> 00:04:06,464
+In first, a small countershaft gear drives
+a large output gear,
+
+51
+00:04:06,464 --> 00:04:13,750
+so the engine turns about three and a half
+times for each turn of the output shaft.
+
+52
+00:04:13,750 --> 00:04:17,179
+Fourth locks input to output: one to one.
+
+53
+00:04:17,179 --> 00:04:19,143
+Fifth is an overdrive.
+
+54
+00:04:21,750 --> 00:04:27,571
+Reverse adds an idler gear between the
+shafts, so the output turns backwards.
+
+55
+00:04:29,250 --> 00:04:35,500
+Here's a shift from first to second at
+three thousand rpm, slowed right down.
+
+56
+00:04:36,250 --> 00:04:37,536
+One: clutch in.
+
+57
+00:04:37,536 --> 00:04:39,500
+The engine is disconnected.
+
+58
+00:04:41,750 --> 00:04:45,857
+Two: the sleeve slides out of first, into
+neutral.
+
+59
+00:04:47,250 --> 00:04:51,107
+Three: the blocker ring's cone presses on
+second gear.
+
+60
+00:04:51,107 --> 00:04:56,250
+Friction slows it, along with the
+countershaft, input shaft and clutch disc,
+
+61
+00:04:56,250 --> 00:04:59,500
+until it matches the output shaft's speed.
+
+62
+00:05:01,250 --> 00:05:05,536
+Four: speeds matched, the blocker ring
+lets the sleeve through,
+
+63
+00:05:05,536 --> 00:05:07,929
+onto second gear's dog teeth.
+
+64
+00:05:09,750 --> 00:05:11,036
+Five: clutch out.
+
+65
+00:05:11,036 --> 00:05:16,179
+The engine is reconnected at about
+eighteen hundred rpm: same road speed,
+
+66
+00:05:16,179 --> 00:05:17,286
+taller gear.
+
+67
+00:05:19,250 --> 00:05:24,214
+The propeller shaft carries the drive back
+to the rear axle.
+
+68
+00:05:25,750 --> 00:05:31,321
+There, a small pinion drives a large ring
+gear: ten teeth against forty-one,
+
+69
+00:05:31,321 --> 00:05:38,000
+a final drive ratio of 4.1 to 1, turning
+the drive through a right angle.
+
+70
+00:05:39,750 --> 00:05:43,607
+The ring gear is bolted to the
+differential case.
+
+71
+00:05:43,607 --> 00:05:47,464
+Inside, two spider gears mesh with two
+side gears,
+
+72
+00:05:47,464 --> 00:05:49,857
+one splined to each driveshaft.
+
+73
+00:05:51,250 --> 00:05:55,536
+Going straight, the spider gears don't
+spin on their pin.
+
+74
+00:05:55,536 --> 00:05:59,214
+Everything turns as one, and both wheels
+match.
+
+75
+00:06:00,250 --> 00:06:05,393
+In a turn, the outer wheel travels further
+than the inner one.
+
+76
+00:06:05,393 --> 00:06:08,821
+The spider gears now spin on their pin,
+
+77
+00:06:08,821 --> 00:06:12,679
+letting one side speed up as the other
+slows.
+
+78
+00:06:12,679 --> 00:06:16,786
+The case turns at the average of the two.
+
+79
+00:06:18,250 --> 00:06:22,107
+Each driveshaft has a constant-velocity
+joint at each end,
+
+80
+00:06:22,107 --> 00:06:27,500
+because the wheel moves up and down while
+the differential stays put.
+
+81
+00:06:28,750 --> 00:06:34,750
+In the outer joint, six balls run in
+grooves between inner and outer races.
+
+82
+00:06:34,750 --> 00:06:39,464
+A cage holds them in the plane that splits
+the angle,
+
+83
+00:06:39,464 --> 00:06:43,571
+so the wheel turns at exactly the shaft's
+speed.
+
+84
+00:06:45,250 --> 00:06:50,214
+The inner joint can also slide, as the
+shaft's length changes.
+
+85
+00:06:51,750 --> 00:06:57,571
+Finally, the wheel turns, the tire grips
+the road, and the car moves.
+
+86
+00:06:59,750 --> 00:07:02,143
+Let's put it all together.
+
+87
+00:07:03,750 --> 00:07:09,143
+Clutch up in first, and the engine pulls
+to three thousand rpm.
+
+88
+00:07:09,750 --> 00:07:16,000
+Clutch in, second gear, clutch out: the
+revs drop, and the car keeps accelerating.
+
+89
+00:07:16,750 --> 00:07:17,857
+Then third.
+
+90
+00:07:21,750 --> 00:07:25,179
+Engine, clutch, gearbox, final drive,
+differential, and driveshafts:
+
+91
+00:07:25,179 --> 00:07:29,714
+one chain of gears and shafts, turning
+fuel into motion.

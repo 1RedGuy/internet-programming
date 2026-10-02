@@ -42,3 +42,6 @@ Anchors: `propshaft`, `ujoint_front`, `ujoint_rear`, `pinion`, `ring_gear`, `dif
 `spider_gear`, `side_gear_left`, `side_gear_right`, `cross_pin`, `diff_housing`.
 `meta['power_path']`: ordered part names (propshaft -> pinion -> ring -> case -> spiders ->
 side gears -> stubs).
+Also publish `meta['power_groups'] = {'prop': [...propshaft part names...], 'diff': [...pinion,
+ring, case, spiders, side gears, stubs...]}` (used by carviz/assemblies/car.py for the
+power-path glow in scenes 1 and 8).
