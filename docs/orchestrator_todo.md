@@ -17,3 +17,8 @@ FACTS.md must reflect the as-built model:
 - Narration lines changed (s02.compression, s04.ratios, s04.synchro, s03.engaged, s03.slip,
   s07.plunge, s08.summary): update the narration->facts table (section 20) and section 21.
 - Slow-motion factors actually used per scene (from the scene modules) -> PRS section.
+- PRS-13 s08 row: built — real time (slowmo 1), Cycles motion blur shutter 0.5; road speed held
+  through each 2.2–2.6 s clutch-in so the engine locks at exactly 1787 / 2011 rpm (a real coast
+  would land ~50 rpm lower). Take-off: slip from 4.79 s, lock at 6.25 s (8.6 km/h, 1073 rpm).
+- state.status reads DISENGAGED whenever clutch capacity < 2 %, even if the speeds still differ.
+- s02: flywheel motion-blurred during the x85 firing beat (ring gear would strobe otherwise).
