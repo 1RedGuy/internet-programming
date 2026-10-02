@@ -4,6 +4,35 @@ hydraulic release (pedal -> master -> line -> slave -> fork -> release bearing).
     from carviz.assemblies import clutch
     C = clutch.build({"cutaway": ["none", "half"], "detail": "high"})
     C.drive(track, {"explode": ex, "variant": "half"})
+    # half-section of the spinning clutch (s03 'engaged'), seen from +X:
+    C = clutch.build({"cutaway": ["none", "half_px"], "section_rotating": True, "section_side": +1})
+    C.drive(track, {"variant": "half_px", "section": 1.0})
+
+Motion (everything from the Track, nothing hand-animated)
+---------------------------------------------------------
+disc = theta_in (abs angle; the gearbox spins the input shaft with theta_in, so the
+hub splines mesh), floats by -clutch_plate_lift/2 with the cushion key; cover, diaphragm,
+fulcrum, straps, pressure plate = theta_e; plate -Y by clutch_plate_lift; diaphragm tips
++Y by clutch_finger (shape keys); release bearing +Y by clutch_bearing, its race turns
+with theta_e; fork angle asin(clutch_bearing / FORK_CX); slave pushrod -Y by
+clutch_slave (= 1.655 x bearing, exact lever, both fork contacts held); master piston
++Y by clutch_master; pedal about +X by clutch_pedal_angle; pedal pushrod pinned at the
+clevis (50 mm from the pivot, 6:1) with its tip on the master axis: 1.87 mm free play to
+the piston at rest, 0.04-0.21 mm after the free play (pedal arc vs kin's linear law).
+Light contacts are modelled with a 0.04 mm gap (GAP) so collision checks stay clean:
+facings/flywheel/plate when clamped, rim/ridge, finger tips/bearing nose, fork/pads,
+fork/pushrod.  Pedal down: (1.8 - 0.65)/2 = 0.575 mm running clearance per facing
+(FACTS CLU-06; the 0.65 mm cushion springs back first).
+
+Layout used vs spec (meta['positions']; the spec values give a fork ratio ~1.1)
+---------------------------------------------------------------------------
+fork ball stud (-0.0697, -0.4092, 0.360) [spec (-0.060, -0.400, 0.360)], arms 69.7 :
+115.4 mm = RELEASE_FORK_RATIO_EFFECTIVE, fork turns about a vertical axis; slave axis
+x = -0.1851, z = 0.360, pushrod face y = -0.4041 at rest, body y -0.392..-0.348 (pushes
+REARWARD - first-class lever) [spec (-0.125, -0.415, 0.395)]; master axis z = 0.650
+(pushrod line 50 mm below the pedal pivot -> 6:1) [spec z 0.640, still inside the body's
+32 mm firewall hole]; release-bearing face y = -0.3751 [spec ~ -0.3842]; pipe/hose
+junction bracket on the firewall at (-0.245, -0.428, 0.505).
 
 Frame / origin
 --------------
@@ -75,10 +104,12 @@ Opts
 ``detail``   'high' (default) | 'low'
 ``hydraulic_cut``  bool (default False): half-pipe line pieces + brake-fluid cores
 ``section_rotating``  bool (default False): adds LIVE Boolean modifiers (static
-   half-space cutter, x < X_CRANK removed, red cut faces) to every rotating clutch
-   part, so a half-section of the spinning clutch can be shown (cut stays fixed in
-   space while the parts turn).  Expensive per frame (Manifold boolean on each part)
-   - only for section shots; toggled by presentation['section'].
+   half-space cutter ``clu_section_cutter``, red cut faces) to every rotating clutch
+   part (disc, damper springs, plate, straps, diaphragm, fulcrum, cover, bearing, race),
+   so a half-section of the spinning clutch can be shown (the cut stays fixed in space
+   while the parts turn).  ~0.3 s per frame (Manifold) - only for section shots; off
+   unless presentation['section'] = 1.  (The engine's flywheel needs the same modifier
+   with this cutter for a complete section: ``A.parts['section_cutter']``.)
 ``section_side``  -1 (default: x < X_CRANK removed, like the bellhousing cut) | +1
    (x > X_CRANK removed: unobstructed by fork / slave / hydraulics on the -X side)
 ``race_spin``  'always' (default, FACTS CLU-12: constant light contact) | 'contact'
@@ -90,20 +121,21 @@ spin/lift compose):  disc, pressure_plate (+straps), diaphragm_spring (+fulcrum)
 cover, release_bearing (+race, fork, ball stud, guide tube).  The engine's flywheel
 explodes by -0.10 m; these continue the sequence at ~65-80 mm spacing.
 
-Presentation keys (all optional; per-frame arrays or scalars)
-  explode   0..1
-  variant   'none' | 'half' | 'half_px' (or per-frame list): CONSTANT-keyed visibility
-            of the whole bellhousing vs its cut pieces
+Presentation keys (all optional; per-frame arrays or scalars).  Every drive() fully
+re-bakes explode, bellhousing visibility, section and hydraulic_cut (defaults below).
+  explode   0..1 (default 0)
+  variant   'none' | 'half' | 'half_px' (or per-frame list; default = first built
+            variant): CONSTANT-keyed visibility of the whole bellhousing vs its pieces
   removed   0..1 cv_opacity of the removed cutaway piece while 'half' is shown
             (default 0 = hidden)
   housing   0..1 cv_opacity of the (visible) bellhousing + its bolts (fade it away
             for exploded views; < 0.02 hides it)
-  section   0/1 enables the live section modifiers (opts['section_rotating'])
+  section   0/1 enables the live section modifiers (opts['section_rotating']; default 0)
   line_pulse  position 0..1 (master -> slave) of a glow pulse on the hydraulic line
             (cv_glow on the segments, their cut halves and fluid cores);
             line_pulse_width (default 0.12)
-  hydraulic_cut  0/1 (needs opts['hydraulic_cut']): show the half-pipe line pieces +
-            brake-fluid cores instead of the whole line
+  hydraulic_cut  0/1 (needs opts['hydraulic_cut']; default 0): show the half-pipe line
+            pieces + brake-fluid cores instead of the whole line
 
 meta
 ----
@@ -111,7 +143,9 @@ meta
   stations, car frame), positions (car-frame pivot/slave/master actually used vs
   spec), fork (lever data), diaphragm (geometry + contact radius), spline
   (disc hub spline n/d_major/d_minor/flank/fill), disc_angle (how the disc phase is
-  derived), explode_carriers, cutaway_pieces, shape_keys, variants, build_time.
+  derived), explode_carriers, cutaway_pieces, shape_keys, variants, rest (rest
+  locations of moved objects), section_modifiers, race_spin, n_pipe_segments,
+  build_time.
 
 Dimensions not in spec (typical 228 mm passenger-car clutch)
 ------------------------------------------------------------
@@ -119,10 +153,10 @@ facings 3.5 mm on a 1.4 mm cushion layer (12 wavy segments, 0.65 mm cushion trav
 18 radial grooves, 24 rivets per facing; hub 21 mm long, 23 splines 25.4 x 21.5 mm
 (30 deg flanks, = gearbox input shaft) on a 41 mm barrel; hub flange 4.5 mm; side plates 1.2 mm; damper
 springs 27 mm long, 13.3 mm OD on r = 53 mm; pressure plate ID 146 mm, fulcrum ridge
-r = 105.2 mm; diaphragm 2.3 mm thick, OD 217 mm, 12 deg cone, fulcrum circle
+r = 104.2 mm; diaphragm 2.3 mm thick, OD 217 mm, 12 deg cone, fulcrum circle
 r = 90 mm, finger tips r = 20.5 mm, 2.6 mm slots with 6 mm keyholes; cover 3.5 mm
-sheet; release bearing contact radius from the lever geometry (~26 mm); guide tube
-43 mm OD; slave 19.05 mm bore, master 15.87 mm bore (spec); 3/16 in steel line +
+sheet; release bearing contact radius from the lever geometry (27.3 mm on the
+fingers, nose torus r 26.1 x 2.5 mm); guide tube 43 mm OD (ID 35 mm, input shaft passes); slave 19.05 mm bore, master 15.87 mm bore (spec); 3/16 in steel line +
 10 mm rubber hose; pedal clevis 50 mm from the pivot (6:1 with the 300 mm arm).
 """
 from __future__ import annotations
