@@ -249,13 +249,6 @@ GAUGE_Z = 0.0605                  # tick centre above the tulip axis (tulip OD 9
 GAUGE_SIZE = (0.0012, 0.0012, 0.013)             # motion-blur shutter (frames): slow motion / real time
 
 
-def _key_curve(t, keys):
-    c = state.Curve()
-    for k in keys:
-        c.key(*k)
-    return c(t)
-
-
 def _sweep(t, opn, cls):
     """Cutter plane offset (m along +Y from the joint centre): SWEEP_FROM = closed
     (plane behind the part), 0 = section through the joint centre."""
@@ -358,7 +351,6 @@ def build(quality: str) -> scenebase.SceneBuild:
                    "body": {"detail": det}})
     W = C.sub["wheels"]
     A = C.sub.get("axle")
-    B = C.sub.get("body")
     studio = lighting.setup_studio("road", follow=C.root, key_azimuth=30.0)
     lighting.setup_color_management(sc)
 
