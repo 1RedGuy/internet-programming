@@ -97,20 +97,71 @@ def stroke_of(theta, cyl):
     return 2, "power", 0.0
 
 
-def _lift(phi, open_deg, close_deg, lmax):
-    phi = np.asarray(phi, dtype=float)
-    span = close_deg - open_deg
-    u = (phi - open_deg) / span
-    inside = (u > 0) & (u < 1)
-    return np.where(inside, lmax * np.sin(PI * np.clip(u, 0, 1)) ** 2, 0.0)
+def _arccam(Rb, L, rn, ad):
+    """Three-arc cam (base Rb, flank arcs, nose rn) with lift L and half duration
+    ad (cam rad).  Returns (rf, F, N, beta_t): flank radius, flank centre (+ side),
+    nose centre, flank/nose transition angle.  A flat (bucket) tappet can only
+    follow convex cams, which is why the lift law comes from cam geometry rather
+    than an arbitrary smooth curve."""
+    dn = Rb + L - rn
+
+    def f(rf):
+        lhs = -(rf - Rb) * math.cos(ad)
+        rhs = (dn * dn - (rf - rn) ** 2 + (rf - Rb) ** 2) / (2 * dn)
+        return lhs - rhs
+    lo, hi = Rb + 1e-7, 10.0
+    flo = f(lo)
+    for _ in range(200):
+        m = 0.5 * (lo + hi)
+        fm = f(m)
+        if flo * fm <= 0:
+            hi = m
+        else:
+            lo, flo = m, fm
+    rf = 0.5 * (lo + hi)
+    F = -(rf - Rb) * np.array([math.cos(ad), math.sin(ad)])
+    N = np.array([dn, 0.0])
+    u = (N - F) / np.linalg.norm(N - F)
+    return rf, F, N, abs(math.atan2(u[1], u[0]))
+
+
+_CAMGEO = {}
+
+
+def cam_geometry(kind):
+    """Geometry of the intake/exhaust lobe (same events and peak lift as spec)."""
+    g = _CAMGEO.get(kind)
+    if g is None:
+        span = (S.IVC_DEG - S.IVO_DEG) if kind == "intake" else (S.EVC_DEG - S.EVO_DEG)
+        lift = S.VALVE_LIFT_INTAKE if kind == "intake" else S.VALVE_LIFT_EXHAUST
+        ad = math.radians(span / 2.0) / 2.0          # half duration in CAM radians
+        rf, F, N, bt = _arccam(S.CAM_BASE_RADIUS, lift, S.CAM_NOSE_RADIUS, ad)
+        g = dict(Rb=S.CAM_BASE_RADIUS, L=lift, rn=S.CAM_NOSE_RADIUS, ad=ad, rf=rf, F=F, N=N, bt=bt)
+        _CAMGEO[kind] = g
+    return g
+
+
+def cam_support(beta, kind):
+    """Support function h(beta): distance from cam centre to the flat bucket face
+    when the follower direction makes angle beta (cam rad) with the nose."""
+    g = cam_geometry(kind)
+    b = np.abs(np.asarray(beta, dtype=float))
+    b = np.where(b > PI, TAU - b, b)
+    h_nose = g["N"][0] * np.cos(b) + g["rn"]
+    h_fl = g["F"][0] * np.cos(b) + g["F"][1] * np.sin(b) + g["rf"]
+    return np.where(b <= g["bt"], h_nose, np.where(b <= g["ad"], h_fl, g["Rb"]))
 
 
 def valve_lift(theta, cyl, kind):
-    """Valve lift (m) for kind 'intake'|'exhaust' at crank angle theta."""
+    """Valve lift (m) for kind 'intake'|'exhaust' at crank angle theta.
+
+    Flat-tappet three-arc cam: opens at IVO/EVO, closes at IVC/EVC, peak lift
+    from spec at the lobe centreline (cam turns at half crank speed)."""
     phi = cycle_angle_deg(theta, cyl)
-    if kind == "intake":
-        return _lift(phi, S.IVO_DEG, S.IVC_DEG, S.VALVE_LIFT_INTAKE)
-    return _lift(phi, S.EVO_DEG, S.EVC_DEG, S.VALVE_LIFT_EXHAUST)
+    pk = valve_peak_cycle_deg(kind)
+    d = (np.asarray(phi) - pk + 360.0) % 720.0 - 360.0       # crank deg from peak
+    beta = np.radians(d) / 2.0                                # cam rad from nose
+    return np.maximum(cam_support(beta, kind) - S.CAM_BASE_RADIUS, 0.0)
 
 
 def valve_peak_cycle_deg(kind):
@@ -134,30 +185,14 @@ def cam_lobe_psi(cyl, kind, valve_dir_psi=-PI / 2):
     return valve_dir_psi - cam_angle(theta_peak)
 
 
-def cam_profile(kind, base_radius, n=180):
-    """Polar lobe profile consistent with valve_lift: list of (angle_from_nose, r).
-
-    angle measured in cam degrees; crank offset from peak = 2 * cam offset.
-    (Flat-tappet geometry ignored: radial lift = valve lift.)
-    """
-    peak = valve_peak_cycle_deg(kind)
-    out = []
-    for i in range(n):
-        a = -PI + TAU * i / n
-        phi = peak + math.degrees(-2 * a)
-        lift = float(_lift(np.array(phi), *((S.IVO_DEG, S.IVC_DEG, S.VALVE_LIFT_INTAKE) if kind == "intake"
-                                           else (S.EVO_DEG, S.EVC_DEG, S.VALVE_LIFT_EXHAUST))))
-        out.append((a, base_radius + lift))
-    return out
-
-
 def sprocket_pitch_radius(z, pitch=S.CHAIN_PITCH):
     return pitch / (2.0 * math.sin(PI / z))
 
 
 def chain_travel(theta_crank):
-    """Arc length (m) the timing chain has moved for a crank angle."""
-    return theta_crank * sprocket_pitch_radius(S.CRANK_SPROCKET_TEETH)
+    """Distance (m) the timing chain has moved for a crank angle: a roller chain
+    advances exactly z*p per sprocket revolution (not the pitch-circle arc)."""
+    return np.asarray(theta_crank) * S.CRANK_SPROCKET_TEETH * S.CHAIN_PITCH / TAU
 
 
 def spark(theta, cyl, width_deg=8.0):

@@ -123,20 +123,17 @@ installed (7 coils, 3.6 mm wire), head gasket 1.2 mm MLS, single-row 3/8" roller
 (06B: roller 6.35 mm, inner width 5.72 mm) with curved guide/tensioner shoes (R 1.4 m),
 poly-V accessory belt (damper 153 mm, water pump 100 mm, alternator 62 mm, idler 66 mm).
 
-Deviations from shared modules (requested changes are listed in the report)
--------------------------------------------------------------------------
-* cam centre spacing: two 42T 3/8" sprockets have a 132.8 mm tip diameter, so the spec's
-  130 mm spacing would make them clash.  CAM_SPACING is the smallest spacing >= tip
-  diameter + 2 mm for which the chain loop is an exact even number of pitches with a
-  6 mm tensioner push: 135.5 mm (126 links).
-* chain travel: a roller chain advances exactly z*p per sprocket turn, i.e. z*p/(2pi) per
-  radian, not pitch radius * angle (kin.chain_travel drifts 0.037 link per crank turn);
-  ``chain_travel`` below uses the exact law, roller centres run on R_eff = z*p/(2pi).
-* valve lift: kin.valve_lift (sin^2 over 240 deg) cannot be produced by a flat bucket
-  tappet (needs a negative nose radius: ~3.4 mm interference or gap).  Valves follow
-  ``valve_lift_ft`` - a classic three-arc flat-tappet cam (base circle 18 mm, nose radius
-  5 mm, flank radius ~114/97 mm) with the SAME opening/closing angles and peak lift as
-  spec/kin; the lobes are exactly that cam, so the bucket rides on the lobe at every angle.
+Kinematic laws (shared with carviz.kin, which now holds them)
+-------------------------------------------------------------
+* cam centre spacing: spec.CAM_CENTRE_SPACING = 135.52 mm, the smallest spacing at which two
+  42T 3/8" sprockets (132.8 mm tip diameter) clear and the chain loop is an exact even
+  number of pitches (126 links) with a 6 mm tensioner push.
+* chain travel: a roller chain advances exactly z*p per sprocket turn (kin.chain_travel);
+  roller centres run on R_eff = z*p/(2pi).
+* valve lift: a flat bucket tappet can only follow a convex cam, so the lift law is the
+  classic three-arc cam (kin.valve_lift / kin.cam_support: base circle 18 mm, nose radius
+  5 mm, flank radius ~114/97 mm) with spec's opening/closing angles and peak lift; the
+  lobes are exactly that cam, so the bucket rides on the lobe at every angle.
 """
 from __future__ import annotations
 
@@ -203,8 +200,8 @@ VALVE_Y = 19.5 * MM                # valve pair half spacing (y)
 VALVE_HEAD_R = {"intake": S.INTAKE_VALVE_HEAD_D / 2, "exhaust": S.EXHAUST_VALVE_HEAD_D / 2}
 VALVE_LIFT = {"intake": S.VALVE_LIFT_INTAKE, "exhaust": S.VALVE_LIFT_EXHAUST}
 STEM_R = 3.0 * MM
-CAM_BASE_R = 18.0 * MM
-CAM_NOSE_R = 5.0 * MM
+CAM_BASE_R = S.CAM_BASE_RADIUS
+CAM_NOSE_R = S.CAM_NOSE_RADIUS
 CAM_LASH = 0.05 * MM               # running clearance cam <-> bucket (never touches)
 BUCKET_R = {"intake": 18.5 * MM, "exhaust": 18.0 * MM}
 BUCKET_H, BUCKET_CROWN = 26.0 * MM, 4.5 * MM
@@ -249,9 +246,7 @@ GAS_KINDS = ("intake", "compressed", "burning", "exhaust")
 # Pure kinematics (no bpy needed)
 # ===========================================================================
 
-def chain_travel(theta):
-    """Exact roller-chain travel (m) for crank angle theta: z*p per crank turn."""
-    return np.asarray(theta) * S.CRANK_SPROCKET_TEETH * CHAIN_P / TAU
+chain_travel = kin.chain_travel          # exact roller-chain law (z*p per turn), lives in kin
 
 
 def _r_eff(z):
@@ -261,68 +256,11 @@ def _r_eff(z):
 
 # --- flat-tappet three-arc cam ---------------------------------------------
 
-def _arccam(Rb, L, rn, ad):
-    """Three-arc cam (base Rb, flank arcs, nose rn) with lift L, half duration ad
-    (cam rad).  Returns (rf, F, N, beta_t): flank radius, flank centre (+ side),
-    nose centre, flank/nose transition angle."""
-    dn = Rb + L - rn
-
-    def f(rf):
-        lhs = -(rf - Rb) * math.cos(ad)
-        rhs = (dn * dn - (rf - rn) ** 2 + (rf - Rb) ** 2) / (2 * dn)
-        return lhs - rhs
-    lo, hi = Rb + 1e-7, 10.0
-    flo = f(lo)
-    for _ in range(200):
-        m = 0.5 * (lo + hi)
-        fm = f(m)
-        if flo * fm <= 0:
-            hi = m
-        else:
-            lo, flo = m, fm
-    rf = 0.5 * (lo + hi)
-    F = -(rf - Rb) * np.array([math.cos(ad), math.sin(ad)])
-    N = np.array([dn, 0.0])
-    u = (N - F) / np.linalg.norm(N - F)
-    return rf, F, N, abs(math.atan2(u[1], u[0]))
-
-
-_CAMGEO = {}
-
-
-def cam_geometry(kind):
-    g = _CAMGEO.get(kind)
-    if g is None:
-        if kind == "intake":
-            span = S.IVC_DEG - S.IVO_DEG
-        else:
-            span = S.EVC_DEG - S.EVO_DEG
-        ad = math.radians(span / 2.0) / 2.0          # half duration in CAM radians
-        rf, F, N, bt = _arccam(CAM_BASE_R, VALVE_LIFT[kind], CAM_NOSE_R, ad)
-        g = dict(Rb=CAM_BASE_R, L=VALVE_LIFT[kind], rn=CAM_NOSE_R, ad=ad, rf=rf, F=F, N=N, bt=bt)
-        _CAMGEO[kind] = g
-    return g
-
-
-def cam_support(beta, kind):
-    """Support function h(beta) of the lobe (distance cam centre -> bucket face when
-    the follower direction makes angle beta with the nose)."""
-    g = cam_geometry(kind)
-    b = np.abs(np.asarray(beta, dtype=float))
-    b = np.where(b > PI, TAU - b, b)
-    h_nose = g["N"][0] * np.cos(b) + g["rn"]
-    h_fl = g["F"][0] * np.cos(b) + g["F"][1] * np.sin(b) + g["rf"]
-    return np.where(b <= g["bt"], h_nose, np.where(b <= g["ad"], h_fl, g["Rb"]))
-
-
-def valve_lift_ft(theta, cyl, kind):
-    """Valve lift (m) of the flat-tappet cam for crank angle theta (same events and
-    peak as kin.valve_lift; fuller curve because a bucket tappet needs it)."""
-    phi = kin.cycle_angle_deg(theta, cyl)
-    pk = kin.valve_peak_cycle_deg(kind)
-    d = (np.asarray(phi) - pk + 360.0) % 720.0 - 360.0       # crank deg from peak
-    beta = np.radians(d) / 2.0                                # cam rad from nose
-    return np.maximum(cam_support(beta, kind) - CAM_BASE_R, 0.0)
+# Cam law lives in carviz.kin (single source of truth): three-arc flat-tappet cam.
+_arccam = kin._arccam
+cam_geometry = kin.cam_geometry
+cam_support = kin.cam_support
+valve_lift_ft = kin.valve_lift      # kept name for compatibility
 
 
 def cam_outline(kind, n=200, lash=CAM_LASH):
@@ -2002,7 +1940,7 @@ def _spark_material():
     nt.links.new(lw.outputs["Facing"], inv.inputs[1])
     em = nt.nodes.new("ShaderNodeEmission")
     em.inputs["Color"].default_value = (0.70, 0.82, 1.0, 1.0)
-    em.inputs["Strength"].default_value = 60.0
+    em.inputs["Strength"].default_value = 120.0
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(inv.outputs[0], mix.inputs[0])
@@ -2026,7 +1964,7 @@ def _spark_material():
 
 def _build_spark(c):
     bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=_seg(16), v_segments=_seg(12), radius=0.0034)
+    bmesh.ops.create_uvsphere(bm, u_segments=_seg(16), v_segments=_seg(12), radius=0.0045)
     bmesh.ops.translate(bm, vec=Vector((0.0, Y_CYL[c - 1], _plug_z() - 0.0031)), verts=bm.verts[:])
     me = bpy.data.meshes.new(_nm(f"spark{c}"))
     bm.to_mesh(me)

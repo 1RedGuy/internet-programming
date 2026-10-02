@@ -154,6 +154,14 @@ def _hood_top(z_c, xs, edge_drop=0.028):
     return dict(kind="hood", pts=pts)
 
 
+def _hood_top_front(z_c, xs):
+    """Top for the front-fender rows: crisp fender crown, the hood sitting
+    slightly lower between the fenders (shut-line valley), crowned centre."""
+    pts = [(xs - 0.080, z_c + 0.006), (xs - 0.150, z_c - 0.006), (0.50, z_c - 0.001),
+           (0.34, z_c + 0.006), (0.17, z_c + 0.012), (0.0, z_c + 0.014)]
+    return dict(kind="hood", pts=pts, corner_in=0.028, corner_up=0.028)
+
+
 def _gh_top(xg, zg, xr, zr, z_roof):
     """Top for greenhouse rows: glass base (xg, zg), roof rail (xr, zr),
     roof centre z_roof."""
@@ -171,17 +179,18 @@ def shell_cage():
     r0 = np.array([
         (0.000, 0.800, 0.268), (0.160, 0.798, 0.268), (0.320, 0.788, 0.270), (0.470, 0.765, 0.274),
         (0.600, 0.728, 0.280), (0.700, 0.675, 0.288), (0.765, 0.615, 0.300),
-        (0.786, 0.605, 0.390), (0.794, 0.606, 0.500), (0.793, 0.606, 0.600), (0.784, 0.601, 0.690),
-        (0.756, 0.598, 0.748),
-        (0.690, 0.678, 0.766), (0.590, 0.733, 0.774), (0.470, 0.767, 0.779), (0.330, 0.790, 0.782),
-        (0.165, 0.802, 0.784), (0.000, 0.806, 0.785)])
+        (0.786, 0.605, 0.390), (0.794, 0.606, 0.500), (0.793, 0.606, 0.590), (0.782, 0.602, 0.665),
+        (0.752, 0.600, 0.718),
+        (0.690, 0.683, 0.728), (0.590, 0.738, 0.731), (0.470, 0.772, 0.736), (0.330, 0.795, 0.740),
+        (0.165, 0.808, 0.743), (0.000, 0.812, 0.744)])
     rows.append(r0)
     # --- body rows: y, xs, z_low, zb, z_sh, top
     defs = []
-    defs.append((0.50, 0.858, 0.285, 0.272, 0.800, _hood_top(0.840, 0.858)))
-    defs.append((0.28, 0.879, 0.235, 0.210, 0.838, _hood_top(0.878, 0.879)))
-    defs.append((0.00, 0.881, 0.200, 0.180, 0.860, _hood_top(0.905, 0.881)))
-    defs.append((-0.34, 0.879, 0.190, 0.170, 0.872, _hood_top(0.935, 0.879)))
+    # front fender rows: wedge (hood falls ~11 deg toward the nose), crisp fender crowns
+    defs.append((0.50, 0.858, 0.285, 0.272, 0.775, _hood_top_front(0.800, 0.858)))
+    defs.append((0.28, 0.879, 0.235, 0.210, 0.815, _hood_top_front(0.850, 0.879)))
+    defs.append((0.00, 0.881, 0.200, 0.180, 0.845, _hood_top_front(0.890, 0.881)))
+    defs.append((-0.34, 0.879, 0.190, 0.170, 0.866, _hood_top_front(0.926, 0.879)))
     # cowl (windscreen base): greenhouse collapsed onto the cowl
     cowl = dict(kind="cowl", pts=[(0.795, 0.952), (0.760, 0.956), (0.715, 0.960), (0.52, 0.958),
                                   (0.27, 0.957), (0.0, 0.957)], corner_in=0.045, corner_up=0.03)
@@ -281,14 +290,14 @@ def shell_cage():
         return G
 
     def front_y(z):
-        return float(np.interp(z, [0.27, 0.36, 0.48, 0.59, 0.68, 0.785],
-                               [0.80, 0.860, 0.878, 0.872, 0.850, 0.806]))
+        return float(np.interp(z, [0.27, 0.36, 0.47, 0.57, 0.655, 0.744],
+                               [0.80, 0.860, 0.877, 0.873, 0.857, 0.814]))
 
     def front_set(x):
         return float(np.interp(x, [0, 0.15, 0.30, 0.45, 0.58, 0.70, 0.80],
                                [0, 0.006, 0.022, 0.050, 0.092, 0.150, 0.230]))
 
-    Gf = cap(ring_idx[0], front_y, front_set, (0.36, 0.48, 0.59, 0.69), 0.0)
+    Gf = cap(ring_idx[0], front_y, front_set, (0.36, 0.47, 0.57, 0.655), 0.0)
 
     def rear_y(z):
         return float(np.interp(z, [0.33, 0.45, 0.60, 0.76, 0.90, 1.03],
@@ -317,9 +326,10 @@ def shell_cage():
     col_crease(10, 0, len(rows) - 1, 0.85)      # shoulder line
     row_crease(5, 12, NC, 1.0)                    # cowl / windscreen base
     row_crease(12, 12, NC, 0.9)                   # rear screen base
-    row_crease(0, 11, NC, 0.75)                   # hood leading edge
+    row_crease(0, 11, NC, 0.90)                   # hood leading edge
     row_crease(len(rows) - 1, 11, NC, 0.85)       # boot lid trailing edge
-    col_crease(11, 0, 5, 0.45)                    # front fender top edge (hood shut-line side)
+    col_crease(11, 0, 5, 0.75)                    # front fender shoulder (crisp)
+    col_crease(12, 0, 5, 0.35)                    # front fender crown
     col_crease(11, 11, len(rows) - 1, 0.45)       # rear fender top edge (boot side)
     col_crease(7, 1, len(rows) - 2, 0.40)         # sill / rocker crease
     meta = dict(rows=len(rows), ring_idx=ring_idx, cap_front=Gf, cap_rear=Gr)
@@ -735,14 +745,27 @@ def _mirror_x(P):
     return P
 
 
+LAMP_X_IN = 0.357        # headlamp inner end (front view)
+LAMP_Z_BOT = 0.666       # headlamp lower edge (front view)
+GRILLE_POLY = [(-0.268, 0.514), (0.268, 0.514), (0.330, 0.703), (-0.330, 0.703)]   # front view (x, z)
+INTAKE_POLY = [(-0.520, 0.335), (0.520, 0.335), (0.468, 0.458), (-0.468, 0.458)]
+CORNER_VENT = [(0.560, 0.345), (0.700, 0.362), (0.684, 0.468), (0.512, 0.468)]   # right side, front view
+
+
+def _hood_gap_z(x):
+    """Height of the hood front shut line on the nose (front view)."""
+    return 0.724 - 0.014 * (x / 0.8) ** 2
+
+
 def _lamp_outlines(bvh):
     """3D outlines of the right headlight and right tail light (on the shell)."""
+    zt = lambda x: _hood_gap_z(x) + 0.005          # noqa: E731  lamp top just above the hood gap
     head = _outline3d(bvh, [
-        ("y+", [(0.366, 0.652), (0.356, 0.724)]),
-        ("y+", [(0.46, 0.738), (0.58, 0.745), (0.68, 0.747)]),
-        ("x+", [(0.545, 0.755), (0.480, 0.750), (0.432, 0.733)]),
-        ("x+", [(0.455, 0.700), (0.520, 0.664)]),
-        ("y+", [(0.70, 0.650), (0.58, 0.644), (0.46, 0.644)]),
+        ("y+", [(LAMP_X_IN, LAMP_Z_BOT), (LAMP_X_IN, zt(LAMP_X_IN))]),
+        ("y+", [(x, zt(x)) for x in (0.45, 0.55, 0.65, 0.73)]),
+        ("x+", [(0.580, 0.716), (0.540, 0.711), (0.505, 0.700)]),
+        ("x+", [(0.520, 0.686), (0.565, 0.672)]),
+        ("y+", [(0.73, LAMP_Z_BOT), (0.60, LAMP_Z_BOT), (0.47, LAMP_Z_BOT)]),
     ])
     tail = _outline3d(bvh, [
         ("y-", [(0.386, 0.806), (0.384, 0.958)]),
@@ -768,10 +791,15 @@ def _gap_curves():
         # rear door rear edge with the dog-leg around the rear arch
         g.append((view, [(-2.80, 1.06), (-2.765, 0.86), (-2.70, 0.735), (-2.55, 0.690), (-2.40, 0.625),
                          (-2.29, 0.520), (-2.235, 0.400), (-2.2285, 0.2905)], False))
-        # front bumper upper edge around the corner: under the headlight -> front arch
+        # front bumper upper edge: along the headlamp's lower edge, around the corner, into the arch
+        zb = LAMP_Z_BOT - 0.0005
+        g.append(("y+", [(sgn * LAMP_X_IN, zb), (sgn * 0.55, zb), (sgn * 0.70, zb), (sgn * 0.78, zb)], False))
         g.append((("polar", (sgn * 0.30, 0.25)),
-                  [(0.0, 0.630), (25, 0.630), (45, 0.630), (60, 0.632), (72, 0.636), (82, 0.630),
-                   (90, 0.612), (97, 0.585), (104, 0.555), (112, 0.52), (122, 0.48)], False))
+                  [(40.0, zb), (50, zb), (58, zb - 0.002), (66, zb - 0.010), (74, zb - 0.024), (82, 0.625),
+                   (90, 0.605), (97, 0.580), (104, 0.552), (112, 0.52), (122, 0.48)], False))
+        # bumper / lamp junction at the lamp's inner end (closes the bumper's top edge)
+        g.append(("y+", [(sgn * (LAMP_X_IN + 0.0012), LAMP_Z_BOT - 0.008),
+                         (sgn * (LAMP_X_IN + 0.0012), _hood_gap_z(LAMP_X_IN) + 0.007)], False))
         # rear bumper upper edge around the corner: under the tail light -> rear arch
         g.append((("polar", (sgn * 0.30, -3.10)),
                   [(180.0, 0.772), (155, 0.772), (135, 0.772), (118, 0.770), (105, 0.762), (95, 0.738),
@@ -789,11 +817,9 @@ def _gap_curves():
     g.append(("x+", list(map(tuple, fl)), True))
     # hood shut lines (top view) and hood front edge (front view)
     for s in (1, -1):
-        g.append(("z", [(s * 0.718, -0.60), (s * 0.722, -0.20), (s * 0.722, 0.20), (s * 0.705, 0.45),
-                        (s * 0.672, 0.62), (s * 0.640, 0.70)], False))
-    g.append(("y+", [(-0.80, 0.756), (-0.40, 0.760), (0.0, 0.762), (0.40, 0.760), (0.80, 0.756)], False))
-    # front bumper top edge (front view, below headlights + grille)
-    g.append(("y+", [(-0.31, 0.630), (0.0, 0.630), (0.31, 0.630)], False))
+        g.append(("z", [(s * 0.728, -0.60), (s * 0.732, -0.20), (s * 0.730, 0.20), (s * 0.716, 0.45),
+                        (s * 0.700, 0.58), (s * 0.688, 0.66), (s * 0.682, 0.688)], False))
+    g.append(("y+", [(x, _hood_gap_z(x)) for x in np.linspace(-0.80, 0.80, 17)], False))
     # boot lid: side lines (top view) + rear-face outline (rear view)
     for s in (1, -1):
         g.append(("z", [(s * 0.640, -3.17), (s * 0.650, -3.30), (s * 0.655, -3.42), (s * 0.650, -3.50)],
@@ -805,9 +831,6 @@ def _gap_curves():
     g.append(("y-", [(-0.31, 0.772), (0.0, 0.772), (0.31, 0.772)], False))
     g.append(("y-", [(-0.31, 0.415), (0.0, 0.415), (0.31, 0.415)], False))
     g.append(("y+", [(-0.31, 0.305), (0.0, 0.305), (0.31, 0.305)], False))
-    # front licence-plate mount outline (above the intake)
-    pf = _round_poly([(-0.262, 0.484), (0.262, 0.484), (0.262, 0.597), (-0.262, 0.597)], 0.012, 4)
-    g.append(("y+", list(map(tuple, pf)), True))
     # licence-plate recess outline on the boot lid
     pl = _round_poly([(-0.262, 0.842), (0.262, 0.842), (0.262, 0.952), (-0.262, 0.952)], 0.012, 4)
     g.append(("y-", list(map(tuple, pl)), True))
@@ -873,16 +896,19 @@ def _openings(bvh):
             me = _prism(uv, O, U, V, Nn, 0.35, 0.35)
             cut.append(me.copy())
             ins.setdefault(kind, []).append(me)
-    # fog lamps in the bumper corners (front view)
+    # corner vents in the bumper corners (black ducts carrying the fog lamps),
+    # projected along the corner's diagonal so the wrap is cut cleanly
     for sgn in (1, -1):
-        a = np.linspace(0, 2 * math.pi, 40, endpoint=False)
-        poly = np.stack([sgn * 0.592 + 0.040 * np.cos(a), 0.400 + 0.034 * np.sin(a)], axis=1)
-        me = _prism(poly, (0, 0.40, 0), (1, 0, 0), (0, 0, 1), (0, 1, 0), 0.0, 0.80)
+        P3 = _outline3d(bvh, [("y+", [(sgn * x, z) for (x, z) in CORNER_VENT])])
+        Nv = np.array([sgn * 0.40, 1.0, 0.0])
+        uv, O, U, V = _plane_poly(P3, Nv)
+        uv = _round_poly(uv, 0.014, 4)
+        me = _prism(uv, O, U, V, Nv / np.linalg.norm(Nv), 0.35, 0.35)
         cut.append(me.copy())
-        ins.setdefault("fog", []).append(me)
+        ins.setdefault("vent", []).append(me)
     # grille + lower intake (front view, along -Y)
-    grille = _round_poly([(-0.275, 0.645), (0.275, 0.645), (0.292, 0.738), (-0.292, 0.738)], 0.022, 5)
-    intake = _round_poly([(-0.500, 0.330), (0.500, 0.330), (0.450, 0.462), (-0.450, 0.462)], 0.038, 6)
+    grille = _round_poly(GRILLE_POLY, [0.040, 0.040, 0.022, 0.022], 6)
+    intake = _round_poly(INTAKE_POLY, 0.035, 6)
     for poly, kind in ((grille, "grille"), (intake, "intake")):
         me = _prism(poly, (0, 0.40, 0), (1, 0, 0), (0, 0, 1), (0, 1, 0), 0.0, 0.80)
         cut.append(me.copy())
@@ -1144,7 +1170,7 @@ def build_shell_meshes(detail="high", log=None):
 # Materials (shared library first; local look-dev materials for things the
 # shared table does not have - lamp lenses, upholstery, headliner, LED guides)
 # ---------------------------------------------------------------------------
-_LOCAL_VERSION = 5
+_LOCAL_VERSION = 6
 
 
 def _mat(name):
@@ -1272,6 +1298,8 @@ def _local_mat(name):
         "body_gloss_black": (lambda: principled((0.006, 0.006, 0.007), 0.08, coat=1.0), (0.02, 0.02, 0.02, 1),
                              (1, 1, 1)),
         "body_grey_trim": (lambda: principled((0.10, 0.10, 0.105), 0.45), (0.12, 0.12, 0.13, 1), (1, 1, 1)),
+        "body_lamp_silver": (lambda: principled((0.62, 0.63, 0.65), 0.22, metallic=1.0), (0.6, 0.6, 0.62, 1),
+                             (1, 1, 1)),
         "body_xray_line": (lambda: emission((0.70, 0.82, 1.0), 1.6), (0.7, 0.82, 1.0, 1), (0.7, 0.82, 1.0)),
     }[name]
     sh = spec[0]()
@@ -1668,23 +1696,34 @@ def _lamp_unit(acc_lens, acc_body, lens_me, outward, kind, mats):
         return float((P[k] - c) @ A)
 
     if kind == "front":
-        # two projector modules: chrome bowl + clear lens + black ring
+        # two compact projector modules (chrome bowl, clear condenser lens, black
+        # bezel ring) in a silver reflector housing - they read through the clear lens
         span = u1 - u0
-        for frac, rad in ((0.30, 0.034), (0.62, 0.030)):
+        vv = 0.5 * (v0 + v1) - 0.002
+        rad = 0.42 * (v1 - v0)
+        for frac in (0.20, 0.42):
             u = u0 + frac * span if outward[0] > 0 else u1 - frac * span
-            vv = 0.5 * (v0 + v1) - 0.004
-            a0 = surf_depth(u, vv) - 0.045
+            a0 = surf_depth(u, vv) - 0.030
             org = c + U * u + V * vv + A * a0
-            bowl = [(0.0, -0.040), (rad * 0.55, -0.036), (rad * 0.9, -0.022), (rad * 1.15, 0.0),
-                    (rad * 1.18, 0.004)]
+            bowl = [(0.0, -0.040), (rad * 0.55, -0.036), (rad * 0.9, -0.022), (rad * 1.10, 0.0),
+                    (rad * 1.14, 0.003)]
             Vb, Fb = _lathe_vf(bowl, 28, axis=A, origin=org)
             acc_body.add(Vb, Fb, m_chrome)
-            Vl, Fl = _lathe_vf([(0.0, 0.018), (rad * 0.55, 0.016), (rad * 0.62, 0.010), (rad * 0.62, 0.0),
+            Vl, Fl = _lathe_vf([(0.0, 0.014), (rad * 0.55, 0.012), (rad * 0.66, 0.007), (rad * 0.66, 0.0),
                                 (0.0, 0.0)], 24, axis=A, origin=org)
             acc_lens.add(Vl, Fl, m_lens)
-            Vr, Fr = _lathe_vf([(rad * 0.62, 0.012), (rad * 0.80, 0.010), (rad * 0.80, -0.004),
-                                (rad * 0.62, -0.004)], 24, axis=A, origin=org)
-            acc_body.add(Vr, Fr, m_house)
+            Vr, Fr = _lathe_vf([(rad * 0.66, 0.009), (rad * 0.86, 0.008), (rad * 0.86, -0.004),
+                                (rad * 0.66, -0.004)], 24, axis=A, origin=org)
+            acc_body.add(Vr, Fr, m_inner)
+        # small chrome reflector bowls in the outer (wrapped) part of the lamp
+        for frac in (0.66, 0.80):
+            u = u0 + frac * span if outward[0] > 0 else u1 - frac * span
+            a0 = surf_depth(u, vv) - 0.022
+            org = c + U * u + V * vv + A * a0
+            r2 = 0.75 * rad
+            Vb, Fb = _lathe_vf([(0.0, -0.022), (r2 * 0.6, -0.019), (r2, -0.008), (r2 * 1.1, 0.0)], 20,
+                               axis=A, origin=org)
+            acc_body.add(Vb, Fb, m_chrome)
         # LED daytime-running light guide along the upper edge of the lens
         sel = pv > (v0 + 0.62 * (v1 - v0))
         idx = np.nonzero(sel)[0]
@@ -1706,10 +1745,10 @@ def _lamp_unit(acc_lens, acc_body, lens_me, outward, kind, mats):
             if len(Q) > 3:
                 Vt, Ft = _tube_vf(Q, 0.0042, 10)
                 acc_body.add(Vt, Ft, m_led)
-        # chrome inner bezel (visible behind the clear lens)
-        Vz, Fz = _sweep(P - A * 0.03, N, [(-0.016, -0.001), (-0.004, 0.0), (-0.004, -0.004), (-0.016, -0.005)],
+        # dark inner bezel just inside the lens edge (frames the lamp, like real units)
+        Vz, Fz = _sweep(P - A * 0.012, N, [(-0.007, -0.001), (-0.002, 0.0), (-0.002, -0.004), (-0.007, -0.005)],
                         B=B)
-        acc_body.add(Vz, Fz, m_chrome)
+        acc_body.add(Vz, Fz, m_inner)
     else:
         # rear: chrome reflector strip + LED light guide following the outline
         Q = P - B * 0.012 - A * 0.018
@@ -1752,27 +1791,47 @@ def _antenna(acc, bvh, mat):
     acc.add(V, F, mat)
 
 
-def _fog_lamps(acc, fog_me, mats):
-    m_lens, m_house, m_chrome = mats
-    for piece in _islands_of(fog_me):
-        _offset_mesh(piece, -0.002)
-        acc.add_mesh(piece, m_lens)
-        P = _verts(piece)
-        c = P.mean(axis=0)
-        _, nn = _face_centres_normals(piece)
-        ax = nn.mean(axis=0)
+def _corner_vents(acc_trim, acc_lamp, bvh, vent_me, trim_mats, lamp_mats):
+    """Black corner vents (duct + horizontal bar) with a round fog lamp set
+    back inside each one."""
+    m_black, m_gloss = trim_mats
+    m_lens, m_house, m_chrome = lamp_mats
+    for piece in _islands_of(vent_me):
+        c = _verts(piece).mean(axis=0)
+        sgn = 1.0 if c[0] > 0 else -1.0
+        ax = np.array([sgn * 0.40, 1.0, 0.0])
         ax /= np.linalg.norm(ax)
-        d = float(np.min((P - c) @ ax))           # deepest lens point along the axis
-        r = 0.6 * float(np.max(np.linalg.norm((P - c) - np.outer((P - c) @ ax, ax), axis=1)))
-        V, F = _lathe_vf([(0.0, -0.040), (0.45 * r, -0.038), (0.8 * r, -0.026), (0.97 * r, -0.010),
-                          (1.02 * r, 0.0)], 24, axis=ax, origin=c + ax * (d - 0.003))
-        acc.add(V, F, m_chrome)
-        # black housing ring so the cut edge never shows the inside of the bumper
-        V2, F2 = _lathe_vf([(1.02 * r, 0.0), (1.55 * r, -0.004), (1.6 * r, -0.03), (1.0 * r, -0.04)], 24,
-                           axis=ax, origin=c + ax * (d - 0.003))
-        acc.add(V2, F2, m_house)
+        for P, N in _boundary_loops(piece):
+            P, N = _resample_loop(P, N, 0.007)
+            _, _, B = _loop_frames(P, N)
+            P0 = P - B * 0.0025
+            rings = [P0, P0 - ax * 0.05]
+            m = len(P0)
+            V = np.vstack(rings)
+            F = [(i, (i + 1) % m, m + (i + 1) % m, m + i) for i in range(m)]
+            uvb = np.stack([(rings[-1] - c) @ np.cross([0, 0, 1.0], ax), (rings[-1] - c)[:, 2]], axis=1)
+            tris = mgeo.tessellate_polygon([[Vector((q[0], q[1], 0.0)) for q in uvb]])
+            F += [(m + t[0], m + t[1], m + t[2]) for t in tris]
+            acc_trim.add(V, F, m_black)
+            # black surround lip
+            Vs, Fs = _sweep(P, _smooth_loop(N, 3), _rounded_rect_profile(-0.008, 0.002, -0.012, 0.002, 0.002, 2),
+                            B=B)
+            acc_trim.add(Vs, Fs, m_black)
+        # fog lamp: chrome bowl + clear lens + black housing, recessed 18 mm in the vent
+        hit = bvh.ray_cast(Vector(c + ax * 0.5), Vector(-ax))
+        base = (np.array(hit[0]) if hit[0] is not None else c) - ax * 0.018 + np.array([0, 0, -0.004])
+        r = 0.027
+        Vh, Fh = _lathe_vf([(0.0, -0.030), (r * 1.30, -0.030), (r * 1.30, 0.004), (r * 1.05, 0.006)], 24,
+                           axis=ax, origin=base)
+        acc_lamp.add(Vh, Fh, m_house)
+        Vb, Fb = _lathe_vf([(0.0, -0.026), (r * 0.5, -0.024), (r * 0.85, -0.012), (r, 0.003)], 24, axis=ax,
+                           origin=base)
+        acc_lamp.add(Vb, Fb, m_chrome)
+        Vl, Fl = _lathe_vf([(0.0, 0.008), (r * 0.7, 0.007), (r * 1.02, 0.004), (r * 1.02, 0.0), (0.0, 0.0)], 24,
+                           axis=ax, origin=base)
+        acc_lamp.add(Vl, Fl, m_lens)
         bpy.data.meshes.remove(piece)
-    bpy.data.meshes.remove(fog_me)
+    bpy.data.meshes.remove(vent_me)
 
 
 def _surface_point(bvh, view, p2):
@@ -1857,44 +1916,63 @@ def _wipers(acc, bvh, mat):
                 acc.add(V3, F3, mat)
 
 
+def _duct(acc, opening_me, depth, mat):
+    """Dark duct behind a front opening: walls straight back (-Y) from just
+    inside the opening edge, closed by a back panel, so the opening reads as
+    deep and black at any distance."""
+    for P, N in _boundary_loops(opening_me):
+        P, N = _resample_loop(P, N, 0.008)
+        _, _, B = _loop_frames(P, N)
+        P0 = P - B * 0.0025
+        rings = [P0, P0 - np.array([0.0, depth * 0.5, 0.0]), P0 - np.array([0.0, depth, 0.0])]
+        m = len(P0)
+        V = np.vstack(rings)
+        F = [(r * m + i, r * m + (i + 1) % m, (r + 1) * m + (i + 1) % m, (r + 1) * m + i)
+             for r in range(len(rings) - 1) for i in range(m)]
+        back = rings[-1]
+        tris = mgeo.tessellate_polygon([[Vector((p[0], p[2], 0.0)) for p in back]])
+        base = (len(rings) - 1) * m
+        F += [(base + t[0], base + t[1], base + t[2]) for t in tris]
+        acc.add(V, F, mat)
+
+
+def _slats(acc, bvh, poly, zs, setback, mat, thick=0.009, deep=0.024):
+    """Horizontal bars across a symmetric trapezoid opening (front view poly),
+    following the curved nose in plan, `setback` behind the outer surface."""
+    (xb, zb), (xt, zt) = poly[1], poly[2]
+    for zk in zs:
+        hw = float(np.interp(zk, [zb, zt], [xb, xt])) - 0.010
+        pts = []
+        for x in np.linspace(-hw, hw, 28):
+            hit = bvh.ray_cast(Vector((x, 3.0, zk)), Vector((0, -1, 0)))
+            if hit[0] is not None:
+                pts.append(np.array(hit[0]) - np.array([0.0, setback, 0.0]))
+        if len(pts) < 4:
+            continue
+        P = np.array(pts)
+        n = len(P)
+        N = np.tile([0.0, 0.0, 1.0], (n, 1))
+        B = np.tile([0.0, -1.0, 0.0], (n, 1))
+        prof = _rounded_rect_profile(-deep / 2, deep / 2, -thick / 2, thick / 2, 0.0025, 2)
+        V, F = _sweep(P, N, prof, closed=False, B=B)
+        acc.add(V, F, mat)
+
+
 def _grille(acc, bvh, grille_me, intake_me, mats):
-    m_black, m_chrome, m_grey = mats
-    # chrome surround on the upper grille opening, black slatted insert behind
+    """Upper trapezoid grille (thin chrome surround, gloss-black slats, deep
+    black duct) and the wide lower intake (black frame, slats, duct)."""
+    m_black, m_chrome, m_grey, m_gloss = mats
     for P, N in _boundary_loops(grille_me):
         P, N = _resample_loop(P, N, 0.006)
         N = _smooth_loop(N, 3)
         N /= np.linalg.norm(N, axis=1)[:, None]
-        V, F = _sweep(P, N, _rounded_rect_profile(-0.012, 0.004, -0.006, 0.006, 0.003, 2))
+        V, F = _sweep(P, N, _rounded_rect_profile(-0.009, 0.0035, -0.006, 0.0045, 0.0025, 2))
         acc.add(V, F, m_chrome)
-    back = grille_me.copy()
-    co = _verts(back) - np.array([0, 0.040, 0])
-    back.vertices.foreach_set("co", co.ravel())
-    acc.add_mesh(back, m_black)
-    bpy.data.meshes.remove(back)
-    for zk in np.linspace(0.660, 0.724, 6):
-        pts = []
-        for x in np.linspace(-0.285, 0.285, 24):
-            hit = bvh.ray_cast(Vector((x, 3.0, zk)), Vector((0, -1, 0)))
-            if hit[0] is not None:
-                pts.append(np.array(hit[0]) - np.array([0, 0.016, 0]))
-        if len(pts) > 3:
-            V, F = _tube_vf(np.array(pts), 0.0035, 8)
-            acc.add(V, F, m_grey)
-    # lower intake: recessed black mesh + a body-coloured-look grey bar
-    back = intake_me.copy()
-    co = _verts(back) - np.array([0, 0.045, 0])
-    back.vertices.foreach_set("co", co.ravel())
-    acc.add_mesh(back, m_black)
-    bpy.data.meshes.remove(back)
-    for zk in (0.364, 0.397, 0.430):
-        pts = []
-        for x in np.linspace(-0.47, 0.47, 30):
-            hit = bvh.ray_cast(Vector((x, 3.0, zk)), Vector((0, -1, 0)))
-            if hit[0] is not None:
-                pts.append(np.array(hit[0]) - np.array([0, 0.02, 0]))
-        if len(pts) > 3:
-            V, F = _tube_vf(np.array(pts), 0.003, 6)
-            acc.add(V, F, m_black)
+    _duct(acc, grille_me, 0.110, m_black)
+    _slats(acc, bvh, GRILLE_POLY, np.linspace(0.548, 0.676, 5), 0.020, m_gloss)
+    # lower intake
+    _duct(acc, intake_me, 0.070, m_black)
+    _slats(acc, bvh, INTAKE_POLY, (0.377, 0.416), 0.022, m_gloss, thick=0.008, deep=0.020)
     for P, N in _boundary_loops(intake_me):
         P, N = _resample_loop(P, N, 0.008)
         N = _smooth_loop(N, 3)
@@ -2513,10 +2591,12 @@ def build(opts=None):
         tr.add_mesh(me, mat)
         bpy.data.meshes.remove(me)
     gr, it = M.pop("grille"), M.pop("intake")
-    _grille(tr, bvh, gr, it, (TB, TC, TR))
+    _grille(tr, bvh, gr, it, (TB, TC, TR, TG))
     bpy.data.meshes.remove(gr)
     bpy.data.meshes.remove(it)
     _wipers(tr, bvh, TB)
+    vent_lamps = _Acc()
+    _corner_vents(tr, vent_lamps, bvh, M.pop("vent"), (TB, TG), (0, 4, 2))
     tr.add_mesh(black_lower, TB)
     bpy.data.meshes.remove(black_lower)
     _exhaust_tips(tr, TC)
@@ -2525,7 +2605,8 @@ def build(opts=None):
                         smooth_angle=45.0), "trim")
     # ---- lamps
     for key, kind, out_dir, mats in (
-            ("lights_front", "front", (0.45, 1.0, 0.0), ["glass", "plastic_black", "chrome", "body_led", "plastic_black"]),
+            ("lights_front", "front", (0.45, 1.0, 0.0), ["body_lens_clear", "body_lamp_silver", "chrome", "body_led",
+                                                         "plastic_black"]),
             ("lights_rear", "rear", (0.55, -1.0, 0.0), ["body_lens_red", "plastic_black", "chrome", "body_lens_red",
                                                         "body_lamp_red"])):
         lens_all = M.pop(f"lens_{kind}")
@@ -2536,8 +2617,11 @@ def build(opts=None):
             _lamp_unit(acc, acc, piece, od, kind, (0, 1, 2, 3, 4))
             bpy.data.meshes.remove(piece)
         bpy.data.meshes.remove(lens_all)
-        if kind == "front":
-            _fog_lamps(acc, M.pop("fog"), (0, 1, 2))
+        if kind == "front" and not vent_lamps.empty():
+            acc.add(np.vstack(vent_lamps.V), [tuple(int(i) for i in f) for f in vent_lamps.F], 0)
+            # (material slots: re-map below)
+            for k in range(len(vent_lamps.F)):
+                acc.M[-len(vent_lamps.F) + k] = vent_lamps.M[k]
         finish(acc.to_object(f"body_{key}", mats, col, smooth_angle=50.0), key)
     # ---- mirrors + handles
     mi = _Acc()
@@ -2577,7 +2661,7 @@ def build(opts=None):
         "hood": (parts["shell"], hit((0.0, 0.05, 3.0), (0, 0, -1))),
         "windscreen": (parts["glass"], tuple(np.array(hit(tuple(ws + wN * 0.5), tuple(-wN))) - wN * 0.004)),
         "roof": (parts["shell"], hit((0.0, -1.95, 3.0), (0, 0, -1))),
-        "front_bumper": (parts["bumpers"], hit((0.0, 3.0, 0.50), (0, -1, 0))),
+        "front_bumper": (parts["bumpers"], hit((0.0, 3.0, 0.485), (0, -1, 0))),
         "door_left": (parts["shell"], hit((-3.0, -1.30, 0.70), (1, 0, 0))),
         "cabin": (parts["interior"], (0.0, -1.60, 0.85)),
         "firewall": (parts["underbody"], (0.40, S.Y_FIREWALL, 0.72)),

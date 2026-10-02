@@ -112,7 +112,8 @@ CRANK_SPROCKET_TEETH = 21
 CAM_SPROCKET_TEETH = 42
 CHAIN_PITCH = 9.525 * MM   # 3/8 inch
 CAM_SPEED_RATIO = CRANK_SPROCKET_TEETH / CAM_SPROCKET_TEETH   # 0.5 exactly
-CAM_CENTRE_SPACING = 0.130    # intake <-> exhaust cam centres (DOHC)
+CAM_CENTRE_SPACING = 0.13552  # intake <-> exhaust cam centres: smallest spacing at which two 42T
+                              # 3/8" sprockets clear and the chain closes on a whole number (126) of links
 
 # Flywheel (dual-mass ignored: single-mass, with starter ring gear)
 FLYWHEEL_DIAMETER = 0.300
@@ -334,3 +335,7 @@ SHIFT_KNOB_REST = (0.0, Y_SHIFT_LEVER - 0.040, 0.880)
 MASTER_WORKING_STROKE = CLUTCH_PEDAL_TRAVEL * (1 - CLUTCH_FREE_PLAY) / CLUTCH_PEDAL_RATIO      # 21.5 mm
 SLAVE_WORKING_STROKE = MASTER_WORKING_STROKE * (MASTER_CYL_BORE / SLAVE_CYL_BORE) ** 2       # 14.9 mm
 RELEASE_FORK_RATIO_EFFECTIVE = SLAVE_WORKING_STROKE / RELEASE_BEARING_TRAVEL                  # 1.655
+
+# Flat (bucket) tappet three-arc cams (appended): base circle and nose radius.
+CAM_BASE_RADIUS = 18.0 * MM
+CAM_NOSE_RADIUS = 5.0 * MM
