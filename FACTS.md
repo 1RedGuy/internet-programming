@@ -957,11 +957,8 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 
 **Still slightly imprecise (acceptable; optional fixes)**
 
-1. **N3a, s07.plunge.1**: "as the distance between the joints changes". With a rigid shaft the distance between the
-   joint *centres* stays 478 mm; what changes is the distance from the differential-side housing to the outer joint
-   (+3.75 mm at ±60 mm), which the tripod takes up by sliding 3.78 mm (CVJ-06). Read as "the joints' housings", the
-   sentence is true. Optional precise wording (14 words, 6.45 s of 6.5 s): "The inner joint can also slide, as the
-   wheel's distance from the differential changes."
+1. **N3a, s07.plunge.1** — APPLIED: the line now reads "The inner joint can also slide, as the wheel's distance
+   from the differential changes." (the joint-centre spacing of a rigid shaft stays 478 mm; the tripod slides 3.78 mm, CVJ-06).
 2. **N8, s04.neutral.1**: "The other countershaft gears each mesh with a gear on the output shaft." The reverse
    countershaft gear meshes with the idler, not directly with the output gear (REV-03). Reverse is introduced two
    beats later, and the beat is at its word limit.
