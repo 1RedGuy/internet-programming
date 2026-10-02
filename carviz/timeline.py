@@ -273,7 +273,7 @@ SCENES = [
              "Cutaway outer (Rzeppa) joint: balls, cage, races; joint articulates. Labels: Balls, Cage, Inner "
              "race, Outer race. HUD: shaft rpm = wheel rpm."),
         Beat("plunge", 6.5,
-             "The inner joint can also slide, as the distance between the joints changes.",
+             "The inner joint can also slide, as the wheel's distance from the differential changes.",
              "Cutaway inner (tripod) joint; rollers slide outboard in their tracks on both bump and droop. Label: Plunge."),
         Beat("moves", 8.0,
              "Finally, the wheel turns, the tire grips the road, and the car moves.",

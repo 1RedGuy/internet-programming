@@ -189,7 +189,7 @@ _Constant-velocity joints, plunge, wheels, car moves._
 *Picture:* Cutaway outer (Rzeppa) joint: balls, cage, races; joint articulates. Labels: Balls, Cage, Inner race, Outer race. HUD: shaft rpm = wheel rpm.
 
 **6:45.0–6:51.5** [27.0–33.5 s] `s07.plunge`  
-*Narration:* “The inner joint can also slide, as the distance between the joints changes.”  
+*Narration:* “The inner joint can also slide, as the wheel's distance from the differential changes.”  
 *Picture:* Cutaway inner (tripod) joint; rollers slide outboard in their tracks on both bump and droop. Label: Plunge.
 
 **6:51.5–6:59.5** [33.5–41.5 s] `s07.moves`  

@@ -138,7 +138,7 @@ CLUTCH_COVER_OD = 0.280
 DIAPHRAGM_FINGERS = 18
 PRESSURE_PLATE_LIFT = 1.8 * MM       # at full release
 RELEASE_BEARING_TRAVEL = 9.0 * MM    # at full pedal (finger-tip travel)
-DIAPHRAGM_LEVER_RATIO = RELEASE_BEARING_TRAVEL / PRESSURE_PLATE_LIFT  # = 5.0
+DIAPHRAGM_LEVER_RATIO = RELEASE_BEARING_TRAVEL / PRESSURE_PLATE_LIFT  # = 5.0 (nominal overall; as built the lever is 4.24 while the plate lifts — do not label 5.0)
 Y_DISC_CENTRE = Y_FLYWHEEL_FACE - CLUTCH_DISC_THICKNESS / 2
 
 # Hydraulic release: incompressible fluid -> A_m * x_m = A_s * x_s
@@ -147,8 +147,8 @@ CLUTCH_PEDAL_RATIO = 6.0             # pad travel : master pushrod travel
 MASTER_CYL_BORE = 15.87 * MM         # 5/8 in
 SLAVE_CYL_BORE = 19.05 * MM          # 3/4 in
 MASTER_STROKE = CLUTCH_PEDAL_TRAVEL / CLUTCH_PEDAL_RATIO                 # 23.3 mm
-SLAVE_STROKE = MASTER_STROKE * (MASTER_CYL_BORE / SLAVE_CYL_BORE) ** 2   # 16.2 mm
-RELEASE_FORK_RATIO = SLAVE_STROKE / RELEASE_BEARING_TRAVEL               # 1.8 : 1
+SLAVE_STROKE = MASTER_STROKE * (MASTER_CYL_BORE / SLAVE_CYL_BORE) ** 2   # 16.2 mm incl. free play (SUPERSEDED: use SLAVE_WORKING_STROKE 14.9 mm)
+RELEASE_FORK_RATIO = SLAVE_STROKE / RELEASE_BEARING_TRAVEL               # 1.8 (SUPERSEDED: as built RELEASE_FORK_RATIO_EFFECTIVE = 1.655)
 CLUTCH_FREE_PLAY = 0.08     # fraction of pedal travel before bearing moves
 CLUTCH_BITE_LO = 0.22       # pedal fraction where torque capacity starts to fall
 CLUTCH_BITE_HI = 0.50       # pedal fraction where clutch is fully released

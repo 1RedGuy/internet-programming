@@ -1,9 +1,12 @@
 # FACTS: every mechanical behaviour the film shows or narrates
 
 This is the technical reference for *How a Manual Car Works*. Each fact has an ID, a precise statement and a short
-justification. Every number comes from `carviz/spec.py` and was computed in Python (the formula is shown; the
-appendix has a script that reproduces the key values). Facts marked **(context)** are not shown on screen. They
-explain or constrain something that is shown.
+justification. Every number comes from `carviz/spec.py`, `carviz/kin.py`, `carviz/state.py` or an assembly module
+docstring (the as-built geometry) and was computed in Python (the formula is shown; the appendix reproduces the key
+values). Facts marked **(context)** are not shown on screen. They explain or constrain something that is shown.
+
+This revision matches the **as-built** 3D model and the **current** narration in `carviz/timeline.py`. Read the
+"As-built model notes" first: they list what the model simplifies.
 
 Conventions follow ARCHITECTURE.md section 2:
 
@@ -22,17 +25,74 @@ Conventions follow ARCHITECTURE.md section 2:
 | Rod ratio | L/r = 145/43 | 3.372 (rod swings ±17.25°) |
 | Firing interval | 720°/4 | 180° (order 1-3-4-2) |
 | Cam speed | 21/42 | 0.5 × crank (425 rpm at 850 rpm idle) |
-| Clutch slave stroke | 23.33 mm × (15.87/19.05)² | 16.19 mm, of which 14.90 mm after the 8% free play (fork 14.90/9.0 = 1.655:1 → bearing 9.0 mm → plate lift 1.8 mm; diaphragm 4.24:1 while the plate lifts). See HYD-03 and O3 |
+| Cam drive | 135.52 mm cam spacing, 126-link 3/8 in chain | chain moves z·p = 200.0 mm per crank turn |
+| Valve lift law | flat-tappet three-arc cam, base R 18, nose R 5 mm | spec events and peak lifts (VLV-06) |
+| Clutch release (working travel) | 21.47 mm × (15.87/19.05)² | master 21.47 → slave 14.90 mm → fork 115.4/69.7 = 1.655 → bearing 9.0 mm → plate 1.8 mm (diaphragm 4.24:1 while lifting). Free play 1.87 mm before the master piston |
 | Gear centre distance | (2.25/cos 25°) × 61/2 | 75.72 mm |
 | Gear ratios | (35/26) × z_out/z_cs | 3.484 / 2.075 / 1.391 / 1.000 / 0.815 / R -3.410 |
+| Synchro | 0.25 × 360°/32; sleeve stations | index 2.81°; sleeve meets dogs at 5.51 mm; 3.0 mm dog engagement at 8.5 mm |
 | Final drive | 41/10 | 4.10 |
 | Overall ratio | i × 4.10 | 14.29 / 8.51 / 5.70 / 4.10 / 3.34 / R -13.98 |
 | Road speed at 3000 rpm | (2π·3000/60)/(i·4.1) × 0.305 | 24.1 / 40.5 / 60.5 / 84.1 / 103.3 km/h, R -24.7 |
 | 1→2 shift at 3000 rpm | 3000 × 2.075/3.484 | lands at 1787 rpm (2→3: 2011) |
-| Propshaft joint angle | atan(55/1280) | 2.46° per joint (Z arrangement) |
+| Propshaft joint angle | atan(55/1192) | 2.64° per joint (Z arrangement, joint centres 44 mm inside the flanges) |
+| Driveshaft | 0.655 - 0.1771 | joint spacing 0.478 m; at ±60 mm: angle asin(60/478) = 7.2°, plunge 3.78 mm |
 | Turn, R = 5 m | (5 ∓ 0.74)/5 | inner 0.852 ×, outer 1.148 × case speed (inner/outer 0.742) |
 
 ---
+
+## As-built model notes (AB)
+
+Simplifications a car engineer should know before reviewing the film. None of them changes a narrated statement.
+
+- **AB-01, kinematic car, dynamic engine and clutch.** Road speed is a keyframed input (`Program.speed_kmh`); the
+  wheels roll without slip and everything from the output shaft to the wheels follows kinematically. Only the engine
+  and the input side are integrated: engine torque = 4 N·m/(rad/s) × (target - speed), clamped to -35 … +190 N·m, on
+  I_ENGINE = 0.18 kg·m²; a Coulomb clutch of capacity `clutch_capacity(pedal)` × 350 N·m; in neutral the input side
+  is I_INPUT = 0.012 kg·m² with a 2 s oil-drag spin-down. Engine torque never changes the car's speed.
+- **AB-02, uniform crank speed.** There is no cyclic speed ripple from the individual power strokes. A real idle
+  ripple of 2-4% would move the crank by less than ±1° from uniform rotation (ε/2 rad for a ripple at twice crank
+  frequency), so it would be invisible anyway. The flywheel's smoothing role is narrated, not simulated.
+- **AB-03, synchroniser as a speed blend.** Between cone contact and the end of the blocking hold, `state.py` blends
+  the input-side speed to the target with a cosine ramp; it does not integrate a cone torque. It then indexes the
+  gear so the dogs meet exactly aligned and flags any clash or misalignment.
+- **AB-04, single-mass flywheel** (300 × 30 mm solid disc with a 132T starter ring), no dual-mass flywheel or
+  torsional damper on the crank other than the pulley damper shown.
+- **AB-05, flat-tappet three-arc cam** (VLV-06). It meets spec's opening/closing angles and peak lifts exactly, but
+  it has no clearance ramps, and the follower acceleration jumps at the arc junctions. Production cams use smooth
+  polynomial profiles. The cam outline is drawn 0.05 mm inside the true profile so cam and bucket never intersect.
+- **AB-06, chain at mean speed.** The chain advances exactly z·p per sprocket turn (VLV-07); the 1.1% chordal
+  (polygon) speed ripple of the 21T sprocket is not modelled. Guides and the hydraulic tensioner are shown static.
+- **AB-07, fixed 15° spark advance** at all speeds and loads (CYC-11).
+- **AB-08, no hypoid offset.** Spiral-bevel final drive with the pinion axis through the ring axis (FD-05).
+- **AB-09, propshaft.** One piece, 65 × 1.8 mm tube, Hooke joint at each end, slip yoke under a boot at the front.
+  The slip spline never slides because the gearbox and axle are rigidly placed (no engine rock). A real shaft of
+  this length is close to its whirl speed (PRP-06).
+- **AB-10, short dog engagement.** At full sleeve travel (8.5 mm) the sleeve overlaps the 4.5 mm dog teeth by
+  3.0 mm (ridge past ridge). That is on the short side for a production box. The dogs have no back-taper (SYN-07),
+  there are no interlock pins (the state validator enforces the interlock logically, SEL-07) and no reverse lockout.
+- **AB-11, light contacts drawn with a gap.** Touching parts are separated by 0.04 mm in the clutch (facings,
+  fingers/bearing, fork contacts) and 0.05 mm at the cams, so collision checks stay clean. Example: the disc shows
+  0.615 mm per face at full release where the physical figure is (1.8 - 0.65)/2 = 0.575 mm. After the free play the
+  pedal pushrod sits 0.04-0.21 mm off the master piston, because the pushrod follows the pedal arc while `kin`
+  moves the piston linearly.
+- **AB-12, suspension.** The rear wheel moves purely vertically; the rear links are aimed at their joints and
+  stretched by up to 2.5% instead of swinging the wheel on arcs, so there is no camber or toe change. The front is a
+  MacPherson strut with exact rigid kinematics (KPI 14°, no caster); the steering arms are within 12 mm of ideal
+  Ackermann rack travel at R = 5 m, with the difference hidden in the rack housing.
+- **AB-13, tripod joint.** The spider centre is kept on the tulip axis; a real tripod's centre orbits about
+  0.1 mm at three times shaft speed (CVJ-05).
+- **AB-14, tyre radius.** The tyre mesh is 0.3115 m but the motion uses r = 0.305 m, so the tread surface moves
+  2.1% faster than the ground (PRS-09).
+- **AB-15, cutaways.** Housings are cut at build time by fixed planes, with matte signal-red section faces
+  (`section_cut`). Moving parts stay whole, except where the cut lies in a plane their motion preserves (the engine's
+  'cyl1' planes y = const), where the cut turns with the part like a motorised training cutaway (gearbox synchro
+  quarter sections, the CV joints' own-frame cuts), or where a live boolean holds a fixed section on a spinning part
+  (clutch 'section_rotating', s07's joint sections).
+- **AB-16, slow motion.** Every angle integrates ω × slowmo × dt, and the HUD always shows the physical rpm and km/h
+  and the slow-motion factor. The factors actually used are in PRS-13. Keyframed suspension motion is in video
+  time, so at 12 × in s07 the 5 s bounce is 2.4 Hz of real time (a rough-road input, not the 1-1.5 Hz body mode);
+  positions are unaffected.
 
 ## 1. Vehicle layout (VEH)
 
@@ -44,7 +104,7 @@ Conventions follow ARCHITECTURE.md section 2:
 - **VEH-02**: The power path, in order, is: engine → clutch → gearbox → propeller shaft → final drive (pinion + ring
   gear) → open differential → two driveshafts (each with an inner tripod joint and an outer Rzeppa joint) → rear
   wheels. The front wheels are not driven.
-  *Why:* this is the FR layout, and it matches the s01 "path" storyboard.
+  *Why:* this is the FR layout; each assembly publishes this order in `meta['power_path']`.
 - **VEH-03**: The engine, clutch and gearbox share one level axis on the car's centre line (X = 0, Z = 0.360 m). The
   block spans Y = +0.130 to -0.292 m, so 69% of its length is behind the front-axle line.
   *Why:* 0.292/(0.130+0.292) = 0.692. Because the front axle is not driven, most of the engine can sit behind it,
@@ -59,14 +119,10 @@ Conventions follow ARCHITECTURE.md section 2:
   to the 13.1-tooth undercut limit (GBX-05).
 - **VEH-05**: Most front-wheel-drive cars mount the engine transversely and use a transaxle with no countershaft.
   The input and output shafts are parallel and side by side, and each gear uses one mesh. The output shaft's pinion
-  drives the differential's ring gear inside the same case. Classic 5-speeds have 2 shafts; many 6-speeds split the
-  gears over two output shafts. **(context)**
-  *Why:* a transverse engine leaves no length for an in-line box and a propshaft. A short, wide box with the
-  differential beside it fits between the front wheels. Such a box has no direct drive, and its output turning
-  opposite to the input does not matter because the final drive is in the same case.
+  drives the differential's ring gear inside the same case. **(context)**
 - **VEH-06**: The gearbox output flange (Y -1.120, Z 0.360) is 55 mm higher than the pinion flange (Y -2.400,
-  Z 0.305), and the propshaft spans 1.281 m.
-  *Why:* spec Y_GEARBOX_REAR, Y_PINION_FLANGE, Z_PINION = WHEEL_CENTER_Z. See PRP-02.
+  Z 0.305). The flanges are 1.281 m apart; the Hooke-joint centres, 44 mm inside each flange, are 1.193 m apart.
+  *Why:* spec Y_GEARBOX_REAR, Y_PINION_FLANGE, Z_PINION = WHEEL_CENTER_Z; axle assembly JOFF = 0.044. See PRP-02.
 - **VEH-07**: The differential is fixed to the body (independent rear suspension). Only the wheel hubs move (±60 mm
   in s07), so each driveshaft needs a joint at both ends.
   *Why:* spec Y_DIFF/Z_DIFF are fixed, and SUSPENSION_TRAVEL = 0.060.
@@ -75,43 +131,36 @@ Conventions follow ARCHITECTURE.md section 2:
 
 - **ENG-01**: The engine is a 2.0 L DOHC 16-valve port-injected petrol inline-4 with compression ratio 10.5:1, idle
   850 rpm and redline 6800 rpm. Its four cylinders sit in a row along the car, with cylinder 1 at the front.
-  *Why:* spec engine block.
 - **ENG-02**: Swept volume per cylinder is V_s = π/4·B²·S = π/4 × 86² × 86 mm³ = 499.6 cm³, so the total is
   1998 cm³. Bore equals stroke (a "square" engine).
 - **ENG-03**: Clearance volume is V_c = V_s/(CR - 1) = 499.6/9.5 = 52.6 cm³. At TDC the piston crown is 0.8 mm
-  below the deck (DECK_HEIGHT = 43 + 145 + 31 + 0.8 = 219.8 mm). That gap holds 4.6 cm³, so the chamber plus gasket
-  holds 47.9 cm³. **(context)**
+  below the deck (DECK_HEIGHT = 43 + 145 + 31 + 0.8 = 219.8 mm). As built, a pent-roof chamber plus a 1.9 mm crown
+  dish and a 1.2 mm gasket give CR 10.5. **(context)**
 - **ENG-04**: Cylinder centres are at Y = 0.060, -0.034, -0.128 and -0.222 m. The pitch is 94 mm, leaving 8 mm of
   metal between the 86 mm bores.
 - **ENG-05**: Each piston follows slider-crank motion:
   s(θ) = r + L - [r·cos θ + √(L² - r²·sin² θ)], with r = 43 mm and L = 145 mm (L/r = 3.372, λ = r/L = 0.297).
   The rod swings ±asin(r/L) = ±17.25°. The rod turns the up-and-down motion into rotation: the gas force along the
   rod has a tangential component at the crankpin, and that component makes torque. The torque is zero at TDC and BDC.
+  *As built:* `kin.slider_crank` drives every piston and rod.
 - **ENG-06**: Piston motion is not a sine wave:
   - At 90° ATDC the piston has already travelled 49.5 mm (57.6% of the stroke).
   - Mid-stroke comes at 81.5° ATDC.
   - Peak piston speed comes at 74.7° ATDC and is 1.64 × the mean speed.
   - The piston moves faster near TDC and dwells near BDC.
-
-  *Why:* rod angularity, computed from ENG-05. Animations must use the exact formula, not a sine.
 - **ENG-07**: Mean piston speed (2·S·n/60) is 2.44 m/s at 850 rpm, 8.6 m/s at 3000 and 19.5 m/s at 6800. Peak speed
   is 4.0, 14.1 and 31.9 m/s. Acceleration at TDC, r·ω²·(1 + λ), is 442, 5502 and 28 270 m/s² (about 2900 g at
   redline). **(context)**
 - **ENG-08**: The crank is flat-plane. Crankpins 1 and 4 are at 0°, and 2 and 3 at 180°. Pistons 1 and 4 move
   together, and 2 and 3 move together in the opposite direction, so two pistons are at TDC while the other two are
   at BDC.
-  *Why:* CRANKPIN_PHASE_DEG. This is the standard inline-4 layout, and its primary forces balance.
 - **ENG-09**: The firing order is 1-3-4-2. Each cylinder reaches TDC on its power stroke at crank angle 0° (1),
-  180° (3), 360° (4) and 540° (2), evenly spaced at 720°/4 = 180°.
-  *Why:* FIRING_TDC_DEG. Each value equals its crankpin phase mod 360 (checked). Cylinders reach TDC in pairs. At
-  each such TDC one cylinder fires, and its partner (1↔4 or 2↔3) is at the overlap TDC between exhaust and intake.
+  180° (3), 360° (4) and 540° (2), evenly spaced at 720°/4 = 180°. At each TDC one cylinder fires and its partner
+  (1↔4 or 2↔3) is at the overlap TDC between exhaust and intake.
 - **ENG-10**: In each cylinder's own angle φ = (θ - θ_fire) mod 720, the strokes are: power 0-180, exhaust 180-360,
   intake 360-540 and compression 540-720. One cycle takes two crankshaft turns.
-  *Why:* STROKES.
 - **ENG-11**: At any instant the four cylinders are in four different strokes. For 0 ≤ θ < 180: cylinder 1 is on
   power, 3 on compression, 4 on intake and 2 on exhaust. Every 180° each cylinder moves on to its next stroke.
-  *Why:* computed from FIRING_TDC_DEG and STROKES at θ = 0, 180, 360 and 540, and checked on a plotted timing
-  diagram.
 - **ENG-12**: The crankshaft turns CW-F, which is counter-clockwise seen from the flywheel end (SAE standard
   rotation). Everything coupled to it without a gear mesh turns the same way.
 - **ENG-13**: Only the power stroke delivers work. The crankshaft drives the other three strokes, using flywheel
@@ -129,16 +178,17 @@ Conventions follow ARCHITECTURE.md section 2:
   | Intake opens (IVO) | 350 | 10° BTDC |
   | Intake closes (IVC) | 590 | 50° ABDC |
 
-  Each valve is open for 240 crank° (120 cam°).
-  *Why:* spec. These are typical road-engine figures.
+  Each valve is open for 240 crank° (120 cam°). These are the zero-lift points of the as-built cam (VLV-06).
 - **CYC-02**: Valve overlap runs from 350 to 370 (20°) around the TDC between exhaust and intake. Both valves are
-  slightly open there, which helps flush the chamber.
+  slightly open there: at TDC (360°) the intake valves are lifted 0.37 mm and the exhaust valves 0.30 mm
+  (`kin.valve_lift`). This helps flush the chamber.
 - **CYC-03**: The exhaust valves open 50° before BDC, near the end of the power stroke, when the piston is 86.5% of
   the way down. This blowdown releases the remaining pressure so the piston does not have to push against it. Little
-  work is lost because the crank is near BDC and has little leverage. The s02 "exhaust" storyboard says the exhaust
-  valves are "already opening near the end of the power stroke", which is correct.
-- **CYC-04**: The intake valves close 50° after BDC because the moving charge keeps flowing in after BDC. Real
-  compression only begins at IVC, after the piston has risen 11.6 mm. The effective compression stroke is 74.4 mm.
+  work is lost because the crank is near BDC and has little leverage. The cam lifts the exhaust valves 0.30 mm by
+  140° and 2.56 mm by 160°.
+- **CYC-04**: The intake valves close 50° after BDC because the moving charge keeps flowing in after BDC. At BDC
+  (540°) they are still 5.43 mm open; they drop below 1 mm at 573.5° and close at 590°. Real compression only
+  begins at IVC, after the piston has risen 11.6 mm; the effective compression stroke is 74.4 mm.
 - **CYC-05**: Peak lift comes at cycle 470° for the intake (110° ATDC) and 250° for the exhaust (110° BTDC). The
   lobe separation angle is 110 cam°.
 - **CYC-06**: Maximum lift is 9.5 mm for the intake valves (33 mm heads) and 9.0 mm for the exhaust valves (28 mm
@@ -150,57 +200,73 @@ Conventions follow ARCHITECTURE.md section 2:
 - **CYC-08**: With port injection, each injector sprays petrol into the intake port, onto the back of the intake
   valves. The charge entering the cylinder on the intake stroke is therefore air plus fuel, at about 14.7:1 by mass
   (stoichiometric). Illustrative full-load figures: 0.532 g of air (ρ = 1.184 kg/m³, volumetric efficiency 0.9) and
-  36 mg of fuel per cylinder per cycle.
-  *Why:* spec says "port injected". A direct-injection engine would take in air only.
+  36 mg of fuel per cylinder per cycle. A direct-injection engine would take in air only.
 - **CYC-09**: Intake (φ 360-540): the descending piston lowers cylinder pressure below manifold pressure.
   Manifold pressure pushes the mixture in through the open intake valves; this is the "drawing in". The throttle sets
-  manifold pressure: about 1 bar (atmospheric) at full throttle, but only about 0.3-0.4 bar absolute at the 850 rpm
-  idle shown in s02.
-- **CYC-10**: Compression (540-720): with both valves shut (exhaust since 370, intake since 590), the rising piston
-  squeezes the mixture into the clearance volume. The geometric ratio is 10.5:1.
+  manifold pressure: about 1 bar at full throttle, but only about 0.3-0.4 bar absolute at the 850 rpm idle shown in
+  s02.
+- **CYC-10**: Compression (540-720): once the intake valves have closed (590; the exhaust valves closed at 370), the
+  rising piston squeezes the mixture into the clearance volume. The geometric ratio is 10.5:1.
 - **CYC-11**: The spark comes 15° BTDC (cycle 705°, the end of compression). Burning takes time, so ignition leads
   TDC and peak pressure arrives shortly after TDC. 15° is 2.94 ms at 850 rpm and 0.83 ms at 3000 rpm.
-  *Why:* SPARK_ADVANCE_DEG. A real ECU varies the advance with speed and load. 15° is a representative idle value,
-  which is where the film shows the spark (s02, 850 rpm). At light-load cruise the throttled, diluted charge burns
-  slowly, and an ECU typically runs about 30-40° BTDC. At full load the advance is limited by knock, to roughly 10-25°
-  at low and medium speed. The film uses a fixed 15° everywhere; this is a simplification.
+  *Why:* SPARK_ADVANCE_DEG. A real ECU varies the advance: about 30-40° BTDC at light-load cruise, knock-limited to
+  roughly 10-25° at full load. 15° is a representative idle value, which is where the film shows the spark (s02,
+  850 rpm). The film uses it everywhere (AB-07).
 - **CYC-12**: Power (0-180): the pressure of the burning gas drives the piston down. This is the only stroke that
   does work.
 - **CYC-13**: Exhaust (180-360): the rising piston pushes the burnt gas out past the open exhaust valves.
 
 ## 4. Valvetrain drive (VLV)
 
-- **VLV-01**: Two overhead camshafts (DOHC) open the valves. Each lobe pushes its valve open through a follower, and
-  the valve spring closes it again. Each camshaft carries 8 lobes, two per cylinder.
+- **VLV-01**: Two overhead camshafts (DOHC) open the valves. Each lobe pushes its valve open through a flat bucket
+  tappet (37 mm intake, 36 mm exhaust), and the valve spring closes it again. Each camshaft carries 8 lobes, two per
+  cylinder.
 - **VLV-02**: The camshafts turn at exactly half crank speed: 21T crank sprocket / 42T cam sprocket = 0.5, so
   425 rpm at 850 rpm idle. This is necessary because each valve opens once per 720° cycle, which is once per cam
   turn.
 - **VLV-03**: A chain does not reverse rotation. Both camshafts turn CW-F like the crank, because every sprocket sits
-  inside the chain loop, with the chain wrapped around its outside. Only a wheel driven by the back of the chain, from
-  outside the loop, would turn the other way. The guides and the tensioner touch the outside of the loop, but they do
-  not rotate.
-- **VLV-04**: The chain is 3/8 in (9.525 mm) pitch, and sprocket pitch diameter is PD = p/sin(180°/z). The 21T crank
-  sprocket is 63.9 mm. The 42T cam sprocket is 127.5 mm, with a tip diameter of about 132.8 mm. See note O1: this tip
-  diameter is larger than the 130 mm cam spacing.
+  inside the chain loop, with the chain wrapped around its outside. The fixed guide (tight side) and the tensioner
+  arm (slack side) touch the outside of the loop but do not rotate.
+- **VLV-04**: The chain is single-row 3/8 in (9.525 mm, 06B) roller chain. Sprocket pitch diameter is
+  PD = p/sin(180°/z): 63.91 mm for the 21T crank sprocket and 127.46 mm for the 42T cam sprockets, whose tip
+  diameter is p·(0.6 + cot(180°/z)) = 132.82 mm. As built, the cam centres are **135.52 mm** apart (spec
+  CAM_CENTRE_SPACING), so the two cam sprockets clear by 2.70 mm. That is the smallest spacing at which they clear
+  and the loop closes on a whole, even number of links, **126** (1200.15 mm), with a 6 mm tensioner push.
 - **VLV-05**: Lobes of successive cylinders in the firing order are 90 cam° apart (180 crank°/2). **(context)**
+- **VLV-06** (new): **Cam profile.** A flat tappet can only follow a convex cam, so the lift law comes from cam
+  geometry (`kin.cam_geometry`, `kin.cam_support`, `kin.valve_lift`): a classic three-arc cam with base circle radius
+  R_b = 18 mm, nose radius r_n = 5 mm and flank arcs of radius r_f = 114.4 mm (intake) / 96.8 mm (exhaust), tangent
+  to both. Lift = h(β) - R_b, where h is the cam's support function (distance from cam axis to the bucket face) and
+  β = (crank angle from peak)/2. Each lobe opens over ±60 cam° (240 crank°) and peaks at spec's 9.5 / 9.0 mm.
+  - Lift is above 1 mm for 207 crank° (intake) and 203.5° (exhaust).
+  - The contact point moves up to 17.2 mm (intake) / 16.4 mm (exhaust) off the bucket centre, inside the 18.5 /
+    18.0 mm bucket radius. Valve velocity is ω_cam × that offset: at most 6.1 m/s at 6800 rpm.
+  - Follower acceleration is ω_cam²·(r_f - R_b) on the flanks (191 m/s² at idle, about 12 200 m/s² at redline for
+    the intake) and ω_cam²·(r_n - R_b - L) on the nose (-2850 m/s² at redline). It steps from zero at opening
+    (AB-05).
+
+  The engine assembly's lobes are exactly this cam, so the bucket rides on the lobe at every angle.
+- **VLV-07** (new): **Chain travel.** A roller chain advances exactly z·p per sprocket turn (`kin.chain_travel`):
+  21 × 9.525 = 200.0 mm per crank turn, i.e. 2.83 m/s at idle and 22.7 m/s at 6800 rpm. Using the pitch-circle arc
+  π·PD instead would overstate the travel by 0.37% (0.75 mm per crank turn) and let the rollers creep off the teeth.
+  The rollers therefore run on R_eff = z·p/2π. The 126-link loop passes a given crank tooth every 6 crank turns.
 
 ## 5. Flywheel (FLY)
 
 - **FLY-01**: A heavy single-mass flywheel (300 mm diameter, 30 mm thick) is bolted to the crank's rear flange. It
   stores kinetic energy: it absorbs the surplus of each power pulse and returns it between pulses (two pulses per
-  turn), which smooths crank speed. A solid steel disc this size would weigh 16.6 kg and have
-  I = m·r²/2 = 0.187 kg·m². That is an **upper bound**. Real single-mass flywheels for 2.0 L engines are dished and
-  lightened, typically about 8-11 kg and roughly 0.09-0.13 kg·m². Add about 0.01-0.02 kg·m² for the crank and
-  damper and about 0.04-0.05 kg·m² for the clutch cover and pressure plate, and the rotating group comes to about
-  0.15-0.20 kg·m². `state.py`'s I_ENGINE = 0.18 kg·m² for that whole group is therefore plausible. It stores 713 J
-  at 850 rpm (½·I·ω², ω = 89.0 rad/s). All of these are illustrative values.
+  turn), which smooths crank speed. A solid steel disc this size would weigh 16.6 kg and have I = m·r²/2 =
+  0.187 kg·m², an **upper bound**; real single-mass flywheels for 2.0 L engines are about 8-11 kg and
+  0.09-0.13 kg·m². With the crank, damper, clutch cover and pressure plate the rotating group comes to about
+  0.15-0.20 kg·m², so `state.py`'s I_ENGINE = 0.18 kg·m² for that whole group is plausible. It stores 713 J at
+  850 rpm (½·I·ω², ω = 89.0 rad/s). All illustrative. The model's crank speed has no per-pulse ripple (AB-02).
 - **FLY-02**: The flywheel's rear face is one of the clutch's two driving friction faces, and the clutch cover is
   bolted to it. The flywheel, cover, diaphragm spring and pressure plate therefore always turn at engine speed.
 - **FLY-03**: The rim carries a 132-tooth starter ring gear. With a typical starter-ring module of about 2.25 mm, the
   PD is 297 mm and the tip diameter 301.5 mm, consistent with the 300 mm flywheel. The starter pinion meshes only
   while cranking. **(context)**
-- **FLY-04**: A spigot (pilot) bearing in the crank's rear end supports the nose of the gearbox input shaft.
-  **(context; standard practice)**
+- **FLY-04**: A spigot (pilot) bush in the crank's rear end supports the nose of the gearbox input shaft. As built
+  it is a brass bush around the 15 mm (r 7.5 mm) pilot, which passes through the flywheel centre. **(context)**
 
 ## 6. Clutch (CLU)
 
@@ -209,56 +275,56 @@ Conventions follow ARCHITECTURE.md section 2:
   cover, spring and pressure plate. The driven member is the disc.
 - **CLU-02**: The disc has these parts:
   - Facings 228/150 mm in diameter on both sides: n = 2 friction surfaces of 23 157 mm² each.
-  - Cushion segments between the facings (clamped thickness 8.4 mm).
+  - Cushion segments between the facings (clamped thickness 8.4 mm; as built 12 wavy segments, 0.65 mm travel).
   - Six torsional damper springs between the facings and the hub.
-  - A 23-tooth splined hub.
+  - A 23-tooth splined hub (25.4 × 21.5 mm splines, shared with the input shaft).
 
-  *Why:* spec CLUTCH_*. The damper springs soften engagement shocks and engine torsional vibration.
-- **CLU-03**: The disc hub is splined to the input shaft, so the two always turn together. The disc can still slide
-  axially, so the clamp load acts equally on both faces and the disc floats free when released.
+  The damper springs soften engagement shocks and engine torsional vibration.
+- **CLU-03**: The disc hub is splined to the input shaft, so the two always turn together (both are driven by
+  `theta_in`, splines in phase). The disc can still slide axially, so the clamp load acts equally on both faces and
+  the disc floats free when released (it floats by half the plate lift).
 - **CLU-04**: Engaged (pedal up): the diaphragm spring, a dished Belleville spring, pushes the pressure plate forward
   and clamps the disc against the flywheel. Torque capacity is T_c = n·μ·F·r_m, with n = 2 and
-  r_m = (114 + 75)/2 = 94.5 mm (uniform wear). While engine torque is below T_c nothing slips, and the input shaft
-  turns at engine speed.
-  *Model:* `state.py` uses T_CLUTCH_MAX = 350 N·m, which is 1.84 × the 190 N·m engine maximum. With μ = 0.3 that
-  needs a clamp load F = 350/(2 × 0.3 × 0.0945) ≈ 6.2 kN, inside the typical 4-7 kN range.
+  r_m = (114 + 75)/2 = 94.5 mm (uniform wear). While engine torque is below T_c nothing slips.
+  *Model:* T_CLUTCH_MAX = 350 N·m, 1.84 × the 190 N·m engine maximum. With μ = 0.3 that needs a clamp load
+  F = 350/(2 × 0.3 × 0.0945) ≈ 6.2 kN, inside the typical 4-7 kN range.
 - **CLU-05**: The release is push-type. The release bearing pushes the diaphragm finger tips **forward** (+Y, toward
-  the flywheel). The spring pivots on fulcrum rings in the cover, so its outer rim moves **rearward**, and strap
-  springs pull the pressure plate rearward (-Y), unclamping the disc. The spec's DIAPHRAGM_LEVER_RATIO,
-  9.0 : 1.8 = 5.0 : 1, is an **end-to-end travel ratio**: it includes the 1.37 mm of finger travel taken up before
-  the plate moves (CLU-06). While the plate is actually lifting (p = 0.22 to 1.0), the fingers move 7.63 mm for
-  1.80 mm of lift. The geometric finger : rim lever ratio is therefore **4.24 : 1** (9.783/2.308 mm per unit of
-  pedal). An assembly that derives the plate motion from the diaphragm geometry must use 4.24, not 5.0, or it will
-  not match `kin`'s plate_lift. The simplest approach is to drive the plate directly from plate_lift.
-- **CLU-06**: Pedal to plate mapping, as implemented in `kin.clutch_geometry`. Here p is the pedal fraction from the
-  top. Bearing travel is 9.0 mm × (p - 0.08)/0.92. Plate lift is 1.8 mm × (p - 0.22)/0.78. Torque capacity is
-  1 - smoothstep(0.22, 0.50, p).
+  the flywheel). The spring pivots on two fulcrum wire rings in the cover (r = 90 mm), so its outer rim moves
+  **rearward**, and strap springs pull the pressure plate rearward (-Y), unclamping the disc. As built:
+  - p = 0.08-0.22: the fingers bend 1.37 mm with the rim still (shape key 'bend'), see CLU-06.
+  - p = 0.22-1.0: the spring rotates rigidly about the fulcrum (about 6.9°, shape key 'release'): fingers 7.63 mm,
+    rim and plate 1.80 mm, an axial lever ratio of **4.24 : 1**. The bearing contact radius (27.3 mm) is solved so
+    this holds; the radial arm ratio (90 - 27.3)/(104.2 - 90) = 4.42 is reduced to 4.24 by the 12° cone and the
+    2.3 mm spring thickness.
 
-  | Pedal fraction p | Pedal travel | Master / slave (kin today) | Bearing travel | Plate lift | Capacity (× 350 N·m) | Clutch |
+  Spec's DIAPHRAGM_LEVER_RATIO = 9.0 : 1.8 = 5.0 is an end-to-end travel ratio that includes the 1.37 mm of bending;
+  the model does not use it.
+- **CLU-06**: Pedal to plate mapping (`kin.clutch_geometry`), p = pedal fraction from the top. Master piston =
+  21.47 mm × (p - 0.08)/0.92; slave = master × (15.87/19.05)²; bearing = slave/1.655 = 9.0 mm × (p - 0.08)/0.92;
+  plate lift = 1.8 mm × (p - 0.22)/0.78; capacity = 1 - smoothstep(0.22, 0.50, p).
+
+  | Pedal fraction p | Pedal travel | Master / slave | Bearing | Plate lift | Capacity (× 350 N·m) | Clutch |
   |---|---|---|---|---|---|---|
-  | 0 to 0.08 | 0 to 11.2 mm | 0 to 1.87 / 0 to 1.30 mm | 0 | 0 | 100% | free play |
-  | 0.22 | 30.8 mm | 5.13 / 3.56 mm | 1.37 mm | 0 | 100% (350 N·m) | capacity starts to fall (pedal going down); full clamp regained (pedal coming up) |
-  | 0.35 | 49.3 mm | 8.21 / 5.70 mm | 2.66 mm | 0.30 mm | 54% (190 N·m) | from here down, full engine torque (190 N·m) would slip it |
-  | 0.36 | 50.4 mm | 8.40 / 5.83 mm | 2.74 mm | 0.32 mm | 50% (175 N·m) | slipping zone |
-  | 0.50 | 70 mm | 11.67 / 8.10 mm | 4.11 mm | 0.65 mm | 0% | **bite point**: torque transmission starts (pedal coming up) or ends (pedal going down) |
-  | 1.00 | 140 mm | 23.33 / 16.19 mm | 9.0 mm | 1.8 mm | 0% | full pedal |
+  | 0 to 0.08 | 0 to 11.2 mm | 0 / 0 (pushrod closes its 1.87 mm free play) | 0 | 0 | 100% | free play |
+  | 0.22 | 30.8 mm | 3.27 / 2.27 mm | 1.37 mm | 0 | 100% (350 N·m) | capacity starts to fall (going down); full clamp regained (coming up) |
+  | 0.352 | 49.3 mm | 6.35 / 4.40 mm | 2.66 mm | 0.30 mm | 54% (190 N·m) | from here down, full engine torque would slip it |
+  | 0.36 | 50.4 mm | 6.53 / 4.53 mm | 2.74 mm | 0.32 mm | 50% (175 N·m) | slipping zone |
+  | 0.50 | 70 mm | 9.80 / 6.80 mm | 4.11 mm | 0.65 mm | 0% | **bite point** |
+  | 1.00 | 140 mm | 21.47 / 14.90 mm | 9.0 mm | 1.8 mm | 0% | full pedal |
 
   The engagement zone is p = 0.22-0.50 (spec CLUTCH_BITE_LO/HI). Pulling away, the driver feels the bite at the
-  **0.50** end, where capacity first rises from zero; it reaches 10% (35 N·m, enough to creep) at p = 0.445. The
-  0.22 end is where the clamp is complete.
-  *Why:* from p = 0.08 to 0.22 the bearing loads the fingers (1.37 mm of finger travel). In a real clutch, finger
-  bending and the elasticity of the cover, fulcrum and release parts take up most of this travel. By lever balance
-  about the fulcrum, any finger load lowers the rim (clamp) load at once, so in reality the clamp load starts to fall
-  and the plate begins to ease back slightly. The model ignores this early drop and keeps plate lift 0 and capacity
-  100%, because the clamp torque stays well above the 190 N·m engine maximum (350 N·m at full clamp). From p = 0.22
-  to 0.50 the plate lifts 0.65 mm, which is the disc's cushion-spring travel, and clamp load (capacity) fades to zero.
-  The remaining 1.15 mm of lift is running clearance, about 0.58 mm per face at full pedal. The master/slave column
-  is what `kin.clutch_geometry` gives today; O3 recommends moving the free play upstream of the master piston,
-  which changes only that column.
+  **0.50** end, where capacity first rises from zero; it reaches 10% (35 N·m, enough to creep) at p = 0.445.
+  *Why:* from p = 0.08 to 0.22 the bearing loads the fingers. In a real clutch, finger bending and the elasticity
+  of the cover and release parts take up this travel, and the clamp load starts to fall at once; the model keeps
+  plate lift 0 and capacity 100% there because 350 N·m is far above the 190 N·m engine maximum. From p = 0.22 to
+  0.50 the plate lifts 0.65 mm, the cushion-spring travel, while clamp load fades to zero (the disc's 'free' shape
+  key opens the cushion). The remaining 1.15 mm is running clearance: **0.575 mm per face** at full pedal
+  (0.615 mm as drawn, AB-11).
 - **CLU-07**: The diaphragm spring's falling force curve keeps the clamp load nearly constant as the facings wear,
   and pedal effort drops once past its peak. **(context; standard practice)**
 - **CLU-08**: Released with the gearbox in neutral: nothing drives the disc. The disc, input shaft, countershaft and
-  free gears coast down slowly against oil churning and bearing drag, and the engine keeps idling.
+  free gears coast down slowly against oil churning and bearing drag (`state.py`: 0.012 kg·m², time constant 2 s),
+  and the engine keeps idling.
 - **CLU-09**: Released with 1st selected and the car stationary: the synchro forces 1st gear to the output-shaft
   speed, which is 0 rpm. 1st gear meshes with the countershaft, and the countershaft meshes with the input gear, so
   the countershaft, input shaft and disc stop too. The flywheel and pressure plate keep turning at 850 rpm past the
@@ -266,6 +332,7 @@ Conventions follow ARCHITECTURE.md section 2:
 - **CLU-10**: While the clutch slips, the torque it passes is the friction torque n·μ·F·r_m, set by the clamp load
   (that is, by pedal position) whatever the speed difference. The same torque brakes the engine. Heat generated is
   T × Δω; for example, 60 N·m at 1000 rpm of slip is 6.3 kW.
+  *Model:* Coulomb friction: while slipping, `state.py` transmits capacity × sign(slip).
 - **CLU-11**: Pulling away, the clutch locks in four steps:
   1. As the pedal rises, clamp load and clutch torque rise.
   2. Once clutch torque × overall ratio exceeds the resistance at the wheels, the car accelerates, and the disc with
@@ -273,49 +340,51 @@ Conventions follow ARCHITECTURE.md section 2:
   3. The engine needs extra throttle so it does not slow down.
   4. When disc speed reaches engine speed, slip stops. Static friction then holds the clutch locked, because capacity
      exceeds the transmitted torque.
+
+  *Model:* the clutch locks when the slip speed crosses zero and stays locked while the torque needed to hold both
+  sides together is within capacity; the validator flags an engine below 450 rpm as a stall.
 - **CLU-12**: The hydraulic release is self-adjusting. A light preload spring in the slave keeps the release bearing
-  in constant contact with the diaphragm finger tips, pedal up or down (HYD-05). The bearing's rotating race, the one
-  touching the fingers, therefore always turns with the cover at engine speed. The other race, held by the fork and
-  carrier, does not rotate.
+  in constant contact with the diaphragm finger tips, pedal up or down (HYD-05). The bearing's rotating race (the one
+  touching the fingers) therefore always turns with the cover at engine speed (clutch option race_spin 'always').
+  The other race, held by the fork and carrier, does not rotate.
 
 ## 7. Hydraulic release (HYD)
 
-- **HYD-01**: The pedal lever ratio is 6:1, so 140 mm at the pad becomes 23.33 mm of master-cylinder pushrod
-  stroke.
+- **HYD-01**: The pedal lever ratio is 6:1: the pedal pushrod is pinned 50 mm from the pivot on the 300 mm arm, so
+  140 mm at the pad becomes 23.33 mm of pushrod stroke.
 - **HYD-02**: Brake fluid is incompressible, so the volume the master piston displaces enters the slave cylinder:
-  A_m·x_m = A_s·x_s. The bores are 15.87 mm (5/8 in, A_m = 197.8 mm²) and 19.05 mm (3/4 in, A_s = 285.0 mm²). The
-  volume is 197.8 × 23.33 = 4615 mm³ (4.6 mL), and the slave stroke is x_s = 23.33 × (15.87/19.05)² = **16.19 mm**.
-  These are the full pushrod-stroke figures. Only 92% of the stroke does work after the free play (HYD-05): 21.47 mm
-  at the master, 14.90 mm at the slave.
-- **HYD-03**: The slave cylinder pushes the release fork. Over the working travel, after the 8% free play, the slave
-  moves 14.90 mm and the bearing 9.0 mm, so the fork's effective ratio is **14.90/9.0 = 1.655**. Spec
-  RELEASE_FORK_RATIO = 16.19/9.0 = 1.80 ignores the free play. With the free play, a 1.80 fork would give only
-  14.90/1.80 = 8.28 mm of bearing travel (O3). Whether the slave end of the fork moves forward or rearward depends on
-  where the fork pivots; the bearing always moves forward in a push-type clutch.
+  A_m·x_m = A_s·x_s. The bores are 15.87 mm (5/8 in, A_m = 197.8 mm²) and 19.05 mm (3/4 in, A_s = 285.0 mm²).
+  Over the working travel the master piston moves 21.47 mm and displaces 4246 mm³ (4.2 mL), and the slave moves
+  x_s = 21.47 × (15.87/19.05)² = **14.90 mm** (spec MASTER/SLAVE_WORKING_STROKE). Spec's MASTER_STROKE 23.33 mm and
+  SLAVE_STROKE 16.19 mm are pushrod-stroke figures that ignore the free play; the model does not use them.
+- **HYD-03**: The slave cylinder pushes the release fork, a **first-class lever** that turns about a vertical axis on
+  a ball stud inside the bellhousing. As built (spec SLAVE_CYL_POS, RELEASE_FORK_PIVOT): pivot at X = -0.0697 m,
+  bearing contact line on the crank axis (arm 69.7 mm), slave pushrod at X = -0.1851 m (arm 115.4 mm). The ratio is
+  115.4/69.7 = **1.655** = 14.90/9.0 (spec RELEASE_FORK_RATIO_EFFECTIVE). The slave pushes its end of the fork
+  **rearward** (-Y) and the bearing moves **forward** (+Y). Both ends follow arm × sin(fork angle), so the ratio is
+  exact at every angle (up to asin(9.0/69.7) = 7.4°). Spec RELEASE_FORK_RATIO = 16.19/9.0 = 1.80 ignores the free
+  play and is not used.
 - **HYD-04**: Motion ratios, end to end, are pedal : bearing = 140/9.0 = 15.6 and pedal : pressure plate =
-  140/1.8 = 77.8. Over the working travel (after the free play), pedal : bearing is 128.8/9.0 = 6 × 1.441 × 1.655 =
-  **14.3**. Only that pedal : bearing ratio is a force ratio: bearing load ≈ 14.3 × pedal force, minus friction.
-  The driver's force never reaches the pressure plate. The bearing holds the diaphragm, and the finger load times the
-  diaphragm lever ratio (4.24, CLU-05) equals the rim load it holds off the plate; the strap springs lift the plate
-  with only a small force. The pedal force therefore follows the diaphragm's non-linear release-load curve (rising,
-  then falling; CLU-07), not "clamp load / 77.8". Illustrative example: a 6.2 kN clamp load needs about 6.2/4.24 ≈
-  1.46 kN at the fingers, which is about 100 N at the pad before friction and any assist spring.
+  140/1.8 = 77.8. Over the working travel, pedal : bearing is 128.8/9.0 = 6 × 1.441 × 1.655 = **14.3**. Only that
+  pedal : bearing ratio is a force ratio: bearing load ≈ 14.3 × pedal force, minus friction. The driver's force
+  never reaches the pressure plate. The bearing holds the diaphragm, and the finger load times the diaphragm lever
+  ratio (4.24, CLU-05) equals the rim load it holds off the plate; the strap springs lift the plate with only a small
+  force. The pedal force therefore follows the diaphragm's non-linear release-load curve (rising, then falling;
+  CLU-07). Illustrative: a 6.2 kN clamp load needs about 6.2/4.24 ≈ 1.46 kN at the fingers, about 100 N at the pad
+  before friction and any assist spring.
 - **HYD-05**: The first 8% of pedal travel (11.2 mm at the pad, 1.87 mm at the pushrod) does not move the bearing;
-  this is free play. In a real hydraulic release all of it is **upstream** of the hydraulics: clearance between the
-  pedal pushrod and the master piston, plus the piston travel needed to close the reservoir port. Downstream there
-  is no gap. A light preload spring in the slave keeps its pushrod against the fork and the release bearing in
-  constant light contact with the fingers, which makes the release self-adjusting as the facings wear (CLU-12).
-  Today `kin.clutch_geometry` moves the master and slave from p = 0 and the bearing from p = 0.08, which implies a
-  1.30 mm gap at the slave pushrod. Do not show that gap, because it would depict a cable-clutch style of free play.
-  O3 gives the recommended fix. Either way, no load reaches the fingers until the free play is taken up.
+  this is free play. As built (and as in a real hydraulic release) all of it is **upstream** of the hydraulics: a
+  1.87 mm gap between the pedal pushrod and the master piston at rest. Downstream there is no gap: the slave
+  pushrod, fork and bearing stay in light contact, and the bearing touches the fingers at rest, which makes the
+  release self-adjusting as the facings wear (CLU-12).
 - **HYD-06**: Pressure travels along the line at the speed of sound in the fluid (on the order of 1 km/s), so the
   slave follows the pedal within milliseconds. The pulse animated along the line is a visualisation (PRS-10).
 
 ## 8. Gearbox (GBX)
 
 - **GBX-01**: The gearbox has three shafts:
-  - **Input shaft** (front): carries the 26T input gear, which has the 4th-gear dog teeth. Its nose runs in the
-    crank spigot bearing.
+  - **Input shaft** (front): carries the 26T input gear, which has the 4th-gear dog teeth and cone. Its pilot runs
+    in the crank spigot bush (FLY-04).
   - **Countershaft**: directly below the input, at Z = 0.360 - 0.0757 = 0.2843 m. All of its gears are fixed to it.
   - **Output shaft**: coaxial behind the input, with its front end piloted inside the input shaft. Its free gears run
     on needle bearings, its synchro hubs are splined to it, and its rear flange drives the propshaft.
@@ -336,13 +405,12 @@ Conventions follow ARCHITECTURE.md section 2:
 
   Tip diameters are 2·m_n = 4.5 mm larger.
 - **GBX-05**: The teeth are helical at β = 25°. With standard addendum, every pair has a transverse contact ratio of
-  1.42-1.45, plus an overlap ratio b·sin β/(π·m_n) = 0.60 per 10 mm of face width. Load passes smoothly from tooth to
-  tooth, which makes the gears quiet and strong. The cost is axial thrust F_a = F_t·tan 25° = 0.47·F_t, carried by
-  the bearings. The 17T pinion is not undercut, because the minimum is z_min = 2·cos β/sin² α_t = 13.1
-  (α_t = 21.88°).
+  1.42-1.45, plus an overlap ratio b·sin β/(π·m_n) = 0.60 per 10 mm of face width (as built 19-24 mm faces). Load
+  passes smoothly from tooth to tooth, which makes the gears quiet and strong. The cost is axial thrust
+  F_a = F_t·tan 25° = 0.47·F_t, carried by the bearings. The 17T pinion is not undercut: z_min = 2·cos β/sin² α_t =
+  13.1 (α_t = 21.88°).
 - **GBX-06**: Mating external helical gears have opposite hands. The input gear and all output-shaft gears have one
-  hand, and all countershaft gears the other. On the countershaft, the driven 35T gear and the driving speed gear
-  have the same hand but opposite tangential loads, so their thrusts partly cancel. **(context)**
+  hand, and all countershaft gears the other. **(context)**
 - **GBX-07**: The countershaft turns **opposite** to the input (CCW-F) at 26/35 = 0.743 of its speed: 631 rpm at
   idle and 2229 rpm at 3000 rpm.
 - **GBX-08**: Ratios are i = (35/26) × (z_out/z_cs):
@@ -361,18 +429,15 @@ Conventions follow ARCHITECTURE.md section 2:
 - **GBX-09**: Steps between gears are 1.679, 1.492, 1.391 and 1.227, getting closer toward the top. The total spread
   is 3.484/0.815 = 4.28. **(context)**
 - **GBX-10**: 4th is direct. The 3-4 sleeve moves forward and locks the output shaft to the input gear's dog teeth,
-  so output turns with input and no gear mesh carries torque. The countershaft still spins, unloaded. This is the
-  most efficient gear.
+  so output turns with input and no gear mesh carries torque. The countershaft still spins, unloaded.
 - **GBX-11**: 5th is an overdrive (0.815). The large 38T countershaft gear drives the small 23T output gear, so the
   output turns 1/0.815 = 1.227 × faster than the engine.
 - **GBX-12**: In neutral (car stationary, clutch engaged, 850 rpm), each free output gear turns at input/i: 1st
   244 rpm, 2nd 410, 3rd 611 and 5th 1043 rpm, all CW-F. The reverse gear turns 249 rpm CCW-F and the idler 431 rpm.
   The output shaft, synchro hubs and sleeves stand still, and the needle bearings let the gears turn on the
   stationary shaft.
-- **GBX-13**: Axial order on the output shaft, front to rear: input gear (4th dogs) | 3-4 synchro | 3rd | 2nd |
-  1-2 synchro | 1st | reverse | 5-R synchro | 5th.
-  *Why:* spec SYNCHROS comments: 2nd is in front of the 1-2 synchro, 4th in front of the 3-4 synchro, and reverse in
-  front of the 5-R synchro.
+- **GBX-13**: Axial order, front to rear: input gear (4th dogs) | 3-4 synchro | 3rd | 2nd | 1-2 synchro | 1st |
+  intermediate web | reverse | 5-R synchro | 5th | rear wall, tail housing (shift mechanism), output flange.
 - **GBX-14**: Each external mesh reverses rotation:
   - Forward gears use 2 meshes (input → countershaft → output), so the output turns like the engine (CW-F).
   - 4th uses no mesh.
@@ -387,19 +452,19 @@ Conventions follow ARCHITECTURE.md section 2:
   straight-cut spur gears with module 2.5 mm.
 - **REV-02**: The ratio is -(35/26) × (22/15) × (38/22) = **-3.410**. The idler's tooth count cancels; it only adds
   one mesh, which reverses the direction.
-- **REV-03**: The 15T gear (37.5 mm PD) and the 38T gear (95.0 mm PD) sit on 75.72 mm centres and cannot touch: their
-  tip radii total 21.25 + 50.0 = 71.25 mm, leaving a 4.47 mm gap. The idler bridges it.
-  - The idler centre is 46.25 mm from the countershaft axis and 75.00 mm from the output axis. That puts it 14.8 mm
-    above the countershaft axis (60.9 mm below the main axis) and 43.8 mm to one side; `kin.reverse_idler_centre`
-    puts it on the +X side.
-  - The idler (tip radius 30 mm) would hit 1st gear's 44T (tip radius 56.9) and 17T (tip radius 23.4) if it reached
-    into their planes, so its face must stay inside the reverse plane.
-- **REV-04**: The reverse gears are spur rather than helical. Spur gears produce no axial thrust, and in many
-  gearboxes reverse is engaged by sliding them into mesh; the straight teeth cause reverse's typical whine. Contact
-  ratios are 1.53 (15/22) and 1.64 (22/38). **(context)**
-- **REV-05**: The 15T spur pinion is below the 17-tooth no-undercut limit for a 20° pressure angle
-  (2/sin² 20° = 17.1). It needs a positive profile shift x ≥ 0.12 (standard practice), or it accepts slight
-  undercut. The ratio is unaffected. See note O2.
+- **REV-03**: The 15T and 38T gears sit on 75.72 mm centres and cannot touch: with the as-built profile shifts their
+  tip radii are 21.62 + 50.38 = 72.00 mm, leaving a 3.72 mm gap. The idler bridges it.
+  - The idler centre is 46.25 mm from the countershaft axis and 75.00 mm from the output axis (zero-sum shifts keep
+    the standard centre distances): 14.8 mm above the countershaft axis (60.9 mm below the main axis) and 43.8 mm to
+    the +X side (`kin.reverse_idler_centre`).
+  - The idler (tip radius 29.6 mm) would hit 1st gear's 44T and 17T if it reached into their planes, so its face
+    stays inside the reverse plane.
+- **REV-04**: The reverse gears are spur rather than helical: no axial thrust, and the straight teeth cause reverse's
+  typical whine. Contact ratios with the profile shifts are 1.52 (15/22) and 1.65 (22/38). **(context)**
+- **REV-05**: The 15T spur pinion is below the 17.1-tooth no-undercut limit for a 20° pressure angle
+  (2/sin² 20°). As built, the train is profile shifted x = +0.15 / -0.15 / +0.15 (15T / 22T / 38T), which lowers the
+  15T's limit to 2(1 - x)/sin² 20° = 14.5 teeth; the idler's limit rises to 19.7, still below 22. Ratios are
+  unaffected.
 - **REV-06**: Reverse is engaged only with the car stationary. The 5-R synchro then brings the free reverse gear to
   the output's 0 rpm. With the car rolling forward, reverse would have to turn the whole gear train backwards.
 
@@ -409,39 +474,44 @@ Conventions follow ARCHITECTURE.md section 2:
   - a hub splined to the shaft;
   - a sleeve sliding on the hub's 32 external splines;
   - three spring-loaded struts;
-  - on each side, a brass blocker ring whose internal cone faces a steel cone on the gear, next to that gear's ring
-    of 32 dog teeth.
-- **SYN-02**: The sleeve travels 8.5 mm each way from neutral to engaged. The phases (spec fraction × 8.5 mm) are:
+  - on each side, a brass blocker ring whose internal cone rides on a steel cone on the gear, between the sleeve
+    and that gear's cone, next to the gear's ring of 32 dog teeth (4.5 mm long, 120° roof chamfers).
+- **SYN-02**: The sleeve travels 8.5 mm each way from neutral to engaged. As-built stations (gearbox assembly,
+  spec SYNC_* fractions × 8.5 mm):
 
-  | Phase | Sleeve position | What happens |
-  |---|---|---|
-  | Contact | 2.55 mm | struts press the blocker onto the cone |
-  | Block | 3.83 mm | sleeve chamfers rest on blocker chamfers; held here while synchronising |
-  | Through | 6.12 mm | sleeve has passed the blocker teeth and enters the dog chamfers; `state.py` counts the gear as rotationally locked from here |
-  | Engaged | ≥ 8.08 mm (95%) | counts as in gear |
-  | Home | 8.5 mm | fully engaged |
+  | Sleeve position | What happens |
+  |---|---|
+  | 0-1.95 mm | struts travel with the sleeve to the blocker lugs |
+  | 1.95-2.55 mm (**Contact**) | struts push the blocker 0.6 mm onto the cone |
+  | 3.01 mm | sleeve tooth ridge level with the blocker ridge |
+  | 3.83-3.87 mm (**Block**) | sleeve roof bears on the blocker roof, 0.85 mm deeper because the blocker is indexed 2.81°; held here while synchronising |
+  | 5.11 mm | sleeve clears the blocker teeth |
+  | 5.51 mm | sleeve ridge reaches the dog ridges |
+  | 6.12 mm (**Through**) | 0.61 mm onto the dog chamfers; `state.py` counts the gear as rotationally locked from here |
+  | ≥ 8.08 mm (**Engaged**, 95%) | counts as in gear |
+  | 8.5 mm (**Home**) | 3.0 mm of dog engagement, ridge past ridge (AB-10) |
 - **SYN-03**: Indexing: when the cones touch, friction drags the blocker ring round with the gear until its lugs hit
   the ends of their hub slots. That is a quarter of a tooth pitch (BLOCKER_INDEX = 0.25), 0.25 × 360°/32 =
-  **2.81°**, in the direction the gear slips relative to the shaft. With teeth about half a pitch wide, this offset
-  brings the blocker's roof-shaped chamfers flank-to-flank against the sleeve's chamfers, a stable blocking
-  position. A half-pitch offset would put the tips exactly on each other, which is unstable.
+  **2.81°**, in the direction the gear slips relative to the shaft (as built: 3 lugs in 3 hub slots with ±3.26°
+  free play; the model indexes exactly 2.81°). With teeth about half a pitch wide, this brings the roof chamfers
+  flank-to-flank against the sleeve's chamfers, a stable blocking position.
 - **SYN-04**: Blocking: the shift force F presses the sleeve onto the blocker chamfers. This produces a cone friction
-  torque T = μ·F·r_c/sin α; a cone half-angle α of about 6-7° multiplies the torque by about 9 (typical). The chamfer
-  angle is chosen so that this friction torque exceeds the chamfers' turn-back torque while any slip remains. The
-  sleeve therefore cannot pass until the speeds are equal, however hard it is pushed; pushing harder only
-  synchronises faster.
+  torque T = μ·F·r_c/sin α. As built α = 6.5° (mean cone diameter about 52 mm), so 1/sin α = 8.8. The chamfer angle
+  is chosen so that this friction torque exceeds the chamfers' turn-back torque while any slip remains. The sleeve
+  therefore cannot pass until the speeds are equal; pushing harder only synchronises faster.
 - **SYN-05**: Once synchronised, slip is zero and the cone torque vanishes. The chamfers turn the blocker back
   through its 2.81° index, and the sleeve passes through. Its chamfers then nudge the free gear by up to half a dog
   pitch (±5.625°) to line up the dogs, and the sleeve slides over the dog teeth. `state.py` indexes the gear before
-  the dogs meet and flags any misalignment. Torque then flows gear → dog teeth → sleeve → hub → shaft;
-  the cone carries none.
+  the dogs meet and flags any misalignment. Torque then flows gear → dog teeth → sleeve → hub → shaft; the cone
+  carries none.
 - **SYN-06**: This prevents clash, because the dog teeth only meet at zero relative speed. Without a synchro, the
   sleeve would strike dogs moving 585 rpm faster than it (1→2 at 3000 rpm, see SFT-01).
-- **SYN-07**: The dog teeth transmit torque by direct contact, not friction. A slight back-taper on the dogs, plus
-  the rail detent, stops the gear jumping out under load. **(context; standard practice)**
+- **SYN-07**: The dog teeth transmit torque by direct contact, not friction. On real boxes a slight back-taper on the
+  dogs, plus the rail detent, stops the gear jumping out under load; the model shows straight dogs and the detents.
+  **(context)**
 - **SYN-08**: The synchro only has to change the speed of the parts that the released clutch disconnects: the disc,
-  input shaft, countershaft and free gears, a small inertia. The output shaft is tied to the whole car, so its speed
-  barely changes.
+  input shaft, countershaft and free gears, I_INPUT = 0.012 kg·m² referred to the input. The output shaft is tied to
+  the whole car, so its speed barely changes.
 
 ## 11. Selector linkage (SEL)
 
@@ -453,49 +523,43 @@ Conventions follow ARCHITECTURE.md section 2:
   | Lever back | 2nd | 4th | Reverse |
 
   Neutral is the crossbar, and the lever is spring-centred on the 3-4 plane.
-  *Why:* SHIFT_GATE.
 - **SEL-02**: There are three shift rails (1-2, 3-4 and 5-R), each with a fork that sits in its sleeve's groove. 5th
   and reverse share one rail and one sleeve.
 - **SEL-03**: Moving the lever sideways (select) puts its finger into one rail's slot. Moving it forward or back
   (shift) slides that rail, its fork and its sleeve.
 - **SEL-04**: The linkage is direct. The lever pivots on a ball on top of the box (Y = -0.960 m) and its finger is
   below the pivot, so the finger moves opposite to the knob: **lever forward → rail, fork and sleeve rearward
-  (-Y)**. This matches the layout: 1st, 3rd and 5th sit behind their synchros (sleeve rearward, lever forward), and
-  2nd, 4th and reverse sit in front (sleeve forward, lever back).
-- **SEL-05**: The same reversal applies sideways: knob left → finger right. With a direct linkage, the 1-2 rail's
-  slot must therefore be at the +X end of the row under the finger, and the 5-R slot at the -X end.
+  (-Y)**. 1st, 3rd and 5th sit behind their synchros, and 2nd, 4th and reverse in front.
+- **SEL-05**: The same reversal applies sideways: knob left → finger right. As built the 1-2 rail is at X = +24 mm,
+  3-4 at 0 and 5-R at -24 mm.
 - **SEL-06**: The lever ratio (knob : finger) is about 55 mm/8.5 mm = 6.5 : 1. The 30 mm gate spacing at the knob is
-  therefore only about 4.6 mm at the finger. The rails' slotted shift heads sit side by side under the finger even
-  though the rails themselves are further apart.
-- **SEL-07**: Interlock: when one rail leaves neutral, interlock pins lock the other two in neutral. Two gears can
-  never be engaged at once, because two ratios on one output shaft would jam the box.
-- **SEL-08**: Spring-loaded detent balls hold each rail at neutral and at engaged. Real boxes with reverse beside 5th
-  add a lockout so reverse cannot be selected straight from 5th; the film does not model one. **(context)**
-- **SEL-09**: The forks do not rotate. The sleeve spins inside the fork's pads, which only push it axially.
+  therefore only about 4.6 mm at the finger; the slotted shift heads sit 4.67 mm apart under the finger.
+- **SEL-07**: Interlock: when one rail leaves neutral, the other two must stay in neutral; two ratios on one output
+  shaft would jam the box. The model enforces this in the state validator rather than with interlock pins.
+- **SEL-08**: Spring-loaded detent balls hold each rail at neutral and at engaged. Real boxes with reverse beside
+  5th add a lockout so reverse cannot be selected straight from 5th; the film does not model one. **(context)**
+- **SEL-09**: The forks do not rotate. The sleeve spins inside the fork's brass pads, which only push it axially.
 
 ## 12. The 1→2 shift at 3000 rpm (SFT)
 
 - **SFT-01**: Before the shift, in 1st at 3000 rpm, the output shaft turns at 3000/3.484 = **861 rpm** (24.1 km/h).
   Free 2nd gear turns at 3000/2.075 = **1446 rpm**, 585 rpm faster than its shaft.
 - **SFT-02**: Step 1, clutch in: no engine torque reaches the gear train. The driver closes the throttle, and the
-  engine slows on its own friction and pumping losses, not through the gearbox. `state.py` uses -35 N·m acting on
-  0.18 kg·m², about 1860 rpm/s. In the film's very fast 0.29 s shift (PRS-03) the engine therefore drops only about
-  530 rpm on its own, to about 2470 rpm, and the clutch-out slip (SFT-08) pulls it the rest of the way to 1787. In a
-  normal-paced shift (0.5-1 s, with the engine free for roughly 0.4-0.6 s) it would fall to about 1900-2250 rpm by
-  itself, and the clutch-out slip would be much smaller. Drivers rely on that.
+  engine slows on its own friction and pumping losses: `state.py` uses -35 N·m on 0.18 kg·m², about 1860 rpm/s. In
+  the planned very fast 0.29 s shift (PRS-03) the engine drops only about 530 rpm on its own, to about 2470 rpm, and
+  the clutch-out slip (SFT-08) pulls it the rest of the way to 1787. In a normal-paced shift it would fall to about
+  1900-2250 rpm by itself.
 - **SFT-03**: The clutch must be in for two reasons:
-  - Dog teeth under load are held by friction and back-taper and will not slide out of 1st.
+  - Dog teeth under load are held by friction and will not slide out of 1st.
   - The synchro can only re-speed the small input-side inertia (SYN-08). With the clutch engaged, it would also have
-    to drag the engine and flywheel, which are producing torque.
+    to drag the engine and flywheel. `state.py` flags a sleeve moving or a synchro working against an engaged
+    clutch.
 - **SFT-04**: Step 2: the 1-2 sleeve slides forward off 1st gear's dogs to the centre, which is neutral. With the
   lever direct, the lever moves rearward to neutral.
 - **SFT-05**: Step 3: as the sleeve moves forward toward 2nd, the blocker cone rubs on 2nd gear's cone and slows 2nd
   gear to 861 rpm. 2nd meshes with the countershaft, which meshes with the input gear, so the whole input side slows
-  with it. The start values below are the no-drag figures. `state.py` also applies the TAU_DRAG = 2 s oil-drag
-  spin-down while the input side runs free in neutral, between leaving 1st and cone contact. At 150 × that is
-  roughly 27-40 ms of real time (4-6 s of video), a loss of 1.3-2%. At cone contact the speeds are therefore about
-  1420-1430 rpm for 2nd gear, 2940-2960 rpm for the input and 2185-2200 rpm for the countershaft. HUDs and tests
-  must read the sync-start values from the Track, not hard-code them from this list:
+  with it. `state.py` also applies the 2 s oil-drag spin-down while the input side runs free in neutral, so at cone
+  contact the speeds are about 1-2% below the no-drag values. HUDs and tests must read them from the Track:
   - 2nd gear: about 1420-1446 → 861 rpm;
   - countershaft: about 2185-2229 → 1327 rpm;
   - input shaft and clutch disc: about 2940-3000 → 1787 rpm;
@@ -513,35 +577,34 @@ Conventions follow ARCHITECTURE.md section 2:
 
 ## 13. Propeller shaft (PRP)
 
-- **PRP-01**: The propeller shaft is a one-piece tube (65 mm diameter) with a Hooke (Cardan) universal joint at each
-  end. It turns at gearbox-output speed: 861 rpm in 1st at 3000 rpm, and engine speed in 4th. It turns CW-F in
-  forward gears. This is a simplification (PRP-06): a real shaft also needs a slip joint, and cars of this class
-  usually use a two-piece shaft.
-- **PRP-02**: The gearbox output and the pinion are both horizontal and parallel, 55 mm apart in height over 1.280 m.
-  Each joint therefore works at β = atan(55/1280) = **2.46°**.
+- **PRP-01**: The propeller shaft is a one-piece 65 × 1.8 mm tube with a Hooke (Cardan) universal joint at each end
+  and a slip yoke (splined sleeve under a rubber boot) at the gearbox end. It turns at gearbox-output speed: 861 rpm
+  in 1st at 3000 rpm, and engine speed in 4th. It turns CW-F in forward gears.
+- **PRP-02**: The gearbox output and the pinion are both horizontal and parallel, 55 mm apart in height. The joint
+  centres sit 44 mm inside each flange face, so they are 1280 - 2 × 44 = 1192 mm apart along the car, and each
+  joint works at β = atan(55/1192) = **2.64°**. (An earlier revision used the 1280 mm flange spacing and quoted
+  2.46°.)
 - **PRP-03**: A single Hooke joint at an angle does not pass a constant speed:
-  ω_out/ω_in = cos β/(1 - sin² β·sin² θ). The ratio swings between cos β and 1/cos β twice per turn. At 2.46° that is
-  ±0.092%, an angle error of ±0.026° (about β²/4).
+  ω_out/ω_in = cos β/(1 - sin² β·sin² θ). The ratio swings between cos β and 1/cos β twice per turn. At 2.64° that is
+  ±0.106%, an angle error of ±0.030° (about β²/4).
 - **PRP-04**: In the Z arrangement the input and output shafts are parallel, the two joint angles are equal, and both
   yokes on the tube lie in the same plane. The second joint then exactly undoes the first, so the pinion turns at
-  exactly gearbox-output speed. A numerical check gave a residual of 1×10⁻¹³°. Only the tube itself fluctuates, by
-  ±0.092%.
-- **PRP-05**: The fluctuation is invisible at 2.46°; it would take about 30° to reach ±15%. Uniform rotation on
-  screen is therefore correct. A small non-zero angle is good practice because it keeps the joints' needle rollers
-  moving. **(context)**
-- **PRP-06**: The film's flange → Hooke joint → rigid tube → Hooke joint → flange layout has two simplifications.
-  **(context; PRS-08)**
-  - *No slip joint.* Every real propshaft has a sliding spline, either a slip yoke in the gearbox tail or a spline
-    at a centre bearing, or else a plunging CV joint. It takes up the engine and gearbox rocking on their mounts,
-    axle and subframe compliance, and assembly tolerance. A rigid shaft bolted between two flanges cannot do this.
-    Ideally the propshaft assembly shows a slip yoke or spline at the gearbox end.
-  - *Whirl.* The first bending (whirl) critical speed of a pinned-pinned tube is ω = (π/L)²·√(EI/ρA). For a thin
-    tube this hardly depends on wall thickness. For a 65 mm steel tube it is about **6,600 rpm at L = 1.28 m**
-    (about 7,500 rpm at 1.20 m). The propshaft turns at road speed × a fixed ratio, so 6,600 rpm is about
-    **186 km/h** (213 km/h for 1.20 m). That is inside this car's range: 6800 rpm in 4th is 190.7 km/h, and 5th's
-    gearing allows 8,346 propshaft rpm. Designers keep the critical speed well above the maximum shaft speed.
-    That is why cars of this class (BMW 3-series, GT86) use a two-piece shaft with a centre bearing, or a
-    large-diameter aluminium or CFRP tube.
+  exactly gearbox-output speed. Only the tube itself fluctuates, by ±0.106%.
+  *As built:* the tube turns by `kin.hooke(theta_out, β)`; each cross is carried round by its flange yoke and rocked
+  by φ = atan(-tan β·sin θ), the exact solution that keeps its other arm in the tube yoke.
+- **PRP-05**: The fluctuation is invisible at 2.64°; it would take about 30° to reach ±15%. Uniform rotation of the
+  flanges and pinion on screen is therefore correct. A small non-zero angle is good practice because it keeps the
+  needle rollers moving. **(context)**
+- **PRP-06**: Two points about the one-piece layout. **(context; AB-09)**
+  - *Slip joint.* Every real propshaft needs a sliding spline (or a plunging CV joint) to take up engine and gearbox
+    rock on their mounts and assembly tolerance. The model shows a slip yoke at the gearbox end; it never needs to
+    slide in the film because the gearbox and axle are rigidly placed.
+  - *Whirl.* The first bending critical speed of a pinned-pinned tube is ω = (π/L)²·√(EI/ρA), almost independent of
+    wall thickness for a thin tube. For the 65 × 1.8 mm steel tube with L = 1.193 m between joint centres it is
+    about **7,650 rpm**, which is **215 km/h** in 4th. That is only 13% above the 6,800 rpm the shaft reaches at the
+    redline in 4th (190.7 km/h), and 5th's gearing would allow 8,346 rpm. Designers keep a wider margin, which is
+    why cars of this class (BMW 3-series, GT86) use a two-piece shaft with a centre bearing, or a large-diameter
+    aluminium or CFRP tube. No beat drives anywhere near these speeds.
 
 ## 14. Final drive (FD)
 
@@ -549,25 +612,26 @@ Conventions follow ARCHITECTURE.md section 2:
   is 4.1 × pinion torque. At 3000 rpm in 1st, the pinion turns at 861 rpm and the ring at 210 rpm.
 - **FD-02**: The bevel gears' axes meet at 90°, which turns the drive from along the car to across it. The ring's
   190 mm PD gives a module of 4.634 mm and a pinion PD of 46.3 mm. The pitch cone angles are atan(10/41) = 13.71° and
-  76.29°, summing to 90°.
+  76.29°, summing to 90°. As built: spiral angle 35°, pinion left-hand, ring right-hand, 32.6 mm face width.
 - **FD-03**: 41 and 10 share no common factor (gcd = 1). This is a hunting-tooth set: every pinion tooth meets every
   ring tooth, which evens out wear. **(context)**
 - **FD-04**: With the pinion turning CW-F, the wheels roll forward only if the ring gear lies on the **left (-X)**
-  of the pinion axis with its teeth facing +X. At the mesh, which is at the front of the ring, the pinion's left
-  flank moves down, and so does the front edge of a forward-rolling ring.
-  *Why:* a vector check of v = ω × r at the pitch point (ARCHITECTURE sign conventions). See note O4.
+  of the pinion axis with its teeth facing +X, and the pinion meshes at the **front** of the ring. At the mesh the
+  pinion's -X side moves down, and so does the front edge of a forward-rolling ring.
+  *Why:* a vector check of v = ω × r at the pitch point. *As built:* the axle assembly places the ring on -X
+  (`meta['final_drive']['ring_side'] = '-X'`); the axle brief's +X would have driven the car backwards.
 - **FD-05**: The film models a spiral-bevel set with no offset: the pinion axis passes through the ring axis, both at
   Z = 0.305 m. Real RWD axles are hypoid: the pinion sits below the ring centre line. That allows a bigger, stronger
-  pinion and a lower propshaft and tunnel, at the cost of more tooth sliding, which needs hypoid oil. The ratio is
-  still 41/10.
+  pinion and a lower propshaft and tunnel, at the cost of more tooth sliding, which needs hypoid oil (AB-08).
 - **FD-06**: Spiral teeth engage gradually, like helical teeth, so they are quieter and stronger than straight
   bevels. **(context)**
 
 ## 15. Open differential (DIF)
 
-- **DIF-01**: The ring gear is bolted to the differential case. A cross-pin in the case carries two 10T spider gears,
-  which mesh with two 16T side gears. Each side gear is splined to one output, which is the stub of that
-  driveshaft's inner joint.
+- **DIF-01**: The ring gear is bolted to the differential case (as built a two-piece case split on the cross-pin
+  plane). A cross-pin in the case carries two 10T spider gears, which mesh with two 16T side gears (straight bevels).
+  Each side gear is splined to an output stub whose flange, at |X| = 0.150 m, carries that driveshaft's inner-joint
+  housing.
 - **DIF-02**: The case turns at the mean of the two side-gear (wheel) speeds: **ω_case = (ω_L + ω_R)/2**.
   *Why:* the side gears are equal, so relative to the case they must turn by equal and opposite amounts; the spider
   simply rolls between them.
@@ -579,69 +643,73 @@ Conventions follow ARCHITECTURE.md section 2:
 - **DIF-05**: As a result, the total drive is limited to twice what the wheel with less grip can take. A wheel on ice
   can spin at twice case speed while the other wheel stands still. **(context; not shown)**
 - **DIF-06**: In a turn of radius R = 5.0 m at the rear-axle centre, with a 1.48 m track, the inner wheel follows a
-  4.26 m radius and the outer wheel a 5.74 m radius (no tyre slip). The distances they cover are in the same ratio:
-  outer/inner = **1.347** (inner/outer = 0.742). Over a 90° turn, for example, that is 6.69 m against 9.02 m. The
-  inner wheel turns at **0.852 ×** case speed and the outer at **1.148 ×**.
-- **DIF-07**: Worked example at 15 km/h (measured at the rear-axle centre); all values scale linearly with speed:
+  4.26 m radius and the outer wheel a 5.74 m radius (no tyre slip). Outer/inner = **1.347** (inner/outer = 0.742).
+  Over a 90° turn, for example, that is 6.69 m against 9.02 m. The inner wheel turns at **0.852 ×** case speed and
+  the outer at **1.148 ×**.
+- **DIF-07**: Worked example; all values scale linearly with speed. s06 drives straight at 15 km/h in 1st and turns
+  at 10 km/h:
 
-  | Quantity | Value |
-  |---|---|
-  | Case | 130.5 rpm |
-  | Inner wheel | 111.1 rpm |
-  | Outer wheel | 149.8 rpm |
-  | Side gears relative to case | ±19.3 rpm |
-  | Spiders on their pin | 30.9 rpm |
-  | Engine in 1st / 2nd | 1864 / 1110 rpm |
-  | Yaw rate | 47.7°/s |
+  | Quantity | 15 km/h, R = 5 m | 10 km/h, R = 5 m (s06 as built) |
+  |---|---|---|
+  | Case | 130.5 rpm | 87.0 rpm |
+  | Inner wheel | 111.1 rpm | 74.1 rpm |
+  | Outer wheel | 149.8 rpm | 99.8 rpm |
+  | Side gears relative to case | ±19.3 rpm | ±12.9 rpm |
+  | Spiders on their pin | 30.9 rpm | 20.6 rpm |
+  | Engine in 1st | 1864 rpm | 1242 rpm |
+  | Yaw rate | 47.7°/s | 31.8°/s |
 - **DIF-08**: In the left turn in s06, the left wheel is the inner, slower wheel and the right wheel the outer one. In
   a right turn the spiders spin the other way.
 - **DIF-09**: At R = 5.0 m, with Ackermann steering and no slip, the inner front wheel steers 31.6° and the outer
-  24.6°. The front-axle centre follows a radius of √(5² + 2.62²) = 5.645 m. **(context for the turn shot)**
+  24.6°. The front-axle centre follows a radius of √(5² + 2.62²) = 5.645 m. The body's wheelhouses allow about 32° of
+  lock. **(context for the turn shot)**
 
 ## 16. Driveshafts and CV joints (CVJ)
 
-- **CVJ-01**: Each rear driveshaft has a plunging tripod joint at the differential (centre X = ±0.150 m) and a Rzeppa
-  ball joint at the hub (X = ±0.655 m). The joint centres are 505 mm apart, and the shaft is level at rest (both
-  joints at Z = 0.305 m).
+- **CVJ-01**: Each rear driveshaft has a plunging tripod joint at the differential and a Rzeppa ball joint at the hub.
+  As built the tripod housing (tulip) bolts to the differential output flange at |X| = 0.150 m, which puts the tripod
+  centre at **|X| = 0.1771 m** (spec X_INNER_JOINT_CENTRE); the Rzeppa centre is at |X| = 0.655 m. The joint centres
+  are **478 mm** apart, and the shaft is level at rest (both joints at Z = 0.305 m).
 - **CVJ-02**: The differential is body-mounted while the wheel moves ±60 mm, so the shaft angle changes by up to
-  atan(60/505) = 6.8°. Joints are needed at both ends. In the film's pure vertical travel the hub axis stays parallel
-  to the differential output. Two in-phase Hooke joints would then form a Z arrangement and cancel exactly (PRP-04),
-  and some production IRS cars did run Hooke-jointed halfshafts, for example Jaguar's IRS and the C2/C3 Corvette,
-  where the fixed-length shaft doubles as a suspension link. Constant-velocity joints are used for these reasons:
+  asin(60/478) = **7.2°** (equal at both joints, because the hub axis stays parallel to the differential output).
+  Joints are needed at both ends. Two in-phase Hooke joints would then form a Z arrangement and cancel exactly
+  (PRP-04); some production IRS cars (Jaguar IRS, C2/C3 Corvette) did run Hooke-jointed halfshafts. Constant-velocity
+  joints are used for these reasons:
   - Camber and toe change as a real wheel moves, so the two joint angles become unequal and the cancellation is
-    lost. For example, 6.8° against 5.8° leaves a ±0.19% speed ripple at twice shaft frequency. A single 6.8° joint
-    would give ±0.7%.
+    lost. For example, 7.2° against 6.2° leaves a ±0.20% speed ripple at twice shaft frequency; a single 7.2° joint
+    would give ±0.8%.
   - A Hooke joint at an angle puts a secondary couple (about T·tan β, twice per turn) into the shaft and its
     bearings.
-  - The joint spacing changes with travel (CVJ-06). A Hooke-jointed shaft would need a sliding spline, which binds
-    and shudders when it has to slide under drive torque. A tripod plunges on rollers with low friction.
+  - The geometry needs plunge (CVJ-06). A Hooke-jointed shaft would need a sliding spline, which binds and shudders
+    when it has to slide under drive torque. A tripod plunges on rollers with low friction.
   - CV joints take larger angles in a compact, sealed package.
 
   The standard answer, used here, is a plunging tripod inside and a fixed Rzeppa outside. Each gives constant
   velocity at any angle on its own.
-- **CVJ-03**: In the Rzeppa joint, six balls run in curved grooves between an inner race (on the shaft) and an outer
-  race (the bell on the hub stub). The grooves of the inner race and the outer race are curved about centres offset
-  equally on either side of the joint centre. This track offset steers each ball into the plane that bisects the
-  angle between the two shafts, and the cage keeps all six ball centres in that one plane. A cage alone, with
-  concentric grooves, would not find the bisector: the original Rzeppa design needed a pilot lever to steer its cage,
-  while modern (Birfield-type) joints use the offset tracks. The narration's "a cage holds them in the plane that
-  splits the angle" is an acceptable simplification (N14).
+- **CVJ-03**: In the Rzeppa joint, six balls (17 mm, on a 61 mm pitch circle) run in curved grooves between an inner
+  race (on the shaft) and an outer race (the bell on the hub stub). The inner and outer grooves are curved about
+  centres offset 3.5 mm on either side of the joint centre (Birfield-type track offset). The offset steers each ball
+  into the plane that bisects the angle between the two shafts, and the cage keeps all six ball centres in that one
+  plane. *As built:* each ball centre is computed per frame on both groove centre lines and in the bisecting plane,
+  and the cage tilts by half the joint angle. The narration's "a cage holds them in the plane that splits the angle"
+  is an acceptable simplification (N14).
 - **CVJ-04**: Each ball centre is therefore the same distance from both shaft axes, so its contact speeds on the two
   races match at every instant. Wheel speed equals shaft speed exactly, at any angle: this is what "constant
   velocity" means.
-- **CVJ-05**: In the tripod joint, three rollers on a three-armed spider fixed to the shaft run in three straight
-  axial tracks in the differential-side housing (the tulip). The rollers roll and slide along the tracks, allowing
-  both angle and plunge with essentially constant velocity.
-- **CVJ-06**: The shaft is rigid, but the distance between the joint centres changes as the wheel moves. For pure
-  vertical travel of ±60 mm it grows by √(505² + 60²) - 505 = **3.55 mm**, and the tripod rollers slide that far in
-  their tracks. The real figure depends on the arcs of the suspension links.
-  - *Direction and frequency.* The shaft is level at ride height, so the joint spacing is at its minimum there.
-    The plunge is √(505² + dz²) - 505 ≈ dz²/1010 ≥ 0. Bump and droop **both lengthen** the spacing: 0.89 mm at
-    ±30 mm and 3.55 mm at ±60 mm. The rollers therefore move outboard and back, never inboard of their ride-height
-    position, at **twice** the bounce frequency. Do not animate a symmetric ± plunge.
-  - *Visibility.* 3.55 mm is 0.7% of the 505 mm spacing. At true scale it shows only in a tight close-up of the
-    tripod. If s07 magnifies the travel or the plunge to make it readable, that is a presentation liberty, and the
-    storyboard must say so (PRS-08).
+- **CVJ-05**: In the tripod joint, three spherical rollers (29 mm) on a three-armed spider fixed to the shaft run in
+  three straight axial tracks in the differential-side housing (the tulip). The rollers roll and slide along the
+  tracks, allowing both angle and plunge with essentially constant velocity. At 7.2° each roller slides
+  ±r·sin α = ±3.4 mm per turn on top of the plunge. A real tripod's centre also orbits about 0.1 mm at three times
+  shaft speed; the model ignores this (AB-13).
+- **CVJ-06**: **Plunge.** The shaft is rigid: its joint centres stay L = 478 mm apart. The outer centre O moves
+  vertically with the hub by s, so the tripod centre must slide outboard along the tulip axis by
+  p = L - √(L² - s²) ≈ s²/2L. That is **3.78 mm at ±60 mm** and 0.94 mm at ±30 mm. Equivalently, the distance from
+  the tulip (fixed to the differential) to the outer joint grows by √(L² + s²) - L = 3.75 mm.
+  - *Direction and frequency.* The shaft is level at ride height, so p is zero there and positive on both bump and
+    droop: the rollers move outboard and back, never inboard of their ride-height position, at **twice** the bounce
+    frequency. The real figure also depends on the arcs of the suspension links.
+  - *Visibility.* 3.78 mm is 0.8% of the joint spacing. s07 shows it at true scale in a sectioned close-up with a
+    live "Plunge" readout (and the joint angle, max 7.2°).
 - **CVJ-07**: Shaft speed equals side-gear speed equals wheel speed. Shafts and wheels turn fwd-roll when the car
   moves forward.
 
@@ -666,7 +734,7 @@ Conventions follow ARCHITECTURE.md section 2:
 - **RD-03**: Tractive force at the tyres per 100 N·m of engine torque is F = T·i·4.10/0.305, ignoring losses:
   4684, 2790, 1870, 1344 and 1095 N in 1st to 5th. That is why low gears are used to pull away. **(context)**
 - **RD-04**: Grip at the contact patch is a friction force: the tyre pushes the road backward and the road pushes the
-  car forward. Without grip the wheel would spin and the car would not move.
+  car forward. Without grip the wheel would spin and the car would not move. (The model assumes no slip, AB-01.)
 
 ## 18. Rotation directions (ROT)
 
@@ -692,27 +760,24 @@ Conventions follow ARCHITECTURE.md section 2:
 ## 19. Presentation liberties (PRS)
 
 - **PRS-01**: In slow motion, every angle integrates ω × slowmo(t) × dt. HUD rpm and km/h always show the physical
-  values.
-- **PRS-02**: s02 shows the 850 rpm idle at about 200 ×, so one crank turn takes 14.1 s on screen and one stroke
-  7.06 s. A factor of **198.3 ×** makes each 7.0 s stroke beat show exactly 180° of crank. Only the four stroke beats
-  (intake, compression, power, exhaust) need 198.3 ×. The other s02 beats choose their own factor, within the limits
-  of PRS-04 and PRS-11.
-- **PRS-03**: s05 shows 3000 rpm at 150 ×, which turns the crank 5° per frame. If 150 × holds through steps 1-5
-  (43 s of video), the real shift takes **0.29 s**: clutch in 37 ms, out of 1st 37 ms, sync 93 ms, engage 57 ms and
-  clutch out 63 ms. That is a **very fast, racing-style shift**; no driver strokes a 140 mm pedal in 37 ms. A
-  normal shift takes about 0.5-1 s. Typical values are clutch in 0.1-0.2 s, out of gear about 0.1 s, sync
-  0.1-0.3 s, engage about 0.05 s and clutch out 0.2-0.5 s. Matching those durations would need about 30-70 × in
-  steps 1-3 and 5, and at those factors most of the gear train strobes (PRS-04). The film therefore keeps 150 ×, and
-  the shift is shown as a fast one. Consequence: at clutch-out the engine has fallen only to about 2470 rpm, so
-  step 5 shows a clear slip down to 1787 rpm (SFT-02, SFT-08).
+  values, and the badge shows the factor.
+- **PRS-02**: s02 (as built) shows the 850 rpm idle at **230 ×** whenever the 132T starter ring can be in shot
+  (inline4, crank, cycle, flywheel) and at **198.3 ×** for the four 7.0 s stroke beats, so each shows exactly 180° of
+  crank (π/(7.0 s × 89.0 rad/s)). The valvetrain beat runs at 230.3 ×, solved so cylinder 1 reaches its firing TDC
+  1.5 s into the firing beat. The firing beat is in PRS-11. The flywheel is faded out from 17.4 s to 75.0 s.
+- **PRS-03**: s05 (planned) shows 3000 rpm at 150 ×, which turns the crank 5° per frame. If 150 × holds through steps
+  1-5 (43 s of video), the real shift takes **0.29 s**: clutch in 37 ms, out of 1st 37 ms, sync 93 ms, engage 57 ms
+  and clutch out 63 ms. That is a **very fast, racing-style shift**. A 93 ms sync must decelerate 0.012 kg·m² by
+  about 1160 rpm: 15.7 N·m at the input, 32.6 N·m at 2nd gear's cone, which needs about 1.4 kN of sleeve force
+  (μ 0.1, r_c 26 mm, α 6.5°), about 220 N at the knob. A normal shift takes about 0.5-1 s. Matching that would
+  need about 30-70 × in steps 1-3 and 5, and at those factors most of the gear train strobes (PRS-04). The film
+  therefore keeps 150 ×, shows the shift as a fast one, and step 5 shows a clear slip from about 2470 down to
+  1787 rpm (SFT-02, SFT-08).
 - **PRS-04**: To avoid wagon-wheel strobing, `Track.validate(aliasing=...)` requires a part with N-fold symmetry to
-  turn at most 0.35 of a pitch per frame. The minimum slow-motion factor is therefore slowmo ≥ (rpm/60) × N/(0.35 ×
-  24), which simplifies to **slowmo ≥ rpm × N / 504**. Meshing gears share one tooth-pass frequency, so both members
-  of a pair need the same factor. Motion blur is the only other way out. With a shutter of s frames, a feature moving
-  p pitches per frame is smeared over s·p pitches, and strobing is masked only once s·p ≥ about 1 (p ≥ about 2 at a
-  0.5-frame shutter). Between 0.35 and about 2 pitches per frame, blur does not hide the wrong-way or frozen look, so
-  visible toothed parts must avoid that band. Parts that are hidden, or fully smeared, can be masked out of the
-  `aliasing=` check.
+  turn at most 0.35 of a pitch per frame: **slowmo ≥ rpm × N / 504**. Meshing gears share one tooth-pass frequency,
+  so both members of a pair need the same factor. Motion blur only hides strobing once the smear s·p ≥ about 1
+  pitch (shutter s frames, p pitches per frame); between 0.35 and about 2 pitches per frame visible toothed parts
+  must be avoided. Hidden or fully smeared parts can be masked out of the check.
 
   **s05: 1st gear, 3000 rpm (output 861 rpm), at 150 ×**, worst first:
 
@@ -733,90 +798,75 @@ Conventions follow ARCHITECTURE.md section 2:
   | 1st gear dog ring; sleeves and hubs (32) | 32 | 861 rpm | 55 × | 0.13 |
   | Final-drive ring gear / pinion | 41 / 10 | 210 / 861 rpm | 17 × | 0.04 |
 
-  **Other scenes**, at the speeds the storyboard uses:
+  **Other scenes:**
 
   | Scene and condition | Part | Teeth | Speed | Minimum slowmo |
   |---|---|---|---|---|
-  | s02, s03: 850 rpm idle | Flywheel ring gear | 132 | 850 rpm | **223 ×** (0.39 pitch/frame at 198.3 ×) |
+  | s02, s03: 850 rpm idle | Flywheel ring gear | 132 | 850 rpm | **223 ×** (as built 230 ×: 0.34 pitch/frame) |
   | s02 | Timing sprockets and chain | 21 / 42 | 850 / 425 rpm | 35 × |
   | s03: idle | Disc hub / input splines | 23 | 850 rpm | 39 × |
   | s03: idle | Diaphragm fingers | 18 | 850 rpm | 30 × |
-  | s03: idle | Disc damper springs | 6 | 850 rpm | 10 × |
-  | s04: neutral, idle | 5th gear dog ring | 32 | 1043 rpm | **66 ×** |
+  | s04: neutral, idle | 5th gear dog ring | 32 | 1043 rpm | **66 ×** (as built 72 ×) |
   | s04: neutral, idle | Input gear's 4th-gear dogs | 32 | 850 rpm | 54 × |
   | s04: neutral, idle | 5th pair 23T / 38T | 23 / 38 | 1043 / 631 rpm | 48 × |
-  | s04: neutral, idle | Headset 26T / 35T | 26 / 35 | 850 / 631 rpm | 44 × |
-  | s04: neutral, idle | 3rd gear dog ring | 32 | 611 rpm | 39 × |
-  | s06: 15 km/h (DIF-07) | Ring gear 41T / pinion 10T | 41 / 10 | 130.5 / 535 rpm | **10.6 ×** (scales as 0.71 × v in km/h) |
-  | s06: 15 km/h | Side gears 16T (outer wheel) | 16 | 150 rpm | 4.8 × |
+  | s04 ratios: 1500 rpm in 1st/4th/5th | 5th gear dog ring | 32 | 1841 rpm | 117 × (as built 130 ×) |
+  | s04 reverse: 950 rpm, -7.8 km/h | 5th gear dog ring | 32 | 1166 rpm | 74 × (as built 80 ×) |
+  | s06: 15 km/h straight | Tyre tread | 64 | 130.5 rpm | **16.6 ×** (as built 20 ×) |
+  | s06: 15 km/h | Ring gear 41T / pinion 10T | 41 / 10 | 130.5 / 535 rpm | 10.6 × (0.71 × v in km/h) |
+  | s06: 10 km/h, R = 5 m | Outer tyre tread | 64 | 99.8 rpm | 12.7 × (as built 14 ×) |
+  | s06: 10 km/h | Ring gear / pinion | 41 / 10 | 87 / 357 rpm | 7.1 × (as built 8 ×, tyres out of frame) |
+  | s07: 10 km/h | Tyre tread | 64 | 87.0 rpm | 11.0 × (as built 12 ×) |
 
-  The s04 "ratios" driving shots run above idle, so use the formula with the actual input rpm. In an indirect gear
-  the input gear's dogs, at engine speed with N = 32, are usually the worst part.
-
-  Consequences:
-  - In s05 at 150 ×, the 1st, 2nd and 3rd gears, their dog rings, the 1-2 synchro and the diaphragm fingers are fine.
-    The headset needs at least 155 ×, the 38T/23T 5th pair 168 ×, and the **input gear (4th-gear dogs) 191 ×**.
-    The input-gear dogs sit next to the 3-4 synchro, only two gears in front of 2nd, so a close shot of 2nd can
-    include them. The **5th dog ring needs 234 ×**. Below those factors, keep the part out of frame or fully
-    motion-blurred.
-  - The flywheel ring gear needs 786 × at 3000 rpm. Keep it out of shot.
-  - At 850 rpm the ring gear needs at least 223 ×. At 198.3 × it moves 0.39 teeth per frame, so **every** s02 shot
-    in which the ring gear is visible (inline4 orbit, crank, flywheel, a firing side view) needs at least 223 ×, or
-    the ring gear masked, out of frame or blurred. This is not limited to the "flywheel" beat. See PRS-11 for the
-    firing beat.
-  - s03, s04 and s06 have their own limits (table above). s03's real-time plot conflicts with them (PRS-12).
+  In s05 at 150 ×, keep the flywheel ring gear out of shot, and keep the headset (155 ×), 5th pair (168 ×), input-gear
+  dogs (191 ×) and 5th dog ring (234 ×) out of frame or fully motion-blurred.
 - **PRS-05**: In real-time shots (the end of s07, and s08) the wheels turn 52.5° per frame at 24 km/h and 88° per
   frame at 40.5 km/h. Spokes strobe exactly as they would on a real 24 fps camera; Cycles motion blur makes this look
   natural.
-- **PRS-06**: Cutaways, the x-ray or fading bodywork, exploded views, labels and the warm power-path glow are
-  presentation only. They never change any part's motion.
+- **PRS-06**: Cutaways (with red section faces, AB-15), the x-ray or fading bodywork, exploded views, labels and the
+  warm power-path glow are presentation only. They never change any part's motion.
 - **PRS-07**: The gas colours (blue intake, orange combustion, grey-brown exhaust) are illustrative. A petrol flame is
   faint and bluish, and the gases are colourless.
-- **PRS-08**: The model simplifies in these ways:
-  - single-mass flywheel (many modern cars use a dual-mass one);
-  - spiral-bevel final drive with no hypoid offset (FD-05);
-  - a one-piece propshaft with no slip joint (PRP-06). Real cars of this class use a two-piece shaft with a centre
-    bearing and a sliding spline. A one-piece 1.28 m × 65 mm steel tube would whirl at about 6,600 rpm, about
-    186 km/h;
-  - a fixed 15° spark advance (CYC-11);
-  - no oil, seals or chain guides unless an assembly adds them.
-
-  Clearances are true scale: about 0.6 mm per clutch face at full pedal, and a 1.8 mm plate lift. The CV-joint
-  plunge is 3.55 mm at ±60 mm (CVJ-06). If a scene magnifies any of them, the storyboard should say so.
+- **PRS-08**: Clearances and small motions are true scale: about 0.6 mm per clutch face at full pedal (0.575 mm,
+  drawn 0.615 mm), a 1.8 mm plate lift, 3.78 mm of CV plunge at ±60 mm (shown with a live readout in s07). If a
+  scene magnifies any of them, the storyboard must say so. The model's simplifications are listed under AB.
 - **PRS-09**: The tyre is modelled at a 0.3115 m radius while the motion uses r = 0.305 m, so the tread surface moves
   2.1% faster than the ground. This is invisible at normal viewing distance, and the 6.5 mm "squash" hides the
   contact.
-- **PRS-10**: The hydraulic pulse along the line, the stroke strip, the firing ticker and the step cards are visual
-  aids.
-- **PRS-11**: s02 "firing" beat (12.5 s). At 198.3 × it covers only 12.5/198.3 s × 5100 °/s = **321°** of crank, at
-  most two power strokes, so the 1 > 3 > 4 > 2 sequence cannot appear. The four firing TDCs are 180° apart and span
-  540°. Showing all four flashes needs slowmo ≤ 118 ×, and a full 720° cycle needs ≤ 88.5 ×. **Recommended:** about
-  95-100 ×, which gives 638-671°, enough for all four flashes with a margin of about 50° on each side. At that factor
-  the 132T ring gear moves 0.78-0.82 teeth per frame, which no practical shutter can smear. Keep the flywheel out of
-  frame or masked in this beat. The timing sprockets (35 ×) and the fingers are fine. The alternative is to lengthen
-  the beat: 540° at 198.3 × is 21.0 s, about 23 s with margins, but that changes timeline.py.
-- **PRS-12**: s03 plays out in real time, and the storyboard depends on it. The parts limits at idle are ring gear
-  223 ×, splines 39 × and fingers 30 × (PRS-04).
-  - At 223 ×, the 19 s "release" beat is 85 ms of real time. With TAU_DRAG = 2 s the free disc loses only 4% of its
-    speed, so "Disc slows" would be invisible.
-  - At 223 ×, the 15 s "slip" beat is 67 ms. Reaching 6.8 km/h (1st at 850 rpm) in 67 ms would need 28 m/s², which
-    is impossible.
-  - A realistic pull-away slips for about 1-1.5 s, and a visible disc spin-down needs 1-2 s. That means about
-    10-15 × for "release" and "slip": the disc loses 47-61% of its speed in the release beat, and the slip lasts
-    1.0-1.5 s. At 10-15 × the ring gear moves 5-8 teeth per frame, the fingers 0.7-1.1 and the splines 0.9-1.4.
-  - **Recommended:** vary slowmo within s03. The "engaged" beat can stay high: at least 223 × with the ring gear in
-    frame, or at least 39 × without it. "release" and "slip" use about 10-15 ×, with the ring gear out of frame and
-    the fingers, splines and damper springs either hidden by the camera angle or fully motion-blurred (s·p ≥ 1). At
-    the 1200-1500 rpm used for pulling away, the fingers move 1.5-1.9 pitches per frame at 10 ×. Smearing them
-    completely needs a shutter of about 0.7 frame or more; at 850 rpm it needs about 1 frame. Hiding them is easier.
-    The disc passes through the aliasing band as it speeds up from rest; this is brief and acceptable. The HUD always
-    shows physical rpm (PRS-01).
+- **PRS-10**: The hydraulic pulse along the line, the stroke strip, the firing ticker, the step cards and the
+  "PAUSED" freeze in s06 are visual aids.
+- **PRS-11**: s02 "firing" beat (12.5 s), as built at **85 ×**: 180° of crank every 3.0 s, so cylinder 1 fires at
+  63.0 s and cylinders 3, 4 and 2 at 66.0, 69.0 and 72.0 s; the beat covers 722°. The flywheel is hidden (at 85 × the
+  132T ring would move 0.92 teeth per frame). The timing sprockets (35 ×) and the fingers are fine.
+- **PRS-12**: s03 (planned) plays out close to real time in "release" and "slip". At the 223 × the ring gear needs,
+  the 19 s release beat is 85 ms of real time (the free disc would lose only 4% of its speed) and a 15 s pull-away
+  would take 67 ms (28 m/s² to reach 6.8 km/h, impossible). A realistic pull-away slips for about 1-1.5 s, so
+  "release" and "slip" need about 10-15 ×, with the ring gear out of frame and the fingers, splines and damper
+  springs hidden or fully motion-blurred. "engaged" can stay at ≥ 223 × with the ring gear in frame.
+- **PRS-13** (new): **Slow-motion factors per scene.** "Built" means read from the scene module.
+
+  | Scene | Beats | Factor | Status | Reason |
+  |---|---|---|---|---|
+  | s02 | inline4, crank, cycle, flywheel | 230 × | built | 132T ring gear in shot (≥ 223 ×) |
+  | s02 | intake, compression, power, exhaust | 198.3 × | built | 180° per 7.0 s beat |
+  | s02 | valvetrain | 230.3 × | built | solved: cyl 1 at firing TDC at 63.0 s |
+  | s02 | firing | 85 × | built | four firings 3.0 s apart (PRS-11) |
+  | s03 | parts, splines, engaged / release, slip | ~200 × / ~10-15 × | planned | PRS-12 |
+  | s04 | shafts, neutral, synchro, lock, linkage | 72 × | built | 5th dogs at idle ≥ 66 × |
+  | s04 | ratios (1500 rpm; 1st 12.1, 4th 42.1, 5th 51.6 km/h) | 130 × | built | 5th dogs at 1841 rpm ≥ 117 × |
+  | s04 | reverse (950 rpm, -7.8 km/h) | 80 × | built | 5th dogs at 1166 rpm ≥ 74 × |
+  | s05 | all | 150 × | planned | PRS-03 |
+  | s06 | prop, ringpinion, straight | 20 × at 15 km/h | built | tread ≥ 16.6 × |
+  | s06 | diffparts | 0 (time frozen) | built | exploded diff holds still, cross-pin vertical |
+  | s06 | turn | 14 × (tyres in frame), then 8 × (spider close-up), 10 km/h | built | tread ≥ 12.7 ×; ring/pinion ≥ 7.1 × |
+  | s07 | why, rzeppa, plunge | 12 × at 10 km/h | built | tread ≥ 11.0 × |
+  | s07 | moves | 12 × → real time (35.3-38.6 s) | built | car pulls away 10 → 20 km/h |
+  | s08 | all | real time | planned | |
 
 ---
 
 ## 20. Narration line → fact IDs
 
-Every sentence in `carviz/timeline.py`. The key is scene.beat.sentence number.
+Every sentence of the current `carviz/timeline.py`. The key is scene.beat.sentence number. N-notes are in section 21.
 
 | Key | Narration sentence | Fact IDs |
 |---|---|---|
@@ -828,36 +878,36 @@ Every sentence in `carviz/timeline.py`. The key is scene.beat.sentence number.
 | s02.inline4.1 | The engine is an inline four: four cylinders in a row, each with a sliding piston. | ENG-01, ENG-04, ENG-05 |
 | s02.crank.1 | Connecting rods link the pistons to the crankshaft, turning up-and-down motion into rotation. | ENG-05, ENG-06, ENG-08, ENG-12 |
 | s02.cycle.1 | Each cylinder repeats a four-stroke cycle over two crankshaft turns. | ENG-10, ENG-11 |
-| s02.intake.1 | Intake: the piston moves down, drawing air and fuel in through the open intake valves. | CYC-09, CYC-08, CYC-01, CYC-07 |
-| s02.compression.1 | Compression: both valves close, and the rising piston squeezes the mixture. | CYC-10, CYC-04, CYC-01, ENG-03 (see N1, V5) |
+| s02.intake.1 | Intake: the piston moves down, drawing air and fuel in through the open intake valves. | CYC-09, CYC-08, CYC-01, CYC-07, VLV-06 |
+| s02.compression.1 | Compression: the intake valves close, and the rising piston squeezes the mixture. | CYC-10, CYC-04, CYC-01, VLV-06, ENG-03 (N1 applied; V5) |
 | s02.power.1 | Power: a spark ignites the mixture, and the hot gas forces the piston down. | CYC-11, CYC-12 |
 | s02.exhaust.1 | Exhaust: with the exhaust valves open, the rising piston pushes the burnt gas out. | CYC-13, CYC-03 |
-| s02.valvetrain.1 | Camshafts open the valves. | VLV-01, CYC-07 |
-| s02.valvetrain.2 | A timing chain drives them from the crankshaft at exactly half its speed, because each valve opens only once every two turns. | VLV-02, VLV-03, VLV-04 |
-| s02.firing.1 | Only the power stroke drives the crankshaft, so the cylinders take turns, firing in the order one, three, four, two: a power stroke every half turn. | ENG-09, ENG-13, ENG-11, ENG-08 (see V8, PRS-11) |
-| s02.flywheel.1 | At the back, a heavy flywheel smooths out the pulses. | FLY-01, ENG-13 |
-| s02.flywheel.2 | Its face is one half of the clutch. | FLY-02, CLU-01 |
+| s02.valvetrain.1 | Camshafts open the valves. | VLV-01, VLV-06, CYC-07 |
+| s02.valvetrain.2 | A timing chain drives them from the crankshaft at exactly half its speed, because each valve opens only once every two turns. | VLV-02, VLV-03, VLV-04, VLV-07 |
+| s02.firing.1 | Only the power stroke drives the crankshaft, so the cylinders take turns, firing in the order one, three, four, two: a power stroke every half turn. | ENG-09, ENG-13, ENG-11, ENG-08 (PRS-11) |
+| s02.flywheel.1 | At the back, a heavy flywheel smooths out the pulses. | FLY-01, ENG-13 (AB-02) |
+| s02.flywheel.2 | Its face is one half of the clutch. | FLY-02, CLU-01 (N9) |
 | s03.parts.1 | Between the engine and the gearbox sits the clutch: the flywheel, a friction disc, and a pressure plate with a diaphragm spring. | CLU-01, CLU-02, CLU-04 |
 | s03.splines.1 | The disc's hub is splined to the gearbox input shaft, so they always turn together. | CLU-03 |
-| s03.engaged.1 | With the pedal up, the spring clamps the disc between the pressure plate and the flywheel, and the gearbox turns with the engine. | CLU-04, GBX-12 (see N5) |
+| s03.engaged.1 | With the pedal up, the spring clamps the disc between the pressure plate and flywheel, so the input shaft turns with the engine. | CLU-04, GBX-12 (N5 applied) |
 | s03.release.1 | Press the pedal, and fluid flows from the master cylinder to the slave cylinder. | HYD-01, HYD-02, HYD-05, HYD-06 |
 | s03.release.2 | It pushes the release fork and bearing against the spring's fingers. | HYD-03, HYD-05, CLU-05, CLU-12 |
-| s03.release.3 | The spring flexes, the pressure plate pulls back, and the disc is free. | CLU-05, CLU-06, CLU-08, CLU-09 |
+| s03.release.3 | The spring flexes, the pressure plate pulls back, and the disc is free. | CLU-05, CLU-06, CLU-08, CLU-09 (V7) |
 | s03.slip.1 | To pull away, the pedal comes up slowly. | CLU-06, CLU-11 |
-| s03.slip.2 | The disc slips against the flywheel, speeding up as it passes on torque, until it matches the engine and locks. | CLU-10, CLU-11 (see N6) |
+| s03.slip.2 | The disc slips between the flywheel and pressure plate, speeding up as it passes on torque, until it matches the engine and locks. | CLU-04, CLU-10, CLU-11 (N6 applied) |
 | s04.shafts.1 | The gearbox has three shafts. | GBX-01, VEH-04 |
 | s04.shafts.2 | The input shaft, driven by the clutch, turns the countershaft below. | GBX-07, GBX-01 |
 | s04.shafts.3 | The output shaft runs out the back, in line with the input. | GBX-01, VEH-04 |
-| s04.neutral.1 | The other countershaft gears each mesh with a gear on the output shaft. | GBX-03, GBX-04, GBX-13 (see N8) |
+| s04.neutral.1 | The other countershaft gears each mesh with a gear on the output shaft. | GBX-03, GBX-04, GBX-13 (N8) |
 | s04.neutral.2 | They're always in mesh, but the output gears spin freely on bearings. | GBX-02, GBX-12 |
 | s04.neutral.3 | Until one is locked to the shaft, no power gets through: neutral. | GBX-15 |
 | s04.synchro.1 | Synchronizers do the locking. | SYN-01 |
 | s04.synchro.2 | A hub is splined to the shaft, and a sleeve slides on it. | SYN-01 |
-| s04.synchro.3 | Each gear carries a ring of dog teeth and a cone, with a brass blocker ring in between. | SYN-01, SYN-03 (see N7) |
-| s04.lock.1 | Slide the sleeve over the dog teeth, and the gear is locked to the shaft. | SYN-05, SYN-07, CLU-09 |
+| s04.synchro.3 | Each gear carries dog teeth and a cone, with a brass blocker ring between cone and sleeve. | SYN-01, SYN-02, SYN-03 (N7 applied) |
+| s04.lock.1 | Slide the sleeve over the dog teeth, and the gear is locked to the shaft. | SYN-02, SYN-05, SYN-07, CLU-09 |
 | s04.linkage.1 | Forks on shift rails move the sleeves. | SEL-02, SEL-09 |
 | s04.linkage.2 | Moving the lever sideways picks a rail; forward or back slides it. | SEL-01, SEL-03, SEL-04, SEL-05, SEL-07 |
-| s04.ratios.1 | In first, a small countershaft gear drives a large output gear, so the engine turns about three and a half times for each turn of the output shaft. | GBX-08, GBX-04 (see N2, V6) |
+| s04.ratios.1 | In first, the input gear turns the countershaft more slowly, and a small countershaft gear drives a large output gear: the engine turns about three and a half times per output-shaft turn. | GBX-07, GBX-08, GBX-04 (N2 applied; V6) |
 | s04.ratios.2 | Fourth locks input to output: one to one. | GBX-10 |
 | s04.ratios.3 | Fifth is an overdrive. | GBX-11 |
 | s04.reverse.1 | Reverse adds an idler gear between the shafts, so the output turns backwards. | REV-01, REV-02, GBX-14 |
@@ -865,230 +915,165 @@ Every sentence in `carviz/timeline.py`. The key is scene.beat.sentence number.
 | s05.clutch_in.1 | One: clutch in. | SFT-02 |
 | s05.clutch_in.2 | The engine is disconnected. | SFT-02, SFT-03 |
 | s05.neutral.1 | Two: the sleeve slides out of first, into neutral. | SFT-04, SEL-04 |
-| s05.sync.1 | Three: the blocker ring's cone presses on second gear. | SFT-05, SYN-03, SYN-04 |
+| s05.sync.1 | Three: the blocker ring's cone presses on second gear. | SFT-05, SYN-03, SYN-04 (N12) |
 | s05.sync.2 | Friction slows it, along with the countershaft, input shaft and clutch disc, until it matches the output shaft's speed. | SFT-05, SYN-08 |
-| s05.engage.1 | Four: speeds matched, the blocker ring lets the sleeve through, onto second gear's dog teeth. | SYN-05, SYN-06 |
+| s05.engage.1 | Four: speeds matched, the blocker ring lets the sleeve through, onto second gear's dog teeth. | SYN-02, SYN-05, SYN-06 |
 | s05.clutch_out.1 | Five: clutch out. | SFT-08 |
-| s05.clutch_out.2 | The engine is reconnected at about eighteen hundred rpm: same road speed, taller gear. | SFT-06, SFT-07, SFT-08 |
+| s05.clutch_out.2 | The engine is reconnected at about eighteen hundred rpm: same road speed, taller gear. | SFT-06, SFT-07, SFT-08 (N11) |
 | s06.prop.1 | The propeller shaft carries the drive back to the rear axle. | PRP-01, PRP-02, PRP-03, PRP-04 |
 | s06.ringpinion.1 | There, a small pinion drives a large ring gear: ten teeth against forty-one, a final drive ratio of 4.1 to 1, turning the drive through a right angle. | FD-01, FD-02, FD-03, FD-04 |
 | s06.diffparts.1 | The ring gear is bolted to the differential case. | DIF-01 |
-| s06.diffparts.2 | Inside, two spider gears mesh with two side gears, one splined to each driveshaft. | DIF-01 |
+| s06.diffparts.2 | Inside, two spider gears mesh with two side gears, one splined to each driveshaft. | DIF-01 (N10) |
 | s06.straight.1 | Going straight, the spider gears don't spin on their pin. | DIF-03 |
 | s06.straight.2 | Everything turns as one, and both wheels match. | DIF-02, DIF-03 |
 | s06.turn.1 | In a turn, the outer wheel travels further than the inner one. | DIF-06 |
-| s06.turn.2 | The spider gears now spin on their pin, letting one side speed up as the other slows. | DIF-03, DIF-07, DIF-08 |
+| s06.turn.2 | The spider gears now spin on their pin, letting one side speed up as the other slows. | DIF-03, DIF-07, DIF-08 (V10) |
 | s06.turn.3 | The case turns at the average of the two. | DIF-02, DIF-07 |
-| s07.why.1 | Each driveshaft has a constant-velocity joint at each end, because the wheel moves up and down while the differential stays put. | CVJ-01, CVJ-02, VEH-07 (see N13) |
+| s07.why.1 | Each driveshaft has a constant-velocity joint at each end, because the wheel moves up and down while the differential stays put. | CVJ-01, CVJ-02, VEH-07 (N13) |
 | s07.rzeppa.1 | In the outer joint, six balls run in grooves between inner and outer races. | CVJ-03 |
-| s07.rzeppa.2 | A cage holds them in the plane that splits the angle, so the wheel turns at exactly the shaft's speed. | CVJ-03, CVJ-04 (see N14) |
-| s07.plunge.1 | The inner joint can also slide, as the shaft's length changes. | CVJ-05, CVJ-06 (see N3, V9) |
+| s07.rzeppa.2 | A cage holds them in the plane that splits the angle, so the wheel turns at exactly the shaft's speed. | CVJ-03, CVJ-04 (N14) |
+| s07.plunge.1 | The inner joint can also slide, as the wheel's distance from the differential changes. | CVJ-05, CVJ-06 (N3 applied; N3a) |
 | s07.moves.1 | Finally, the wheel turns, the tire grips the road, and the car moves. | RD-01, RD-04 |
 | s08.together.1 | Let's put it all together. | VEH-02 |
 | s08.first.1 | Clutch up in first, and the engine pulls to three thousand rpm. | CLU-11, RD-02 |
-| s08.second.1 | Clutch in, second gear, clutch out: the revs drop, and the car keeps accelerating. | SFT-06, RD-02, RD-03 |
+| s08.second.1 | Clutch in, second gear, clutch out: the revs drop, and the car keeps accelerating. | SFT-06, SFT-07, RD-02, RD-03 (N15) |
 | s08.third.1 | Then third. | SFT-06 |
-| s08.summary.1 | Engine, clutch, gearbox, final drive, differential, and driveshafts: one chain of gears and shafts, turning fuel into motion. | VEH-02 (see N4) |
+| s08.summary.1 | Engine, clutch, gearbox, propeller shaft, final drive, differential, and driveshafts: one chain of gears and shafts, turning fuel into motion. | VEH-02, PRP-01, FD-01, DIF-01, CVJ-01 (N4 applied) |
 
-## 21. Possible inaccuracies in the narration
+## 21. Narration accuracy
 
-Each proposed rewording was checked against the `timeline.check()` rules (140 wpm, LEAD 0.25 s, 0.2 s tail) and fits
-its beat. `timeline.py` has not been edited. As of this revision none of N1-N7 has been applied.
+**Applied since the first review.** All seven recommended rewordings are now in `timeline.py`, and
+`timeline.check()` passes (140 wpm, LEAD 0.25 s, 0.2 s tail).
 
-**Recommended changes**
+| Note | Beat | Was | Now | Fact |
+|---|---|---|---|---|
+| N1 | s02.compression | "both valves close" | "the intake valves close" ("close" is spoken 1.96 s in; IVC is at 1.94 s at 198.3 ×) | CYC-04 |
+| N2 | s04.ratios | small gear drives large gear, "so" 3.5 turns | headset reduction named ("the input gear turns the countershaft more slowly") | GBX-08 |
+| N3 | s07.plunge | "as the shaft's length changes" | "as the distance between the joints changes" (see N3a) | CVJ-06 |
+| N4 | s08.summary | propeller shaft missing | propeller shaft listed | VEH-02 |
+| N5 | s03.engaged | "the gearbox turns with the engine" | "so the input shaft turns with the engine" (gearbox in neutral) | GBX-12 |
+| N6 | s03.slip | "slips against the flywheel" | "slips between the flywheel and pressure plate" | CLU-04 |
+| N7 | s04.synchro | "blocker ring in between" | "a brass blocker ring between cone and sleeve" | SYN-01 |
 
-1. **N1, s02.compression**: the narration says "Compression: both valves close". In fact the exhaust valves closed
-   at 10° ATDC, at the *start* of the intake stroke (CYC-01). Only the intake valves close here, 50° after BDC
-   (CYC-04).
-   Proposed: "Compression: the intake valves close, and the rising piston squeezes the mixture."
-   (12 words, 5.6 s of 7.0 s.) At 140 wpm the word "close" is spoken 1.96 s into the beat, and IVC falls at 1.94 s at
-   198.3 × (V5).
-2. **N2, s04.ratios.1**: the narration says "a small countershaft gear drives a large output gear, **so** the engine
-   turns about three and a half times". The 17→44 pair alone gives 2.59:1. 3.48:1 also needs the 26→35 headset
-   reduction (1.35:1) (GBX-08). The countershaft is driven at a lower speed; it is not braked, so avoid "slows".
-   Proposed: "In first, the input gear turns the countershaft more slowly, and a small countershaft gear drives a
-   large output gear: the engine turns about three and a half times per output-shaft turn. Fourth locks input to
-   output: one to one. Fifth is an overdrive." (44 words, 19.3 s of 20.0 s.)
-3. **N3, s07.plunge.1**: the narration says "as the shaft's length changes", but the shaft is rigid. What changes is
-   the distance between the joint centres, by up to 3.55 mm (CVJ-06).
-   Proposed: "The inner joint can also slide, as the distance between the joints changes." (13 words, 6.0 s of 6.5 s.)
-4. **N4, s08.summary.1**: the list omits the propeller shaft, which s01 and s06 present as a link in the chain.
-   Proposed: "Engine, clutch, gearbox, propeller shaft, final drive, differential, and driveshafts: one chain of gears
-   and shafts, turning fuel into motion." (20 words, 9.0 s of 10.0 s.)
-5. **N5, s03.engaged.1**: the narration says "the gearbox turns with the engine". In this shot the gearbox is in
-   neutral with the car stationary, so only the input shaft, countershaft and free gears turn. The output shaft is
-   still (GBX-12).
-   Proposed: "With the pedal up, the spring clamps the disc between the pressure plate and flywheel, so the input shaft
-   turns with the engine." (23 words, 10.3 s of 11.0 s.)
-6. **N6, s03.slip.2**: the narration says the disc "slips against the flywheel". It slips against both driving faces,
-   the flywheel and the pressure plate, which share the torque equally (n = 2, CLU-04). Naming only the flywheel
-   undercuts the earlier "clamps the disc between the pressure plate and the flywheel".
-   Proposed: "The disc slips between the flywheel and pressure plate, speeding up as it passes on torque, until it
-   matches the engine and locks." (Whole beat 31 words, 13.7 s of 15.0 s.)
-7. **N7, s04.synchro.3**: "with a brass blocker ring in between" reads as "between the dog teeth and the cone". The
-   blocker ring rides on the gear's cone, radially between the cone and the sleeve that slides over it, and axially
-   between the gear's dog ring and the hub.
-   Proposed: "Each gear carries dog teeth and a cone, with a brass blocker ring between cone and sleeve." (Whole beat
-   34 words, 15.0 s of 16.0 s.)
+**Still slightly imprecise (acceptable; optional fixes)**
 
-**Acceptable as written (no change)**
-
-8. **N8, s04.neutral.1**: "The other countershaft gears each mesh with a gear on the output shaft." The reverse
+1. **N3a, s07.plunge.1**: "as the distance between the joints changes". With a rigid shaft the distance between the
+   joint *centres* stays 478 mm; what changes is the distance from the differential-side housing to the outer joint
+   (+3.75 mm at ±60 mm), which the tripod takes up by sliding 3.78 mm (CVJ-06). Read as "the joints' housings", the
+   sentence is true. Optional precise wording (14 words, 6.45 s of 6.5 s): "The inner joint can also slide, as the
+   wheel's distance from the differential changes."
+2. **N8, s04.neutral.1**: "The other countershaft gears each mesh with a gear on the output shaft." The reverse
    countershaft gear meshes with the idler, not directly with the output gear (REV-03). Reverse is introduced two
-   beats later, and the beat is already at its word limit (37 words, 16.3 s of 16.5 s).
-9. **N9, s02.flywheel.2**: "one half of the clutch" is loose but fair, because the flywheel and pressure plate are
-   the two clamping members (FLY-02).
-10. **N10, s06.diffparts.2**: "one splined to each driveshaft". In this independent-suspension car the side gear is
-    splined to the stub of the inner joint (DIF-01). The storyboard shows "driveshaft stubs", so this is consistent.
-11. **N11, s05.clutch_out.2**: "about eighteen hundred rpm" matches 1787 rpm (SFT-06).
-12. **N12, s05.sync.1**: "the blocker ring's cone presses on second gear" is correct: the blocker's internal cone
-    presses on 2nd gear's cone.
-13. **N13, s07.why.1**: "a constant-velocity joint at each end, because the wheel moves up and down while the
-    differential stays put". The "because" explains why the shaft needs a joint at each end, not why those joints
-    must be CV joints; CVJ-02 gives the real reasons. The sentence is true as stated, and the next beat explains
-    constant velocity, so it can stay. An optional rewording that fits 10.5 s (21 words, 9.45 s): "Each driveshaft
-    needs a flexible joint at each end, because the wheel moves up and down while the differential stays put."
-14. **N14, s07.rzeppa.2**: "A cage holds them in the plane that splits the angle". It is the offset ball tracks
-    that steer the balls into the bisecting plane; the cage keeps them together in it (CVJ-03). This is an acceptable
-    simplification for narration.
+   beats later, and the beat is at its word limit.
+3. **N9, s02.flywheel.2**: "one half of the clutch" is loose but fair: the flywheel and pressure plate are the two
+   clamping members (FLY-02).
+4. **N10, s06.diffparts.2**: "one splined to each driveshaft". As built the side gear is splined to an output stub
+   that carries the inner-joint housing (DIF-01); the storyboard shows "driveshaft stubs", so this is consistent.
+5. **N11, s05.clutch_out.2**: "about eighteen hundred rpm" matches 1787 rpm (SFT-06).
+6. **N12, s05.sync.1**: "the blocker ring's cone presses on second gear" is correct: the blocker's internal cone
+   presses on 2nd gear's cone.
+7. **N13, s07.why.1**: the "because" explains why the shaft needs a joint at each end, not why those joints must be
+   constant-velocity joints (CVJ-02 gives the real reasons). True as stated, and the next beat explains constant
+   velocity. Optional (21 words, 9.45 s of 10.5 s): "Each driveshaft needs a flexible joint at each end, because
+   the wheel moves up and down while the differential stays put."
+8. **N14, s07.rzeppa.2**: "A cage holds them in the plane that splits the angle". The offset tracks steer the balls
+   into the bisecting plane; the cage keeps them together in it (CVJ-03). Acceptable for narration; the model shows
+   the true offset-track geometry.
+9. **N15, s08.second.1**: "the car keeps accelerating". While the clutch is in, the car coasts (about -0.13 m/s²,
+   SFT-07); it accelerates again after the shift. Fine as a summary of the beat.
 
 **Storyboard (visual notes), not narration**
 
-15. **V1, s04.ratios**: the HUD says "5th (0.82:1)". 0.8148 rounds to **0.81:1**; use 0.81 or 0.815.
-16. **V2, s02**: "~200x". Use 198.3 × at 850 rpm only for the four 7.0 s stroke beats, so that each is exactly 180°
-    (PRS-02). Any s02 shot showing the 132T starter ring needs at least 223 ×, or the ring masked, out of frame or
-    blurred (PRS-04). This includes the "inline4" orbit, "crank" and "flywheel", not only the flywheel beat.
-17. **V3, s05**: "SLOW x150" is fine for the 1-2 synchro, 1st/2nd/3rd gears and their dog rings. If the headset is
-    visible, use at least 155 ×. For the 38T/23T 5th pair use at least 168 ×. If the input gear (4th-gear dogs) or the
-    3-4 synchro area is in frame, use at least **191 ×**. If 5th gear's dog ring is in frame, use at least
-    **234 ×**. Motion blur is the alternative. Keep the flywheel ring out of shot. The HUD label must match the factor
-    used (PRS-04).
-18. **V4, s08**: "rpm drops to ~1790 … (40 km/h at 3000)" and "rpm drops to ~2010" are both correct (1787 rpm,
-    40.5 km/h, 2011 rpm).
-19. **V5, s02 valve timing**: the "compression" storyboard says "Valves closed, piston rises", which is wrong for the
-    first 50° of the beat. Valve lift must come from the CYC-01 timing, not from the beat boundaries. At 198.3 ×
-    (1° = 0.0389 s):
-    - *Intake beat* (cycle 360-540): the intake valves are already open (IVO at 350, 0.39 s before the beat). The
-      exhaust valves are still open and close **0.39 s** into the beat (EVC 370, the overlap).
-    - *Compression beat* (540-720): the intake valves are still open while the piston starts to rise and close
-      **1.94 s** into the beat (IVC 590). The spark fires at 6.42 s (705°).
-    - *Power beat* (0-180): the exhaust valves start to open **5.06 s** into the beat (EVO 130).
-    - *Exhaust beat* (180-360): the intake valves start to open at 6.61 s (IVO 350).
+- **V1, s04.ratios HUD**: now reads "5th (0.81:1)". Fixed.
+- **V2, s02 factors**: the inline4 note still says "~200x"; as built the scene runs 230 × / 198.3 × / 85 × (PRS-02,
+  PRS-13) and the badge shows the true factor. Fine.
+- **V3, s05 "SLOW x150"**: still applies when s05 is built. 150 × is fine for the 1-2 synchro, 1st/2nd/3rd gears and
+  their dog rings. The headset (155 ×), 5th pair (168 ×), input-gear dogs or 3-4 area (191 ×) and 5th dog ring
+  (234 ×) must be out of frame or blurred, and the flywheel ring out of shot (PRS-04).
+- **V4, s08**: "rpm drops to ~1790 … (40 km/h at 3000)" and "~2010" are correct (1787 rpm, 40.5 km/h, 2011 rpm).
+- **V5, s02 valve timing**: the compression note now reads "Intake valves close ~50 deg after BDC (~1.9 s in)".
+  Fixed. With the as-built cam at 198.3 × (1° = 0.0389 s): intake beat, exhaust valves 0.30 mm open at the start and
+  closed 0.39 s in; compression beat, intake valves 5.4 mm open at the start, below 1 mm at 1.30 s, closed at 1.94 s,
+  spark at 6.42 s; power beat, exhaust valves start to open 5.06 s in; exhaust beat, intake valves start to open at
+  6.61 s.
+- **V6, s04.ratios glow**: the note now says "headset + selected pair (4th: dogs, sleeve, hub only)". Fixed.
+- **V7, s03 plan**: "Disc slows (no longer driven)" and "car starts to roll" need about 10-15 × in "release" and
+  "slip" (PRS-12). Still open until s03 is built.
+- **V8, s02 firing**: fixed; as built at 85 × with the flywheel hidden, all four firings show (PRS-11).
+- **V9, s07 plunge**: fixed; the note says the rollers slide outboard on both bump and droop, and s07 shows the
+  plunge at true scale with a readout.
+- **V10 (new), s06 turn**: the scene eases the speed from 15 to 10 km/h as the turn begins (to allow 8 × for the
+  spider close-up), so in absolute terms both wheels slow: the outer wheel goes from 130.5 to 99.8 rpm while the
+  narration says "letting one side speed up as the other slows". The sentence is true relative to the case (87.0 rpm,
+  shown on the same HUD), and the HUD highlights the rows in the right order. Optional: hold 15 km/h until after
+  "slows" (outer 149.8, inner 111.1 rpm; the spider close-up then needs ≥ 10.6 ×), or label the HUD rows relative to
+  the case.
 
-    Suggested storyboard text for compression: "Intake valves close about 50° after BDC (1.9 s in); then the piston
-    rises with both valves shut, and the charge becomes denser. Spark plug fires ~15° before TDC at the very end."
-20. **V6, s04.ratios power-path glow**: "power path glows through the engaged pair" is incomplete for the indirect
-    gears and wrong for 4th.
-    - *1st, 2nd, 3rd and 5th*: two loaded meshes (GBX-08). The glow runs input shaft → input gear 26T → countershaft
-      35T → countershaft → selected countershaft gear → selected output gear → its dog ring → sleeve → hub → output
-      shaft. Example for 1st: 17T → 44T, then the 1-2 sleeve; for 5th: 38T → 23T, then the 5-R sleeve.
-    - *4th (direct)*: no gear pair carries torque (GBX-10). The glow runs input shaft → input gear's dog teeth → 3-4
-      sleeve → 3-4 hub → output shaft. The countershaft and all its gears spin unloaded and stay unlit.
-21. **V7, s03 real-time plan**: "Disc slows (no longer driven)" and "car starts to roll" only work if "release" and
-    "slip" run at about 10-15 × (PRS-12). At the 223 × the ring gear needs, the disc loses only 4% of its speed in the
-    release beat, and the pull-away would take 67 ms. Plan s03's slow-motion per beat, with the flywheel ring gear
-    out of frame during release and slip.
-22. **V8, s02 firing**: "Each combustion flash happens in turn; overlay ticker 1 > 3 > 4 > 2". At 198.3 × the beat
-    shows only 321° (two flashes). Run it at about 95-100 × with the flywheel out of frame (PRS-11).
-23. **V9, s07 plunge**: "rollers slide in their tracks as the wheel moves". The true plunge is at most 3.55 mm, always
-    an extension from the ride-height position, at twice the bounce frequency (CVJ-06). Show the rollers moving
-    outboard on both bump and droop, never inboard. If the travel or plunge is exaggerated to be readable, say so in
-    the storyboard (PRS-08).
+## 22. Notes for builders and the orchestrator
 
-## 22. Notes for builders and the orchestrator (spec issues found)
+Resolved in the as-built model:
 
-- **O1, cam sprockets clash**: `CAM_CENTRE_SPACING` = 130 mm, but a 42T 3/8 in sprocket has a tip diameter of about
-  132.8 mm (PD 127.5 mm). Two such sprockets side by side overlap by 2.8 mm, and since they turn the same way their
-  teeth would collide. Fixes, in order of preference:
-  1. Raise the spacing to at least about 0.137 m.
-  2. Use a 20T/40T pair (tip diameter 126.7 mm, 3.3 mm gap), which also needs the storyboard labels changed.
-  3. Drive the second cam through a gear pair.
-- **O2, reverse pinion undercut**: the 15T spur at module 2.5 is below the 17.1-tooth limit. `gears.py` should apply
-  profile shift x of about 0.12-0.2 to it (and -x to the idler, or adjust the idler position), or accept slight
-  undercut (REV-05). The idler's face width must stay within the reverse plane (REV-03).
-- **O3, clutch free play and fork geometry**:
-  - *Free play.* `kin.clutch_geometry` moves the master and slave linearly from p = 0, the slave reaching 16.19 mm
-    at full pedal, but starts the bearing at p = 0.08. Over the active range the slave therefore moves only 14.90 mm
-    for 9.0 mm of bearing travel. The fork's effective ratio is **1.655 : 1**, not RELEASE_FORK_RATIO 1.80. (An
-    earlier revision of this note said "fork end = 1.80 × bearing, show a 1.3 mm slave gap". That does not close:
-    the fork end would run ahead of its pushrod, and the gap would reopen to 1.30 mm at full pedal.) A visible gap at
-    the slave is also wrong for a self-adjusting hydraulic release (HYD-05). The chain 16.19 mm → 1.80 → 9.0 mm cannot
-    hold; it is either 14.90 mm → 1.655 → 9.0 mm or 16.19 mm → 1.80 → 9.0 mm with no free play.
-  - *Recommended `kin.py` change (owner: kin), keeping every spec input value.* Put the free play upstream, as the
-    pedal-pushrod clearance (1.87 mm): pushrod = pad/6, master piston = MASTER_STROKE × max(0, p - 0.08), slave =
-    master × (15.87/19.05)², bearing = slave/1.655. Bearing, finger, plate lift and capacity are unchanged; only the
-    master and slave values move:
+- **O1, cam sprockets clash**: resolved. CAM_CENTRE_SPACING = 135.52 mm, 2.70 mm tip clearance, 126 links (VLV-04).
+- **O2, reverse pinion undercut**: resolved. Profile shift +0.15 / -0.15 / +0.15 (REV-05).
+- **O3, clutch free play and fork geometry**: resolved. Free play before the master piston (`kin.clutch_geometry`,
+  spec MASTER/SLAVE_WORKING_STROKE), effective fork 1.655 with arms 69.7 : 115.4 mm, slave pushing rearward
+  (HYD-03, HYD-05), diaphragm lever 4.24 while lifting (CLU-05). On-screen slave stroke labels must read 14.9 mm.
+- **O4, ring gear side**: resolved. Ring on -X, pinion at the front of the ring (FD-04).
+- **O5, shift linkage**: resolved. Class-1 lever (knob forward = rail rearward), 1-2 rail at +X, heads 4.67 mm apart
+  (SEL-04 to SEL-06).
 
-    | p | Pushrod | Master piston | Slave | Bearing |
-    |---|---|---|---|---|
-    | 0.08 | 1.87 mm | 0 | 0 | 0 |
-    | 0.22 | 5.13 mm | 3.27 mm | 2.27 mm | 1.37 mm |
-    | 0.36 | 8.40 mm | 6.53 mm | 4.53 mm | 2.74 mm |
-    | 0.50 | 11.67 mm | 9.80 mm | 6.80 mm | 4.11 mm |
-    | 1.00 | 23.33 mm | 21.47 mm | 14.90 mm | 9.0 mm |
+Still open:
 
-    Optionally append `RELEASE_FORK_RATIO_EFFECTIVE = SLAVE_STROKE * (1 - CLUTCH_FREE_PLAY) / RELEASE_BEARING_TRAVEL`
-    (= 1.655) to spec. The alternative some reviewers suggested (master = MASTER_STROKE × eff, slave = SLAVE_STROKE ×
-    eff, fork 1.80) keeps the 1.80 fork but no longer matches the 6:1 pedal ratio over the working travel
-    (128.8 mm/23.33 mm = 5.52:1).
-  - *Until kin changes, the clutch assembly should* drive the visible slave pushrod and fork from `bearing`
-    (slave end = 1.655 × bearing, so nothing ever gaps). If the master cylinder is cut away, it should drive the
-    master piston as 1.441 × that slave value, with the pedal pushrod moving pad/6 and a 1.87 mm pushrod-to-piston
-    clearance at rest. The release bearing touches the fingers at rest. An on-screen slave stroke label should read
-    14.9 mm, not 16.2 mm.
-  - *Fork geometry.* The appended `SLAVE_CYL_POS` (X -0.125) and `RELEASE_FORK_PIVOT` (X -0.060), with the bearing
-    on the axis, give fork arms of only about 65 : 60 mm in X (75 : 62 mm in 3D), a ratio of 1.1-1.2 rather than
-    the 1.655 needed. For 1.655 as a first-class lever (pivot between slave and bearing), move the pivot to
-    X ≈ -0.047 or the slave outboard to X ≈ -0.159. For 1.80 the figures are X ≈ -0.045 and X ≈ -0.168. With a
-    first-class lever the slave end moves rearward while the bearing moves forward.
-- **O4, ring gear side**: the differential assembly must put the ring gear on the **-X (left)** side of the pinion
-  with its teeth facing +X. Otherwise the car drives backwards in forward gears (FD-04).
-- **O5, shift linkage**: lever forward moves the rail rearward (SEL-04). Sideways is reversed too, so on a direct
-  linkage the 1-2 rail's slot is at +X and the 5-R slot at -X (SEL-05). The finger moves only about 4.6 mm per plane
-  (SEL-06).
-- **O6, aliasing**: scenes should pass the visible toothed parts to `Track.validate(aliasing=...)`, masking frames
-  where a part is out of frame or fully motion-blurred. The rule is slowmo ≥ rpm × N/504, and PRS-04 lists each
-  part per scene. The flywheel ring gear (132T) is the strictest part: at least 223 × at idle in **every** s02/s03
-  shot that shows it. Other limits:
-  - s05 at 150 × needs at least 155 × for the headset, 168 × for the 38T/23T 5th pair, **191 ×** for the input gear's
-    4th-gear dogs or the 3-4 area, and **234 ×** for the 5th dog ring, if they are visible.
-  - s04 at idle needs at least 66 × with the 5th dog ring in frame, or 54 × for the input-gear dogs.
-  - s06 needs at least 0.71 × v (in km/h), which is 10.6 × at 15 km/h, for the final-drive ring and pinion.
-  - The s02 firing beat (PRS-11) and s03 (PRS-12) need lower factors than their ring gear allows, so plan them with
-    the ring gear out of frame.
-- **O7, tyre radius**: PRS-09 notes the 2.1% tread-speed mismatch. It can be ignored, or tread rotation can be scaled
+- **O6, aliasing**: s02, s04, s06 and s07 validate their visible toothed parts (PRS-04, PRS-13). s03, s05 and s08
+  must do the same when built. The 132T flywheel ring is the strictest part (≥ 223 × at idle in any shot
+  that shows it).
+- **O7, tyre radius**: the 2.1% tread-speed mismatch remains (PRS-09). It can be ignored, or tread rotation scaled
   by 0.305/0.3115.
-- **O8, propshaft**: spec's one-piece shaft has no slip joint and whirls at about 6,600 rpm (about 186 km/h; PRP-06).
-  The propshaft assembly should ideally show a slip yoke or spline at the gearbox end. Otherwise PRS-08 records it as
-  a simplification. No spec change is needed, because no beat in timeline.py drives anywhere near 186 km/h.
-- **O9, clutch naming**: spec CLUTCH_BITE_LO (0.22) and CLUTCH_BITE_HI (0.50) bound the engagement zone. In driver
-  terms the bite point is the **0.50** end (CLU-06). A HUD or label that says "bite" should use 0.50. Slip under full
-  engine torque starts at p = 0.35. No value change is needed.
+- **O8, propshaft whirl**: a slip yoke is now shown, but the one-piece shaft would whirl at about 7,650 rpm (about
+  215 km/h, PRP-06). No beat drives near that speed; PRP-06 and AB-09 record it.
+- **O9, clutch naming**: spec CLUTCH_BITE_LO (0.22) and CLUTCH_BITE_HI (0.50) bound the engagement (slip) zone. In
+  driver terms the bite point is the **0.50** end (CLU-06); the overlay's pedal-bar band shows the whole zone, which
+  is fine. A label that says "bite" should point at 0.50.
+- **O10 (new), unused end-to-end spec ratios**: spec still defines RELEASE_FORK_RATIO (1.80), DIAPHRAGM_LEVER_RATIO
+  (5.0), MASTER_STROKE (23.33 mm) and SLAVE_STROKE (16.19 mm). They ignore the free play and nothing in the model
+  uses them. HUDs and labels must use 1.655, 4.24, 21.5 mm and 14.9 mm.
 
 ## Appendix: reproduce the key numbers
 
 ```python
 import math, sys; sys.path.insert(0, ".")
-from carviz import spec as S
+import numpy as np
+from carviz import spec as S, kin
 r = S.GEAR_RATIOS
-print(S.DISPLACEMENT_L, S.GEARBOX_CENTRE_DISTANCE * 1e3, S.SLAVE_STROKE * 1e3, S.RELEASE_FORK_RATIO)
-print({g: round(v, 3) for g, v in r.items()}, S.FINAL_DRIVE)
-print({g: round(S.road_speed_kmh(3000, g), 1) for g in (1, 2, 3, 4, 5)})
-print("1->2 lands at", 3000 * r[2] / r[1])
-print("prop joint angle", math.degrees(math.atan2(S.Z_CRANK - S.Z_PINION, S.Y_GEARBOX_REAR - S.Y_PINION_FLANGE)))
+print({g: round(v, 3) for g, v in r.items()}, S.FINAL_DRIVE, S.GEARBOX_CENTRE_DISTANCE * 1e3)
+print({g: round(S.road_speed_kmh(3000, g), 1) for g in (1, 2, 3, 4, 5)}, "1->2 lands at", 3000 * r[2] / r[1])
+# clutch (as built: free play before the master piston)
+print("master/slave working mm", S.MASTER_WORKING_STROKE * 1e3, S.SLAVE_WORKING_STROKE * 1e3,
+      "fork", S.RELEASE_FORK_RATIO_EFFECTIVE, "per-face clearance mm", (1.8 - 0.65) / 2)
+print({p: {k: round(float(v) * 1e3, 2) for k, v in kin.clutch_geometry(p).items() if k in ("master", "slave", "bearing", "plate_lift")}
+       for p in (0.22, 0.5, 1.0)})
+# cam and chain
+for kind in ("intake", "exhaust"):
+    g = kin.cam_geometry(kind)
+    print(kind, "flank R mm", g["rf"] * 1e3,
+          "lift at TDC overlap mm", float(kin.valve_lift(math.radians(360), 1, kind)) * 1e3)
+p = S.CHAIN_PITCH
+print("42T tip mm", p * (0.6 + 1 / math.tan(math.pi / 42)) * 1e3, "cam spacing", S.CAM_CENTRE_SPACING * 1e3,
+      "chain mm per crank turn", float(kin.chain_travel(2 * math.pi)) * 1e3)
+# propshaft (joint centres 44 mm inside the flanges)
+L1 = S.Y_GEARBOX_REAR - S.Y_PINION_FLANGE - 2 * 0.044
+beta = math.atan2(S.Z_CRANK - S.Z_PINION, L1); Lj = math.hypot(L1, S.Z_CRANK - S.Z_PINION)
+print("prop beta deg", math.degrees(beta), "ripple %", (1 / math.cos(beta) - 1) * 100)
+Do, Di = 0.065, 0.065 - 2 * 0.0018
+wc = (math.pi / Lj) ** 2 * math.sqrt(210e9 * (Do**2 + Di**2) / 16 / 7850)
+print("whirl rpm", wc * 60 / (2 * math.pi), "km/h in 4th", wc / S.FINAL_DRIVE * S.ROLLING_RADIUS * 3.6)
+# driveshaft
+L = S.X_WHEEL_HUB - S.X_INNER_JOINT_CENTRE; s = S.SUSPENSION_TRAVEL
+print("joint spacing", L, "angle", math.degrees(math.asin(s / L)), "plunge mm", (L - math.sqrt(L * L - s * s)) * 1e3)
+# synchro and differential
+print("blocker index deg", S.BLOCKER_INDEX * 360 / S.DOG_TEETH)
 Ri, Ro = 5 - S.TRACK_REAR / 2, 5 + S.TRACK_REAR / 2
 print("inner/outer", Ri / Ro, "inner/mean", Ri / 5, "outer/mean", Ro / 5)
-L, rr = S.CONROD_LENGTH, S.CRANK_THROW
-print("rod ratio", L / rr, "max rod angle", math.degrees(math.asin(rr / L)))
-p = S.CHAIN_PITCH
-print("42T tip dia mm", p * (0.6 + 1 / math.tan(math.pi / 42)) * 1e3, "vs cam spacing", S.CAM_CENTRE_SPACING * 1e3)
-fp = S.CLUTCH_FREE_PLAY
-print("active slave mm", S.SLAVE_STROKE * (1 - fp) * 1e3, "effective fork", S.SLAVE_STROKE * (1 - fp) / S.RELEASE_BEARING_TRAVEL)
-print("diaphragm lever while lifting", (S.RELEASE_BEARING_TRAVEL / (1 - fp)) / (S.PRESSURE_PLATE_LIFT / (1 - S.CLUTCH_BITE_LO)))
-Do, Di, Lp = 0.065, 0.061, 1.28   # propshaft whirl, steel tube, pinned ends
-wc = (math.pi / Lp) ** 2 * math.sqrt(210e9 * (Do**2 + Di**2) / 16 / 7850)
-print("prop whirl rpm", wc * 60 / (2 * math.pi), "km/h", wc / S.FINAL_DRIVE * S.ROLLING_RADIUS * 3.6)
-print("min slowmo: rpm * N / 504; e.g. 5th dog ring in s05", 3000 / r[5] * 32 / 504)
-print("s02 firing: crank deg at 198.3x", 12.5 / 198.3 * 850 * 6, "max slowmo for 540 deg", 12.5 * 850 * 6 / 540)
-print("plunge at +-60 mm", math.hypot(505, 60) - 505)
+print("min slowmo = rpm * N / 504; s02 ring at 850 rpm:", 850 * 132 / 504, "s06 tread at 15 km/h:",
+      15 / 3.6 / S.ROLLING_RADIUS * 60 / (2 * math.pi) * 64 / 504)
 ```

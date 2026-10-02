@@ -393,39 +393,43 @@ so the wheel turns at exactly the shaft's
 speed.
 
 85
-00:06:45,250 --> 00:06:51,071
-The inner joint can also slide, as the
-distance between the joints changes.
+00:06:45,250 --> 00:06:47,821
+The inner joint can also slide,
 
 86
+00:06:47,821 --> 00:06:51,450
+as the wheel's distance from the
+differential changes.
+
+87
 00:06:51,750 --> 00:06:57,571
 Finally, the wheel turns, the tire grips
 the road, and the car moves.
 
-87
+88
 00:06:59,750 --> 00:07:02,143
 Let's put it all together.
 
-88
+89
 00:07:03,750 --> 00:07:09,143
 Clutch up in first, and the engine pulls
 to three thousand rpm.
 
-89
+90
 00:07:09,750 --> 00:07:16,000
 Clutch in, second gear, clutch out: the
 revs drop, and the car keeps accelerating.
 
-90
+91
 00:07:16,750 --> 00:07:17,857
 Then third.
 
-91
+92
 00:07:21,750 --> 00:07:25,179
 Engine, clutch, gearbox, propeller shaft,
 final drive, differential,
 
-92
+93
 00:07:25,179 --> 00:07:30,571
 and driveshafts: one chain of gears and
 shafts, turning fuel into motion.

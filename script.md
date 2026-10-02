@@ -1,6 +1,6 @@
 # Narration script — How a Manual Car Works
 
-Total running time **7:31.5** (451.5 s, 10836 frames at 24 fps). 883 words at 140 words/min (6.31 min of speech).
+Total running time **7:31.5** (451.5 s, 10836 frames at 24 fps). 884 words at 140 words/min (6.31 min of speech).
 
 Tone: clear, confident explainer. Each line starts 0.25 s after its timestamp and fits inside its slot at 140 wpm; the picture is cut to these exact timings, so read each line at its timestamp and let the pauses breathe.
 Every claim is backed by an entry in FACTS.md (see the narration-to-facts table there).
@@ -78,7 +78,7 @@ Every claim is backed by an entry in FACTS.md (see the narration-to-facts table 
 |---|---|---|---|
 | 6:18.0–6:28.5 | Each driveshaft has a constant-velocity joint at each end, because the wheel moves up and down while the differential stays put. | 21 | 10.5 s / 9.0 s |
 | 6:28.5–6:45.0 | In the outer joint, six balls run in grooves between inner and outer races. A cage holds them in the plane that splits the angle, so the wheel turns at exactly the shaft's speed. | 34 | 16.5 s / 14.6 s |
-| 6:45.0–6:51.5 | The inner joint can also slide, as the distance between the joints changes. | 13 | 6.5 s / 5.6 s |
+| 6:45.0–6:51.5 | The inner joint can also slide, as the wheel's distance from the differential changes. | 14 | 6.5 s / 6.0 s |
 | 6:51.5–6:59.5 | Finally, the wheel turns, the tire grips the road, and the car moves. | 13 | 8.0 s / 5.6 s |
 
 ## 8. Recap  (6:59.5 – 7:31.5, 32.0 s)
