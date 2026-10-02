@@ -92,7 +92,7 @@ SLOW_CRUISE = 1.0 / 20.0
 SLOW_CLOSE = 1.0 / 12.0             # turn, close-up on the spiders (tyres out of frame)
 T_FREEZE = (20.55, 21.55)           # slowmo -> 0
 T_THAW = (31.45, 32.45)             # 0 -> SLOW_CRUISE
-T_TURN = (41.0, 44.6)               # curvature / speed ease-in
+T_TURN = (41.0, 44.6)               # curvature ease-in (road speed held at V_CRUISE)
 T_CLOSE = (48.9, 50.0)              # slowmo SLOW_CRUISE -> SLOW_CLOSE (after the tyres leave frame)
 EXPLODE = (24.35, 26.05, 30.15, 31.75)   # out start, out end, back start, back end
 
@@ -444,8 +444,9 @@ POSES = [
     # diffparts: ring back face (bolts) from the left-rear, then wider for the exploded view
     (22.0, (-0.03, YD, ZD + 0.02), -64.0, 0.56, 0.42, 45.0, 5.6, "cubic"),
     (24.1, (-0.03, YD, ZD + 0.03), -58.0, 0.60, 0.42, 45.0, 5.6, "cubic"),
-    (26.3, (-0.03, YD, ZD + 0.08), -36.0, 0.74, 0.34, 40.0, 6.3, "cubic"),
-    (30.0, (-0.03, YD, ZD + 0.08), -30.0, 0.74, 0.34, 40.0, 6.3, "cubic"),
+    # (pulled back so pin top .. lower spider fit above the subtitle band)
+    (26.3, (-0.03, YD, ZD + 0.035), -36.0, 0.96, 0.40, 40.0, 6.3, "cubic"),
+    (30.0, (-0.03, YD, ZD + 0.035), -30.0, 0.96, 0.40, 40.0, 6.3, "cubic"),
     # straight: close on the (ghosted) case from the right-rear, above the cut housing
     (32.6, (0.0, YD + 0.01, ZD + 0.01), 26.0, 0.42, 0.46, 45.0, 5.6, "cubic"),
     (37.8, (0.0, YD + 0.01, ZD + 0.01), 14.0, 0.40, 0.48, 45.0, 5.6, "cubic"),

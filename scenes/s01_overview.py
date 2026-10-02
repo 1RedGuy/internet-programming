@@ -234,15 +234,16 @@ def build_camera(track):
 
 # ---------------------------------------------------------------------------
 # What the camera can see.  Engine off, every housing closed: the internals (crank train,
-# valvetrain, timing drive, flywheel, clutch pack, gear trains, final drive, CV-joint balls /
-# cages / tripods) are never visible in this scene, so they are hidden (render cost and
-# Workbench preview time).  Everything outside the housings stays.
+# valvetrain, timing drive, clutch pack, gear trains, final drive, CV-joint balls / cages /
+# tripods) are never visible in this scene, so they are hidden (render cost and Workbench
+# preview time).  Everything outside the housings stays, plus the flywheel, which the engine
+# keeps when the bellhousing fades away for the hand-off to s02.
 # ---------------------------------------------------------------------------
 VISIBLE = {
     "engine": {"block", "head", "head_gasket", "cam_cover", "timing_cover", "oil_pan", "coils",
                "intake_manifold", "fuel_rail", "exhaust_manifold", "oil_filter", "water_pump",
                "wp_pulley", "alternator", "alt_pulley", "idler_arm", "belt_idler", "accessory_belt",
-               "damper"},
+               "damper", "flywheel"},          # flywheel (+ ring gear): seen once the bellhousing fades
     "clutch": {"bellhousing", "bellhousing_bolts", "fork", "slave_cylinder", "slave_pushrod",
                "hose_bracket", "line_fittings", "master_cylinder", "pedal", "pedal_box", "pushrod",
                "return_spring"} | {f"line_{i:02d}" for i in range(12)},
@@ -319,13 +320,12 @@ def glow_curve(t, t_word, peak=GLOW_PEAK, hold=GLOW_HOLD, lead=0.06):
 # ---------------------------------------------------------------------------
 def build(quality: str) -> scenebase.SceneBuild:
     preview = quality == "preview"
-    final = quality in ("final", "hq")
     sc = scenebase.new_scene(SCENE_ID)
 
     # ---------------- state ----------------------------------------------------
     P = build_program()
     track = P.run()
-    t, fr, n = track.t, track.frames, track.n
+    t, fr = track.t, track.frames
 
     # ---------------- assemblies ------------------------------------------------
     hi = "high"

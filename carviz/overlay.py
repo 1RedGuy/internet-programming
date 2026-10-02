@@ -957,9 +957,17 @@ def _badge(ctx, w, alpha, parts, default_xy, dot=None):
 
 def _w_slowmo(ctx, w, alpha):
     u = ctx.u
-    s = _slowmo_text(w.get("factor", 1.0))
     fc, tr = _caps(ctx, 2.1)
     xy = (ctx.W - MARGIN_U * u, MARGIN_U * u)
+    raw = w.get("factor", 1.0)
+    try:
+        rawf = float(raw)
+    except (TypeError, ValueError):
+        rawf = 1.0
+    if raw is not None and (rawf == 0.0 or rawf != rawf or rawf in (float("inf"), float("-inf"))):
+        _badge(ctx, w, alpha, [("PAUSED", fc, WHITE, tr)], xy, dot=WHITE)   # time frozen
+        return
+    s = _slowmo_text(raw)
     if s is None:
         _badge(ctx, w, alpha, [("REAL TIME", fc, WHITE, tr)], xy, dot=WHITE)
     else:
