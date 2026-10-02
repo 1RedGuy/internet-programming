@@ -1,40 +1,48 @@
 """s05 A gear shift, step by step (50 s): 1st -> 2nd at 3000 rpm, slowed 150x.
 
-Dark studio, gearbox only (half cutaway: the -X half of the case, web and tail housing
-removed; the camera works from the left).  The film's heart: the viewer sees the 1-2
-sleeve leave 1st, the brass blocker ring meet 2nd gear's cone, 2nd gear's dog-tooth ring
-slow down until it turns in step with the blocker ring (= output shaft), and the sleeve
-slide through the blocker ring onto 2nd's dog teeth, while the HUD reads the live Track.
+Dark studio, gearbox only.  The case is the 'half' cutaway (-X half removed; the camera
+works from the left) and the 1-2 synchroniser is shown in a WORLD-FIXED quarter section:
+the hub, sleeve, struts, both blocker rings, both gear cones and dog rings and the 1-2
+fork are cut by a static box (x < 0, z > axis, between 3rd gear and the web) with
+per-frame Boolean modifiers (Manifold solver, ~0.2 s/frame), so the parts turn inside a
+cut that always faces the camera.  The upper half then reads like the textbook synchro
+profile (sleeve / blocker ring on the cone / dog teeth, cut faces in section red), and
+the lower half keeps the whole parts, where the brass blocker teeth (output speed) and
+2nd gear's steel dog teeth (gear speed) run side by side: the viewer sees them slip,
+slow and lock in step.  (gearbox opts['sections'] cuts in each part's LOCAL frame, so
+its notch turns with the parts and faces the camera only ~1/4 of the time.)
 
-State (FACTS SFT-01..08, PRS-03; slowmo 1/150 constant, so the real shift takes ~0.27 s):
+State (FACTS SFT-01..08, PRS-03; slowmo 1/150 constant, the real shift takes ~0.27 s):
   intro       in 1st, clutch engaged, engine 3000 rpm (24.1 km/h, output 861 rpm)
   clutch_in   pedal down 7.35 -> 9.3 s, throttle closed (target 800) as it goes down
   neutral     1-2 sleeve 1st -> centre (13.55 -> 15.85 s)
-  sync        sleeve to the blocking position (cone contact 19.5 s, block 20.2 s);
+  sync        sleeve to the blocking position (cone contact ~19.5 s, block 20.2 s);
               the cone brings the input side (2nd gear, countershaft, input shaft, disc)
-              from ~1420 to the output shaft's ~858 rpm by 30.85 s (state.py: cosine
+              from ~1420 to the output shaft's ~858 rpm by T_SYNCED (state.py: cosine
               blend from cone contact to the end of the hold)
-  engage      the sleeve turns the blocker ring back and passes through (31 -> 36.15 s),
-              then slides over 2nd's dog teeth (seated 37.9 s)
+  engage      the sleeve turns the blocker ring back and passes through (-> T_THROUGH),
+              then slides over 2nd's dog teeth (seated T_SEATED)
   clutch_out  pedal up 40.55 -> 41.75 s, throttle target 1850: the clutch slips the engine
-              down from ~2590 rpm to the disc's ~1777 rpm and locks (~47.3 s)
+              down from ~2590 rpm to the disc's ~1778 rpm and locks (~47.4 s)
   Road speed coasts down at 0.13 m/s^2 (FACTS SFT-07) while no power flows: 24.12 ->
-  24.00 km/h, so the engine lands at ~1777 rpm rather than 1787.
+  24.00 km/h, so the engine lands at ~1778 rpm rather than 1787.
 
 Aliasing (FACTS PRS-04): at 150x the input gear 26T / countershaft drive gear 35T need
 rpm_in <= 2908, the input gear's 4th-gear dogs (32) rpm_in <= 2362, the 5th pair (23T/38T)
-rpm_in <= 2678 and 5th's dog ring rpm_in <= 1925.  Before the synchroniser has slowed the
-input side those parts are kept out of frame; the validator gets per-frame visibility masks
-(frustum test of each part's bounding cylinder, no occlusion credit).
+rpm_in <= 2678 and 5th's dog ring rpm_in <= 1925.  Until the synchroniser has slowed the
+input side those parts are kept out of frame; the validator gets per-frame visibility
+masks (frustum test of each part's bounding cylinder, no occlusion credit).
 """
 from __future__ import annotations
 
 import math
 
+import bpy  # noqa: I001  (bpy before bmesh)
+import bmesh
 import numpy as np
 
 from carviz import camera as CAM
-from carviz import kin, lighting, rig, scenebase, state, timeline
+from carviz import kin, lighting, materials, rig, scenebase, state, timeline
 from carviz import spec as S
 from carviz.assemblies import gearbox as GB
 from carviz.labels import Hud, Labels, fmt_rpm
@@ -70,11 +78,14 @@ T_OUT_OF_FIRST = (13.55, 2.3)                        # disengage(1, t0, dur)
 T_SLEEVE_GO = 18.45                                  # sleeve leaves neutral toward 2nd
 T_BLOCK = 20.2                                       # sleeve chamfers on the blocker ring
 T_SYNCED = 30.85                                     # speeds matched (end of the hold)
-T_THROUGH = 36.15                                    # sleeve past the blocker (gear 2 counts)
+T_THROUGH = 36.20                                    # sleeve past the blocker (gear 2 counts);
+#   36.20 keeps every rendered frame clear of a ~5 um interpolation error in
+#   gearbox.blocker_offset (see the report) -- synchro_clearance >= 0 is asserted below
 T_SEATED = 37.9
 T_PEDAL_UP = (40.55, 41.75)
 T_THROTTLE_ON = (40.6, 41.4)
-COAST = 0.13 * 3.6                                   # km/h per real second (FACTS SFT-07)
+T_COAST = (8.4, 47.3)                                # no drive: clutch out .. locked again
+COAST = 0.13 * 3.6                                   # km/h lost per real second (SFT-07)
 
 
 def program():
@@ -104,54 +115,94 @@ def program():
     c.key(T_THROUGH, S.SYNC_THROUGH, "cubic")
     c.key(T_SEATED, 1.0, "cubic")
     c.key(DUR, 1.0, "linear")
-    # road speed: constant under power, coasting while the clutch is out (no drive)
-    t_coast0, t_coast1 = 8.4, 47.3
+    # road speed: constant under power, coasting while no power flows
+    v2 = V1 - COAST * SLOW * (T_COAST[1] - T_COAST[0])
     P.speed_kmh.key(0.0, V1, "step")
-    P.speed_kmh.key(t_coast0, V1, "linear")
-    P.speed_kmh.key(t_coast1, V1 - COAST * SLOW * (t_coast1 - t_coast0), "linear")
-    P.speed_kmh.key(DUR, V1 - COAST * SLOW * (t_coast1 - t_coast0), "linear")
+    P.speed_kmh.key(T_COAST[0], V1, "linear")
+    P.speed_kmh.key(T_COAST[1], v2, "linear")
+    P.speed_kmh.key(DUR, v2, "linear")
     return P
 
 
 # ---------------------------------------------------------------------------
-# Camera plan: (time, target, azimuth deg, radius, eye height above target, lens, f-stop, mode)
+# Section (world-fixed quarter cut through the 1-2 synchroniser)
+# ---------------------------------------------------------------------------
+ZC = S.Z_CRANK
+Y_HUB = -0.64124
+SECTION_Y = (-0.6937, -0.5913)          # web gap .. 3rd/2nd gap (car Y)
+SECTION_PARTS = ("hub_12", "sleeve_12", "strut_12_0", "strut_12_1", "strut_12_2", "blocker_1", "blocker_2",
+                 "cone_1", "cone_2", "dogs_1", "dogs_2", "fork_12")
+
+
+def add_section(G):
+    """Static cutter box + Boolean DIFFERENCE modifiers (evaluated per frame)."""
+    y0, y1 = SECTION_Y
+    me = bpy.data.meshes.new("s05_section_cutter")
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(materials.get("section_cut"))
+    cutter = bpy.data.objects.new("s05_section_cutter", me)
+    rig.link(cutter, G.root.users_collection[0])
+    cutter.scale = (0.30, y1 - y0, 0.30)
+    cutter.location = (-0.15, 0.5 * (y0 + y1), ZC + 0.15)
+    cutter.hide_render = True
+    cutter.display_type = "WIRE"
+    for name in SECTION_PARTS:
+        ob = G.parts[name]
+        md = ob.modifiers.new("s05_section", "BOOLEAN")
+        md.operation = "DIFFERENCE"
+        md.object = cutter
+        md.solver = "MANIFOLD"
+        md.material_mode = "TRANSFER"          # cut faces get section_cut (cutter material)
+    return cutter
+
+
+# ---------------------------------------------------------------------------
+# Camera plan: (time, target, azimuth deg, distance, elevation deg, lens, f-stop, mode)
 # azimuth as camera.orbit: 0 = behind (-Y), -90 = left (-X), -180 = front (+Y)
 # ---------------------------------------------------------------------------
-Y_HUB = -0.64124
-Y_G2 = -0.60633
-Y_G1 = -0.67765
-ZC = S.Z_CRANK
-Y_BAND2 = Y_HUB + 0.0175        # blocker ring / dog teeth of 2nd
-Y_BAND1 = Y_HUB - 0.0175
+Y_B1 = Y_HUB - 0.009            # 1st-gear side of the synchro
+Y_B2 = Y_HUB + 0.010            # 2nd-gear side
+Z_PROF = ZC + 0.013             # profile view: the cut profile in the upper middle of the frame
 
 POSES = [
-    # intro: medium three-quarter view of the 1-2 synchro between 2nd and 1st
-    (0.0, (0.0, -0.636, ZC - 0.012), -102.0, 0.40, 0.19, 45.0, 8.0, "step"),
-    (7.0, (0.0, -0.640, ZC - 0.004), -95.0, 0.33, 0.15, 45.0, 8.0, "cubic"),
-    # clutch_in -> neutral: drift in on the sleeve sitting on 1st gear's dog teeth
-    (12.4, (0.0, Y_BAND1 + 0.004, ZC + 0.004), -82.0, 0.215, 0.085, 50.0, 11.0, "cubic"),
-    (16.6, (0.0, Y_BAND1 + 0.010, ZC + 0.004), -86.0, 0.200, 0.080, 50.0, 11.0, "cubic"),
-    # sync: close on 2nd gear's side of the synchro (blocker ring, dog teeth, gear)
-    (19.0, (0.0, Y_BAND2 + 0.002, ZC + 0.002), -98.0, 0.180, 0.070, 50.0, 13.0, "cubic"),
-    (23.3, (0.0, Y_BAND2 + 0.001, ZC + 0.002), -95.0, 0.175, 0.068, 50.0, 13.0, "cubic"),
-    # countershaft / input shaft: pull back and look forward along the train
-    (26.6, (0.0, -0.585, ZC - 0.030), -117.0, 0.43, 0.15, 40.0, 8.0, "cubic"),
-    (29.4, (0.0, -0.590, ZC - 0.028), -112.0, 0.42, 0.15, 40.0, 8.0, "cubic"),
-    # engage: back in on the band
-    (32.6, (0.0, Y_BAND2 + 0.001, ZC + 0.002), -96.0, 0.165, 0.065, 50.0, 13.0, "cubic"),
-    (38.6, (0.0, Y_BAND2 + 0.000, ZC + 0.002), -93.0, 0.170, 0.066, 50.0, 13.0, "cubic"),
+    # intro: medium shot of 2nd gear, the sectioned 1-2 synchro, 1st gear, countershaft
+    # (the input gear and 5th must stay out of frame until the synchro has slowed them)
+    (0.0, (0.0, -0.6425, ZC - 0.008), -97.0, 0.276, 21.0, 50.0, 8.0, "step"),
+    (6.6, (0.0, -0.644, ZC - 0.004), -95.0, 0.262, 17.0, 50.0, 9.0, "cubic"),
+    # clutch_in: push in to the synchro profile (seen from just below the axis: the cut
+    # profile above, the whole lower half with its teeth rows below)
+    (11.8, (0.0, Y_B1, Z_PROF), -88.0, 0.192, -3.0, 50.0, 14.0, "cubic"),
+    # neutral: the sleeve slides off 1st gear's dog teeth
+    (16.4, (0.0, Y_B1 + 0.002, Z_PROF), -89.0, 0.188, -3.0, 50.0, 14.0, "cubic"),
+    # sync: 2nd gear's side (blocker ring on the cone, dog teeth)
+    (19.0, (0.0, Y_B2, Z_PROF), -93.0, 0.186, -3.0, 50.0, 14.0, "cubic"),
+    (22.6, (0.0, Y_B2 - 0.001, Z_PROF), -94.0, 0.182, -3.0, 50.0, 14.0, "cubic"),
+    # countershaft / input shaft: pull back (countershaft), then swing to the rear-left
+    # and look forward along the gear train (the input gear enters frame once allowed)
+    (24.4, (0.0, -0.634, ZC - 0.056), -90.0, 0.250, 12.0, 50.0, 9.0, "cubic"),
+    (25.4, (0.0, -0.633, ZC - 0.055), -89.0, 0.252, 12.5, 50.0, 9.0, "cubic"),
+    (27.4, (0.0, -0.585, ZC - 0.056), -62.0, 0.427, 19.0, 42.0, 8.0, "cubic"),
+    (29.3, (0.0, -0.587, ZC - 0.054), -64.0, 0.418, 19.0, 42.0, 8.0, "cubic"),
+    # engage: back on 2nd gear's side of the profile
+    (32.5, (0.0, Y_B2, Z_PROF), -93.0, 0.182, -3.0, 50.0, 14.0, "cubic"),
+    (38.8, (0.0, Y_B2 - 0.002, Z_PROF), -91.0, 0.188, -3.0, 50.0, 14.0, "cubic"),
     # clutch out: pull back to the whole gear train, power path in 2nd
-    (44.5, (0.0, -0.640, ZC - 0.020), -78.0, 0.52, 0.22, 40.0, 8.0, "cubic"),
-    (DUR, (0.0, -0.650, ZC - 0.020), -72.0, 0.58, 0.25, 40.0, 8.0, "cubic"),
+    (44.6, (0.0, -0.640, ZC - 0.020), -78.0, 0.565, 23.0, 40.0, 8.0, "cubic"),
+    (DUR, (0.0, -0.650, ZC - 0.020), -72.0, 0.625, 24.0, 40.0, 8.0, "cubic"),
 ]
 CAM_SMOOTH = 0.35          # s: Gaussian low-pass of the pose parameters
 KEY_OFFSET = -40.0         # key light azimuth relative to the camera azimuth (deg)
+FOCUS_NEAR = 0.012         # m: profile shots focus slightly in front of the cut plane
 
 
 def _pose_curves():
-    cs = {k: state.Curve() for k in ("tx", "ty", "tz", "az", "r", "h", "lens", "f")}
-    for (t, T, az, r, h, lens, f, mode) in POSES:
-        for k, v in zip(("tx", "ty", "tz", "az", "r", "h", "lens", "f"), (T[0], T[1], T[2], az, r, h, lens, f)):
+    keys = ("tx", "ty", "tz", "az", "d", "el", "lens", "f")
+    cs = {k: state.Curve() for k in keys}
+    for (t, T, az, d, el, lens, f, mode) in POSES:
+        for k, v in zip(keys, (T[0], T[1], T[2], az, d, el, lens, f)):
             cs[k].key(t, v, mode)
     return cs
 
@@ -165,14 +216,17 @@ def _gauss(x, sigma_frames):
 
 
 def camera_samples(t):
+    """Per-frame (eye, target, lens, f-stop, azimuth deg, distance)."""
     cs = _pose_curves()
     sig = CAM_SMOOTH * FPS
     p = {k: _gauss(c(t), sig) for k, c in cs.items()}
     T = np.stack([p["tx"], p["ty"], p["tz"]], 1)
     az = np.radians(p["az"])
-    r, h = p["r"], p["h"]
+    el = np.radians(p["el"])
+    d = p["d"]
+    r, h = d * np.cos(el), d * np.sin(el)
     eye = T + np.stack([r * np.sin(az), -r * np.cos(az), h], 1)
-    return eye, T, p["lens"], p["f"], np.degrees(az)
+    return eye, T, p["lens"], p["f"], np.degrees(az), d
 
 
 # ---------------------------------------------------------------------------
@@ -225,23 +279,12 @@ def _dilate(m, k=2):
     return out
 
 
-# ---------------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------------
-
-def _curve(t, keys):
-    c = state.Curve()
-    for k in keys:
-        c.key(*k)
-    return c(t)
-
-
 def _smooth_arr(x, sigma_s):
     return _gauss(np.asarray(x, float), max(1e-3, sigma_s * FPS))
 
 
 GLOW_PATH = 0.05           # power-path glow (warm emission; materials.CV_Presentation)
-GLOW_FRICTION = 0.14       # blocker ring / cone while they slip
+GLOW_FRICTION = 0.06       # blocker ring + cone of 2nd while they slip
 
 
 def build(quality: str) -> scenebase.SceneBuild:
@@ -257,6 +300,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     for ob in G.objects():
         if ob.type == "MESH":
             ob.display.show_shadows = False
+    cutter = add_section(G)
 
     # ---------------- drivetrain state ----------------------------------
     P = program()
@@ -269,36 +313,41 @@ def build(quality: str) -> scenebase.SceneBuild:
     # ---------------- glow ----------------------------------------------
     gear = np.asarray(track.gear)
     cap = np.asarray(track.capacity)
+    # power path while torque can flow (clutch capacity, in gear)
     g1 = _smooth_arr(np.where(gear == "1", cap, 0.0) * GLOW_PATH, 0.25)
     g2 = _smooth_arr(np.where(gear == "2", cap, 0.0) * GLOW_PATH, 0.25)
     path1, path2 = set(G.meta["power_path"][1]), set(G.meta["power_path"][2])
     for name in sorted(path1 | path2):
-        ob = parts[name]
         val = np.maximum(g1 if name in path1 else 0.0, g2 if name in path2 else 0.0)
-        rig.bake_prop(ob, "cv_glow", fr, np.round(val, 5))
+        rig.bake_prop(parts[name], "cv_glow", fr, np.round(val, 5))
+    # friction: blocker ring + 2nd gear's cone while they slip (fades with the slip speed)
     slip = np.abs(np.asarray(track.rpm_gear_2) - np.asarray(track.rpm_out))
     sync = np.asarray(track.syncing_12) > 0
     i_c = int(np.argmax(sync))
     slip0 = max(slip[i_c], 1.0)
-    fr_glow = np.where(sync, np.clip(slip / slip0, 0.0, 1.0) ** 0.5, 0.0)
-    fr_glow = fr_glow * kin.smoothstep(t[i_c], t[i_c] + 0.5, t)
-    fr_glow = _smooth_arr(fr_glow, 0.2) * GLOW_FRICTION
+    fg = np.where(sync, np.clip(slip / slip0, 0.0, 1.0) ** 0.5, 0.0)
+    fg = _smooth_arr(fg * kin.smoothstep(t[i_c], t[i_c] + 0.5, t), 0.2) * GLOW_FRICTION
     for name in ("blocker_2", "cone_2"):
-        rig.bake_prop(parts[name], "cv_glow", fr, np.round(fr_glow, 5))
+        rig.bake_prop(parts[name], "cv_glow", fr, np.round(fg, 5))
 
     # ---------------- camera + lights -----------------------------------
-    eye, tgt, lens, fstop, az = camera_samples(t)
+    eye, tgt, lens, fstop, az, dist = camera_samples(t)
     C = CAM.CameraPath(name="cam_s05", lens=50.0, fstop=8.0, clip=(0.01, 40.0))
     for i in range(n):
         C.key(t[i], eye=tuple(eye[i]), target=tuple(tgt[i]), lens=float(lens[i]), fstop=float(fstop[i]),
               mode="linear")
+    # close (profile) shots focus a little in front of the cut plane so the whole teeth
+    # rows of the lower half are sharp too
+    near = np.clip((0.30 - dist) / 0.08, 0.0, 1.0)
+    for i in range(n):
+        C.focus_offset.key(t[i], -FOCUS_NEAR * float(near[i]), "linear")
     cam = C.bake(fr, FPS)
     rig.bake_channel(studio["rig"], "rotation_euler", 2, fr,
                      np.radians(np.unwrap(az, period=360.0) + KEY_OFFSET - 225.0))
 
     # ---------------- validation ----------------------------------------
     vis = {}
-    for name in ("input_gear", "dogs_4", "cs_drive", "gear_5", "dogs_5", "cs_5", "input_shaft"):
+    for name in ("input_gear", "dogs_4", "cs_drive", "gear_5", "dogs_5", "cs_5"):
         vis[name] = _dilate(in_frame(part_points(parts[name]), eye, tgt, lens))
     th_in = track.theta_in
     th_out = track.theta_out
@@ -307,7 +356,7 @@ def build(quality: str) -> scenebase.SceneBuild:
         "input gear 26T": (track.gb("input_gear"), TAU / S.Z_INPUT, vis["input_gear"]),
         "input gear dogs (4th) 32": (track.gb("input_gear"), p32, vis["dogs_4"]),
         "countershaft drive gear 35T": (track.gb("cs_drive"), TAU / S.Z_CS_DRIVEN, vis["cs_drive"]),
-        "input shaft splines 23T": (th_in, TAU / S.CLUTCH_DISC_SPLINE_TEETH, vis["input_shaft"]),
+        "input shaft splines 23T": (th_in, TAU / S.CLUTCH_DISC_SPLINE_TEETH, None),
         "5th gear 23T": (track.gb("gear_5"), TAU / S.GEAR_PAIRS[5][1], vis["gear_5"]),
         "5th dog ring 32": (track.gb("gear_5"), p32, vis["dogs_5"]),
         "countershaft 5th 38T": (track.gb("cs_5"), TAU / S.GEAR_PAIRS[5][0], vis["cs_5"]),
@@ -330,22 +379,44 @@ def build(quality: str) -> scenebase.SceneBuild:
     assert clr["blocker_mm"] >= 0.0 and clr["dogs_mm"] >= 0.0 and clr["engaged_misalignment_deg"] < 0.01, clr
 
     # ---------------- labels --------------------------------------------
+    # Anchors sit on surfaces the camera sees: the near flanks of the (whole) gears, and
+    # the world-fixed section plane x = 0 (0.5 mm in front of it) for the cut synchro
+    # parts.  The section faces are visible by construction, so those labels skip the
+    # occlusion ray test (the anchor lies on the cut face itself).
     A = G.anchors
+    R = G.root
+    sl_sleeve, sl_blk2 = A["sleeve_12"][0], A["blocker_2"][0]
+    an = {
+        "g2": (R, (-0.0459, -0.60633, 0.010)),          # 2nd gear 37T, near flank
+        "g1": (R, (-0.0545, -0.67765, 0.014)),          # 1st gear 44T, near flank
+        "sleeve": (sl_sleeve, (-0.0005, 0.0, 0.036)),   # sleeve section (moves with it)
+        "blocker2": (sl_blk2, (-0.0005, 0.0035, 0.0275)),
+        "cone2": (R, (-0.0005, Y_HUB + 0.0130, 0.0240)),
+        "dogs2": (R, (-0.0005, Y_HUB + 0.0198, 0.0317)),
+        "cs": (R, (-0.0142, Y_HUB, -S.GEARBOX_CENTRE_DISTANCE)),   # bare countershaft, cs_2..cs_1
+        "input": (R, (-0.033, -0.507, 0.008)),         # input gear (on the input shaft), near flank
+        "output": (R, (-0.0125, Y_HUB - 0.002, 0.013)),  # output-shaft splines inside the cut hub
+    }
     L = Labels()
-    L.add("g1_intro", "1st gear", A["gear_1"], wt("intro", "first"), bend("intro") - 0.3, offset=(0.07, -0.10))
-    L.add("g2_intro", "2nd gear", A["gear_2"], wt("intro", "second"), bend("intro") - 0.3, offset=(-0.07, -0.10))
-    L.add("sleeve_n", "Sleeve", A["sleeve_12"], wt("neutral", "sleeve"), bend("neutral") - 0.4,
-          offset=(0.06, -0.12))
-    L.add("blocker_s", "Blocker ring", A["blocker_2"], wt("sync", "blocker"), 23.2, offset=(0.06, -0.12))
-    L.add("g2_s", "2nd gear", A["gear_2"], wt("sync", "second"), 23.2, offset=(-0.07, -0.10))
-    L.add("cs", "Countershaft", A["countershaft"], wt("sync", "countershaft"), 28.6, offset=(0.06, 0.08))
-    L.add("input", "Input shaft", A["input_gear"], wt("sync", "input"), 28.6, offset=(-0.06, -0.10))
-    L.add("output", "Output shaft", A["output_shaft"], wt("sync", "output"), 31.6, offset=(0.06, -0.10))
-    L.add("blocker_e", "Blocker ring", A["blocker_2"], wt("engage", "blocker"), 37.3, offset=(0.06, -0.12))
-    L.add("sleeve_e", "Sleeve", A["sleeve_12"], wt("engage", "sleeve"), 39.6, offset=(0.08, -0.04))
-    L.add("dogs_e", "Dog teeth", A["dogs_2"], wt("engage", "dog teeth"), 40.3, offset=(-0.07, 0.10))
-    L.add("g2_out", "2nd gear", A["gear_2"], wt("clutch_out", "taller"), DUR - 0.5, offset=(-0.06, -0.10),
-          style="emph")
+    L.add("g2_intro", "2nd gear", an["g2"], wt("intro", "second"), bend("intro") - 0.4, offset=(-0.07, -0.10))
+    L.add("g1_intro", "1st gear", an["g1"], wt("intro", "first"), bend("intro") - 0.4, offset=(0.05, 0.10))
+    L.add("sleeve_n", "Sleeve", an["sleeve"], wt("neutral", "sleeve"), bend("neutral") - 0.3, offset=(0.12, 0.02),
+          occlusion=False)
+    L.add("blocker_s", "Blocker ring", an["blocker2"], wt("sync", "blocker"), 22.9, offset=(-0.12, -0.05),
+          occlusion=False)
+    L.add("cone_s", "Cone", an["cone2"], wt("sync", "cone"), 22.9, offset=(-0.12, 0.08), occlusion=False)
+    L.add("g2_s", "2nd gear", an["g2"], wt("sync", "second"), 22.9, offset=(-0.07, -0.08))
+    L.add("cs", "Countershaft", an["cs"], wt("sync", "countershaft"), 28.9, offset=(0.08, 0.0), occlusion=False)
+    L.add("input", "Input shaft", an["input"], wt("sync", "input"), 28.9, offset=(0.05, 0.10), occlusion=False)
+    L.add("output", "Output shaft", an["output"], wt("sync", "output"), 31.6, offset=(0.04, 0.12),
+          occlusion=False)
+    L.add("blocker_e", "Blocker ring", an["blocker2"], wt("engage", "blocker"), 37.2, offset=(-0.12, -0.05),
+          occlusion=False)
+    L.add("sleeve_e", "Sleeve", an["sleeve"], wt("engage", "sleeve"), 39.8, offset=(0.12, 0.02), occlusion=False)
+    L.add("dogs_e", "Dog teeth", an["dogs2"], wt("engage", "dog teeth"), 40.3, offset=(-0.13, 0.10),
+          occlusion=False)
+    L.add("g2_out", "2nd gear", an["g2"], wt("clutch_out", "taller"), DUR - 0.5, offset=(-0.06, -0.10),
+          style="emph", occlusion=False)
 
     # ---------------- HUD -----------------------------------------------
     H = Hud(track)
@@ -379,5 +450,5 @@ def build(quality: str) -> scenebase.SceneBuild:
           y=lambda i: round(float(track.lever_y[i]), 4))
 
     sb = scenebase.SceneBuild(SCENE_ID, track, cam, L, H, motion_blur=False, preview_hide=())
-    sb.extra.update(gearbox=G, studio=studio, visibility=vis, clearance=clr)
+    sb.extra.update(gearbox=G, studio=studio, visibility=vis, clearance=clr, cutter=cutter)
     return sb

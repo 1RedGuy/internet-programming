@@ -3,7 +3,16 @@
 Dark studio; the gearbox (half cutaway: the -X half of the case, web and tail housing
 fades away in the first beat) with the clutch in its half-cut bellhousing at the front as
 context.  The camera works on the -X (cut) side except for the reverse shot, which looks
-at the reverse train from the +X side through the ghosted case (the idler sits on +X).
+at the reverse train from the +X side with the housings removed (the idler sits on +X,
+behind the countershaft/reverse gears as seen from -X).
+
+Presentation: the 1-2 synchro is exploded (assembly explode carriers) with the parts it
+passes through (meta['explode_hide']), the selector and the countershaft faded out; for
+the lock and linkage beats the output-side 1-2 synchro parts (hub, sleeve, struts,
+blocker rings; stationary because the car is) are swapped for their quarter-section
+copies so the sleeve can be seen sliding over the blocker ring and the dog teeth.
+Warm glow (cv_glow): each shaft / synchro part as it is named, the selected rail + fork
++ sleeve in the linkage beat, and meta['power_path'][gear] in the driving shots.
 
 Drivetrain program (state.Program; video time):
   shafts, neutral   idle 850 rpm, neutral, clutch engaged, car stationary: input side
@@ -90,13 +99,15 @@ LOCK_ENGAGE = dict(t0=T_LOCK + 0.65, travel=0.6, hold=1.4, through=0.9, seat=0.5
 CASE_FADE = (0.9, 2.9)                         # removed half of the case/bellhousing fades out
 EXPLODE = (31.6, 33.6, 43.3, 44.9)             # explode out / hold / back in
 HIDE_FADE = (30.4, 31.5, 45.0, 45.9)           # parts the explode passes through
-SEC_SYN_IN = (29.6, 30.6)                      # 1-2 synchro (output side) section copies
-SEC_G2_IN = (19.4, 20.4)                       # 2nd gear section copy (needle bearing visible)
+SEL_FADE = (30.4, 31.5, 52.7, 53.6)            # rails, forks, shift heads, detents
+SEC_SYN_IN = (45.0, 45.9)                      # 1-2 synchro (output side) section copies (lock, linkage)
 
-GLOW_PEAK = 0.14
-GLOW_HOLD = 0.05
-GLOW_PATH = 0.16
-GHOST = 0.13                                   # x-ray housings in the reverse shot
+GLOW_PEAK = 0.06
+GLOW_HOLD = 0.02
+GLOW_PATH = 0.05
+GLOW_FREE = 0.04
+GLOW_IDLER = 0.10
+GHOST = 0.0                                    # housings in the reverse shot (seen from +X): removed
 
 
 # ---------------------------------------------------------------------------
@@ -250,41 +261,42 @@ class Presentation:
 # Shots are separated by the hard cuts; each shot is smoothed on its own.
 # ---------------------------------------------------------------------------
 POSES = [
-    # --- shafts: establishing 3/4 front-left, case opens, then along the shafts
-    (0.0, (0.0, -0.70, 0.47), -133.0, 1.80, 0.66, 50.0, 5.6),
-    (2.7, (0.0, -0.56, 0.39), -118.0, 1.28, 0.38, 50.0, 5.6),
-    (5.9, (0.0, -0.59, 0.34), -104.0, 1.06, 0.20, 50.0, 5.6),
-    (9.6, (0.0, -0.75, 0.37), -84.0, 1.36, 0.22, 50.0, 5.6),
-    (12.2, (0.0, -0.79, 0.36), -80.0, 1.14, 0.15, 50.0, 5.6),
-    # --- neutral: track along the gear train from the rear, then onto 2nd gear
-    (14.2, (0.0, -0.775, 0.335), -82.0, 0.72, 0.11, 50.0, 6.3),
-    (18.8, (0.0, -0.625, 0.335), -95.0, 0.70, 0.11, 50.0, 6.3),
-    (21.6, (0.0, -0.612, 0.365), -101.0, 0.50, 0.14, 50.0, 7.1),
-    (24.2, (0.0, -0.625, 0.365), -97.0, 0.52, 0.14, 50.0, 7.1),
-    (26.4, (0.0, -0.80, 0.36), -86.0, 1.02, 0.17, 50.0, 6.3),
-    (28.9, (0.0, -0.80, 0.36), -88.0, 1.00, 0.17, 50.0, 6.3),
+    # --- shafts: establishing 3/4 front-left, case opens, front half, then the whole length
+    (0.0, (0.0, -0.72, 0.53), -130.0, 2.35, 0.74, 50.0, 5.6),
+    (1.8, (0.0, -0.70, 0.51), -126.0, 2.20, 0.68, 50.0, 5.6),
+    (4.2, (0.0, -0.53, 0.34), -112.0, 1.15, 0.30, 50.0, 5.6),
+    (6.6, (0.0, -0.55, 0.34), -106.0, 1.12, 0.26, 50.0, 5.6),
+    (9.2, (0.0, -0.71, 0.35), -92.0, 1.75, 0.30, 50.0, 5.6),
+    (12.4, (0.0, -0.73, 0.35), -88.0, 1.65, 0.26, 50.0, 5.6),
+    # --- neutral: in at the rear, track forward along the pairs, 2nd gear's bearing, pull back
+    (14.4, (0.0, -0.75, 0.315), -84.0, 0.93, 0.12, 50.0, 6.3),
+    (18.6, (0.0, -0.63, 0.315), -95.0, 0.91, 0.12, 50.0, 6.3),
+    (21.4, (0.0, -0.612, 0.33), -102.0, 0.74, 0.14, 50.0, 7.1),
+    (23.9, (0.0, -0.614, 0.33), -99.0, 0.74, 0.14, 50.0, 7.1),
+    (26.0, (0.0, -0.78, 0.35), -88.0, 1.25, 0.20, 50.0, 6.3),
+    (28.8, (0.0, -0.77, 0.35), -90.0, 1.22, 0.20, 50.0, 6.3),
     # --- synchro: push in on the 1-2 synchro, exploded view
-    (31.4, (0.0, -0.632, 0.372), -107.0, 0.60, 0.20, 50.0, 8.0),
-    (43.2, (0.0, -0.634, 0.372), -99.0, 0.58, 0.18, 50.0, 8.0),
+    (31.4, (0.0, -0.634, 0.362), -114.0, 0.58, 0.17, 50.0, 8.0),
+    (43.0, (0.0, -0.634, 0.362), -108.0, 0.56, 0.16, 50.0, 8.0),
     # --- lock: close on the sleeve, blocker ring and 1st gear's dogs
-    (45.6, (0.0, -0.655, 0.372), -101.0, 0.40, 0.13, 50.0, 8.0),
-    (51.0, (0.0, -0.656, 0.372), -96.0, 0.38, 0.12, 50.0, 8.0),
-    # --- linkage: up and back over the rails/forks, then the lever
-    (54.0, (0.0, -0.66, 0.45), -116.0, 0.92, 0.52, 50.0, 6.3),
-    (56.6, (0.0, -0.74, 0.57), -110.0, 1.30, 0.70, 50.0, 6.3),
-    (63.3, (0.0, -0.75, 0.57), -104.0, 1.28, 0.68, 50.0, 6.3),
+    (45.7, (0.0, -0.648, 0.388), -92.0, 0.32, 0.19, 50.0, 8.0),
+    (51.6, (0.0, -0.648, 0.388), -88.0, 0.31, 0.19, 50.0, 8.0),
+    # --- linkage: crane up to a high rear-left view: lever, finger, rails, forks, sleeves
+    (52.2, (0.0, -0.648, 0.388), -88.0, 0.31, 0.19, 50.0, 8.0),
+    (54.3, (0.0, -0.78, 0.55), -55.0, 1.04, 0.94, 50.0, 6.3),
+    (63.3, (0.0, -0.775, 0.55), -61.0, 1.02, 0.90, 50.0, 6.3),
     # --- ratios, 1st: headset + 1st pair (cut)
-    (T_RAT, (0.0, -0.590, 0.345), -98.0, 0.64, 0.09, 50.0, 6.3),
-    (T_4TH - 0.01, (0.0, -0.595, 0.345), -92.0, 0.60, 0.09, 50.0, 6.3),
+    (T_RAT, (0.0, -0.62, 0.33), -97.0, 0.98, 0.10, 50.0, 6.3),
+    (T_4TH - 0.01, (0.0, -0.625, 0.33), -92.0, 0.92, 0.10, 50.0, 6.3),
     # --- 4th: input gear dogs + 3-4 synchro
-    (T_4TH, (0.0, -0.525, 0.375), -113.0, 0.50, 0.16, 50.0, 7.1),
-    (T_5TH - 0.01, (0.0, -0.528, 0.375), -107.0, 0.48, 0.15, 50.0, 7.1),
-    # --- 5th: rear-left, whole train with the 5th pair near
-    (T_5TH, (0.0, -0.69, 0.34), -74.0, 0.95, 0.13, 50.0, 6.3),
-    (T_REV - 0.01, (0.0, -0.70, 0.34), -79.0, 0.92, 0.13, 50.0, 6.3),
-    # --- reverse: +X side (idler is on +X), through the ghosted case
-    (T_REV, (0.015, -0.77, 0.31), 97.0, 0.72, -0.02, 50.0, 6.3),
-    (DUR, (0.015, -0.765, 0.31), 90.0, 0.68, -0.02, 50.0, 6.3),
+    (T_4TH, (0.0, -0.56, 0.35), -104.0, 0.80, 0.12, 50.0, 7.1),
+    (T_5TH - 0.01, (0.0, -0.56, 0.35), -100.0, 0.76, 0.12, 50.0, 7.1),
+    # --- 5th: whole train from the left-rear
+    (T_5TH, (0.0, -0.70, 0.34), -79.0, 1.10, 0.14, 50.0, 6.3),
+    (T_REV - 0.01, (0.0, -0.70, 0.34), -83.0, 1.06, 0.14, 50.0, 6.3),
+    # --- reverse: +X side (the idler is on +X), housings removed
+    (T_REV, (0.02, -0.765, 0.335), 97.0, 0.76, 0.05, 50.0, 7.1),
+    (DUR, (0.02, -0.765, 0.335), 91.0, 0.72, 0.05, 50.0, 7.1),
 ]
 KEY_OFFSET = 50.0           # key light azimuth relative to the camera (deg)
 CAM_SMOOTH = 0.35           # s, Gaussian low-pass of the pose parameters (within a shot)
@@ -326,6 +338,10 @@ def camera_samples(t):
 # build
 # ---------------------------------------------------------------------------
 
+SELECTOR = tuple(f"{p}_{k}" for k in ("12", "34", "5R")
+                 for p in ("rail", "fork", "head", "detent_ball", "detent_spring"))
+SYNCHRO_HIDE = ("countershaft", "cs_5") + tuple(f"brg_cs_{b}_{r}" for b in ("front", "rear")
+                                               for r in ("inner", "outer", "rolling"))
 CLUTCH_SHOW = ("disc", "damper_springs", "pressure_plate", "straps", "diaphragm_spring", "fulcrum", "cover",
                "release_bearing", "bearing_race", "fork", "ball_stud", "guide_tube", "slave_cylinder",
                "slave_pushrod")
@@ -336,7 +352,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     studio = lighting.setup_studio("dark", center=(0.0, -0.70, 0.40), size=0.7)
     lighting.setup_color_management(sc)
     detail = "low" if quality == "preview" else "high"
-    G = GBX.build({"cutaway": "half", "detail": detail, "oil": True, "sections": ["synchro_12"]})
+    G = GBX.build({"cutaway": "half", "detail": detail, "sections": ["synchro_12"]})
     C = CLU.build({"cutaway": ["half"], "detail": detail})
     GP, CP = G.parts, C.parts
     for asm in (G, C):
@@ -362,16 +378,11 @@ def build(quality: str) -> scenebase.SceneBuild:
     # ---------------- presentation (opacity, glow) ----------------------
     pres = Presentation(track, hide_threshold=0.5 if quality == "preview" else 0.02)
     rev = (shot == 4).astype(float)
-    # housings: removed half fades out; kept half x-ray in the reverse shot (seen from +X)
+    # housings: removed half fades out; the kept half goes for the reverse shot (seen from +X)
     for v in G.meta["cutaway_pieces"]["half"]["kept"]:
-        ob = GP[v]
-        if v.startswith("oil"):
-            pres.set(ob, GBX.OIL_OPACITY * 0.7 * (1.0 - rev))
-        else:
-            pres.set(ob, 1.0 - rev * (1.0 - GHOST))
+        pres.set(GP[v], 1.0 - rev * (1.0 - GHOST))
     for v in G.meta["cutaway_pieces"]["half"]["removed"]:
-        base = GBX.OIL_OPACITY * 0.7 if v.startswith("oil") else 1.0
-        pres.set(GP[v], base * case_rm)
+        pres.set(GP[v], case_rm)
     # clutch context: clutch pack + half bellhousing; hydraulics/pedal never shown
     for k, ob in CP.items():
         if ob.type != "MESH" or k.startswith("bellhousing"):
@@ -385,12 +396,23 @@ def build(quality: str) -> scenebase.SceneBuild:
     hide_op = curve(t, [(0.0, 1.0, "step"), (HIDE_FADE[0], 1.0, "linear"), (HIDE_FADE[1], 0.0, "ease"),
                         (HIDE_FADE[2], 0.0, "linear"), (HIDE_FADE[3], 1.0, "ease")])
     for k in G.meta["explode_hide"]:
-        if k in GP and GP[k].type == "MESH":
+        if k in GP and GP[k].type == "MESH" and k not in SELECTOR:
             pres.mul(GP[k], hide_op)
-    # section copies: 2nd gear (needle bearing visible) and the output-side 1-2 synchro parts
+    # the bare countershaft goes with its gears
+    for k in SYNCHRO_HIDE:
+        if k in GP and k not in G.meta["explode_hide"]:
+            pres.mul(GP[k], hide_op)
+    # the selector (rails over the close-ups; the 1-2 fork in front of the sectioned sleeve)
+    # leaves for the synchro and lock beats and is (re)introduced with the linkage
+    sel_op = curve(t, [(0.0, 1.0, "step"), (SEL_FADE[0], 1.0, "linear"), (SEL_FADE[1], 0.0, "ease"),
+                       (SEL_FADE[2], 0.0, "linear"), (SEL_FADE[3], 1.0, "ease")])
+    for k in SELECTOR:
+        if k in GP and GP[k].type == "MESH":
+            pres.mul(GP[k], sel_op)
+    # quarter-section copies of the output-side 1-2 synchro parts (lock + linkage; the car is
+    # stationary, so they do not turn and the notch stays facing the camera)
     stationary = (shot == 0).astype(float)
     sec_sets = [
-        (("gear_2", "dogs_2", "cone_2"), SEC_G2_IN),
         (("hub_12", "sleeve_12", "strut_12_0", "strut_12_1", "strut_12_2", "blocker_1", "blocker_2"), SEC_SYN_IN),
     ]
     for keys, (a, b) in sec_sets:
@@ -401,8 +423,6 @@ def build(quality: str) -> scenebase.SceneBuild:
             pres.mul(GP[k], w_whole)
             sk = G.meta["sections"][k]
             pres.set(GP[sk], on_sec)
-            if k in ("gear_2", "dogs_2", "cone_2", "blocker_2"):
-                pres.mul(GP[sk], hide_op if k == "blocker_2" else 1.0)
 
     def grp(*keys):
         out = []
@@ -435,7 +455,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     glow(grp("output_shaft", "output_flange", "washers"), g_out)
     # neutral: the free-spinning output gears
     t_free = wt("neutral", "spin")
-    g_free = pulse(t, t_free - 0.2, wt("neutral", "Until") + 0.3, fall=0.9)
+    g_free = pulse(t, t_free - 0.2, wt("neutral", "Until") + 0.3, peak=GLOW_FREE, fall=0.9)
     for g in (1, 2, 3, 5, "R"):
         glow(grp(f"gear_{g}", f"dogs_{g}", f"cone_{g}"), g_free)
     # synchro: each part as it is named
@@ -448,7 +468,8 @@ def build(quality: str) -> scenebase.SceneBuild:
         glow(grp(*keys), pulse(t, t0, t0 + d, fall=0.7))
     # lock: the gear is locked to the shaft
     t_lockw = wt("lock", "locked")
-    glow(grp("dogs_1", "sleeve_12", "hub_12", "gear_1"), pulse(t, t_lockw - 0.6, T_LINK - 0.6, fall=0.6))
+    glow(grp("sleeve_12"), pulse(t, wt("lock", "Slide") - 0.3, T_LINK - 0.6, fall=0.6))
+    glow(grp("dogs_1", "hub_12", "gear_1"), pulse(t, t_lockw - 0.6, T_LINK - 0.6, fall=0.6))
     # linkage: the selected rail, its fork and sleeve
     lx = np.asarray(track.lever_x, float)
     in_link = window(t, T_LINK + 0.3, T_RAT, 0.6, 0.3)
@@ -456,16 +477,14 @@ def build(quality: str) -> scenebase.SceneBuild:
         sel = np.clip(1.0 - np.abs(lx - plane) * 2.5, 0.0, 1.0)
         glow(grp(f"rail_{k}", f"fork_{k}", f"head_{k}", f"sleeve_{k}"), GLOW_PEAK * sel * in_link)
     # ratios / reverse: power path of the engaged gear
-    rise = {T_RAT: 0.0, T_4TH: 0.0, T_5TH: 0.0, T_REV: 0.0}
     for s_idx, g in ((1, 1), (2, 4), (3, 5), (4, "R")):
         t0 = SHOTS[s_idx]
         on = ((t >= t0) & (t < SHOTS[s_idx + 1])).astype(float)
         ramp = np.clip((t - t0) / 0.5, 0.0, 1.0)
         ramp = ramp * ramp * (3 - 2 * ramp)
         glow(grp(*G.meta["power_path"][g]), GLOW_PATH * on * (0.55 + 0.45 * ramp))
-    del rise
     t_idl = wt("reverse", "idler")
-    glow(grp("idler"), pulse(t, t_idl - 0.2, DUR, peak=0.30))
+    glow(grp("idler"), pulse(t, t_idl - 0.2, DUR, peak=GLOW_IDLER))
     pres.bake()
 
     # ---------------- camera + lights -----------------------------------
@@ -516,7 +535,7 @@ def aliasing_dict(track, explode):
     A["hubs / sleeves 32"] = (th_out, TAU / S.DOG_TEETH, None)
     A["output flange 4 bolts"] = (th_out, TAU / 4, None)
     # needle cages (36 rollers): only 1st/2nd are ever exposed (exploded view; 2nd's section)
-    vis_n = (np.asarray(explode) > 0.02) | ((track.t >= SEC_G2_IN[0]) & (track.t < T_RAT))
+    vis_n = np.asarray(explode) > 0.02
     for g in (1, 2):
         cage = (th_out * GBX.R_JOURNAL + track.gb(f"gear_{g}") * GBX.R_GB) / (GBX.R_JOURNAL + GBX.R_GB)
         A[f"needle cage {g} (36)"] = (cage, TAU / 36, vis_n)
@@ -549,58 +568,59 @@ def make_labels(G, C):
     L.add("countershaft", "Countershaft", A["countershaft"], wt("shafts", "countershaft"), end_sh,
           offset=(0.05, 0.10), occlusion=False)
     out_anchor = (root, (0.0, -1.03, 0.0165))
-    L.add("output_shaft", "Output shaft", out_anchor, wt("shafts", "output"), end_sh, offset=(0.05, -0.11),
+    L.add("output_shaft", "Output shaft", out_anchor, wt("shafts", "output"), end_sh, offset=(-0.05, -0.12),
           occlusion=False)
     # neutral
     L.add("free_gears", "Free-spinning gears", A["gear_2"], wt("neutral", "spin") - 0.1, wt("neutral", "Until") + 0.6,
-          offset=(-0.06, -0.12), occlusion=False)
-    L.add("output_shaft2", "Output shaft", out_anchor, wt("neutral", "locked"), bend("neutral") - 0.2,
-          offset=(0.05, -0.11), occlusion=False)
+          offset=(0.06, -0.10), occlusion=False)
+    L.add("output_shaft2", "Output shaft", out_anchor, wt("neutral", "locked"), bend("neutral") - 0.6,
+          offset=(-0.05, -0.12), occlusion=False)
     # synchro (exploded 1-2 synchroniser)
-    L.add("hub", "Hub", A["hub_12"], wt("synchro", "hub"), wt("synchro", "dog") - 0.4, offset=(0.0, -0.13),
+    L.add("hub", "Hub", A["hub_12"], wt("synchro", "hub"), wt("synchro", "dog") - 0.4, offset=(0.05, -0.15),
           occlusion=False)
     L.add("sleeve", "Sleeve", A["sleeve_12"], wt("synchro", "sleeve"), wt("synchro", "cone") + 0.4,
-          offset=(0.0, -0.12), occlusion=False)
+          offset=(-0.06, -0.10), occlusion=False)
     L.add("dogs", "Dog teeth", A["dogs_1"], wt("synchro", "dog"), bend("synchro") - 0.9, offset=(-0.05, -0.13),
           occlusion=False)
-    L.add("cone", "Cone", A["cone_1"], wt("synchro", "cone"), bend("synchro") - 0.9, offset=(-0.07, 0.10),
+    L.add("cone", "Cone", A["cone_1"], wt("synchro", "cone"), bend("synchro") - 0.9, offset=(0.07, 0.11),
           occlusion=False)
     L.add("blocker", "Blocker ring", A["blocker_1"], wt("synchro", "brass"), bend("synchro") - 0.9,
-          offset=(0.06, 0.12), occlusion=False)
+          offset=(-0.07, 0.11), occlusion=False)
     # lock
-    L.add("sleeve_l", "Sleeve", A["sleeve_12"], wt("lock", "sleeve"), bend("lock") - 0.4, offset=(0.05, -0.12),
+    L.add("sleeve_l", "Sleeve", A["sleeve_12"], wt("lock", "sleeve"), bend("lock") - 0.6, offset=(-0.07, -0.10),
           occlusion=False)
-    L.add("dogs_l", "Dog teeth", A["dogs_1"], wt("lock", "dog"), bend("lock") - 0.4, offset=(-0.06, -0.12),
+    L.add("dogs_l", "Dog teeth", A["dogs_1"], wt("lock", "dog"), bend("lock") - 0.6, offset=(0.08, 0.10),
           occlusion=False)
-    L.add("gear1_l", "1st gear", A["gear_1"], wt("lock", "gear") - 0.2, bend("lock") - 0.4, offset=(-0.05, 0.12),
+    L.add("gear1_l", "1st gear", A["gear_1"], wt("lock", "gear") - 0.2, bend("lock") - 0.6, offset=(0.08, -0.04),
           occlusion=False, style="dim")
     # linkage
-    L.add("fork", "Fork", A["fork_12"], wt("linkage", "Forks"), T_RAT - 1.0, offset=(-0.06, 0.10), occlusion=False)
-    L.add("rail", "Shift rail", A["rail_34"], wt("linkage", "rails"), T_RAT - 1.0, offset=(-0.07, -0.10),
+    L.add("fork", "Fork", A["fork_12"], wt("linkage", "Forks"), T_RAT - 1.0, offset=(-0.08, 0.05), occlusion=False)
+    rail_a = (GP["rail_5R"], (GBX.RAIL_X["5R"] * 1e-3, -0.575, (GBX.RAIL_Z + GBX.RAIL_R) * 1e-3))
+    L.add("rail", "Shift rail", rail_a, wt("linkage", "rails"), T_RAT - 1.0, offset=(-0.06, -0.08),
           occlusion=False)
-    L.add("lever", "Lever", A["knob"], wt("linkage", "lever"), T_RAT - 0.4, offset=(0.06, -0.04), occlusion=False)
-    # ratios: 1st
+    L.add("lever", "Lever", A["lever"], wt("linkage", "lever") + 0.4, T_RAT - 0.4, offset=(-0.07, 0.0),
+          occlusion=False)
+    # ratios: 1st (anchors on the camera-facing (-X) side of the countershaft gears)
     e1 = T_4TH - 0.35
-    cs_drive_a = (GP["ex_cs_drive"], (0.0, 0.0, -0.047))
-    L.add("ig", "Input gear 26T", A["input_gear"], wt("ratios", "input"), e1, offset=(-0.05, -0.12), occlusion=False)
-    L.add("csd", "35T", cs_drive_a, wt("ratios", "countershaft"), e1, offset=(-0.06, 0.08), occlusion=False)
-    cs1_a = (GP["ex_cs_1"], (0.0, 0.0, -0.025))
-    L.add("cs1", "17T", cs1_a, wt("ratios", "small"), e1, offset=(0.05, 0.08), occlusion=False)
-    L.add("g1", "Output gear 44T", A["gear_1"], wt("ratios", "large"), e1, offset=(0.05, -0.12), occlusion=False)
+    L.add("ig", "Input gear 26T", A["input_gear"], wt("ratios", "input"), e1, offset=(0.0, -0.12), occlusion=False)
+    L.add("csd", "35T", (GP["ex_cs_drive"], (-0.044, 0.0, 0.0)), wt("ratios", "countershaft"), e1,
+          offset=(-0.07, 0.04), occlusion=False)
+    L.add("cs1", "17T", (GP["ex_cs_1"], (-0.022, 0.0, 0.0)), wt("ratios", "small"), e1, offset=(0.06, 0.05),
+          occlusion=False)
+    L.add("g1", "Output gear 44T", A["gear_1"], wt("ratios", "large"), e1, offset=(0.04, -0.08), occlusion=False)
     # 4th
     e4 = T_5TH - 0.3
-    L.add("dogs4", "Input gear dog teeth", A["dogs_4"], T_4TH + 0.5, e4, offset=(-0.06, -0.12), occlusion=False)
+    L.add("dogs4", "Input gear dog teeth", A["dogs_4"], T_4TH + 0.5, e4, offset=(-0.07, -0.06), occlusion=False)
     L.add("sl34", "Sleeve", A["sleeve_34"], T_4TH + 0.9, e4, offset=(0.06, -0.10), occlusion=False)
     # 5th
     e5 = T_REV - 0.3
-    cs5_a = (GP["ex_cs_5"], (0.0, 0.0, -0.051))
-    L.add("cs5", "38T", cs5_a, T_5TH + 0.4, e5, offset=(0.05, 0.08), occlusion=False)
+    L.add("cs5", "38T", (GP["ex_cs_5"], (-0.047, 0.0, 0.0)), T_5TH + 0.4, e5, offset=(0.07, 0.03), occlusion=False)
     L.add("g5", "23T", A["gear_5"], T_5TH + 0.4, e5, offset=(0.05, -0.10), occlusion=False)
     # reverse
-    L.add("idler", "Idler gear", A["idler"], wt("reverse", "idler"), DUR - 0.5, offset=(0.05, 0.10),
-          occlusion=False)
-    L.add("out_r", "Output shaft", (root, (0.0, -0.93, 0.0165)), wt("reverse", "output"), DUR - 0.5,
-          offset=(-0.05, -0.12), occlusion=False)
+    L.add("idler", "Idler gear", (GP["ex_idler"], (0.009, 0.0, 0.0)), wt("reverse", "idler"), DUR - 0.5,
+          offset=(0.09, 0.03), occlusion=False)
+    L.add("out_r", "Output shaft", (root, (0.0, -0.88, 0.0165)), wt("reverse", "output"), DUR - 0.5,
+          offset=(0.0, -0.12), occlusion=False)
     return L
 
 

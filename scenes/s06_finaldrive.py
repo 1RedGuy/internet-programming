@@ -78,7 +78,7 @@ SLOW_CLOSE = 1.0 / 12.0             # turn, close-up on the spiders (tyres out o
 T_FREEZE = (20.55, 21.55)           # slowmo -> 0
 T_THAW = (31.45, 32.45)             # 0 -> SLOW_CRUISE
 T_TURN = (41.0, 44.6)               # curvature / speed ease-in
-T_CLOSE = (48.6, 49.8)              # slowmo SLOW_WIDE -> SLOW_CLOSE (after the tyres leave frame)
+T_CLOSE = (48.9, 50.0)              # slowmo SLOW_CRUISE -> SLOW_CLOSE (after the tyres leave frame)
 EXPLODE = (24.35, 26.05, 30.15, 31.75)   # out start, out end, back start, back end
 
 
@@ -249,8 +249,8 @@ def _floor_material():
     mix_slab = N.new("ShaderNodeMix")
     mix_slab.data_type = "RGBA"
     L.new(ramp.outputs["Result"], mix_slab.inputs["Factor"])
-    mix_slab.inputs[6].default_value = (0.032, 0.032, 0.034, 1.0)
-    mix_slab.inputs[7].default_value = (0.050, 0.049, 0.050, 1.0)
+    mix_slab.inputs[6].default_value = (0.020, 0.020, 0.021, 1.0)
+    mix_slab.inputs[7].default_value = (0.033, 0.032, 0.033, 1.0)
     fine = N.new("ShaderNodeMix")
     fine.data_type = "RGBA"
     fine.blend_type = "MULTIPLY"
@@ -270,9 +270,9 @@ def _floor_material():
     mix_j.data_type = "RGBA"
     L.new(jm, mix_j.inputs["Factor"])
     L.new(fine.outputs[2], mix_j.inputs[6])
-    mix_j.inputs[7].default_value = (0.008, 0.008, 0.009, 1.0)
+    mix_j.inputs[7].default_value = (0.005, 0.005, 0.006, 1.0)
     L.new(mix_j.outputs[2], bsdf.inputs["Base Color"])
-    rough = math_("ADD", math_("MULTIPLY", ramp.outputs["Result"], 0.14), 0.30)
+    rough = math_("ADD", math_("MULTIPLY", ramp.outputs["Result"], 0.16), 0.40)
     rmix = N.new("ShaderNodeMix")
     rmix.data_type = "FLOAT"
     L.new(jm, rmix.inputs["Factor"])
@@ -280,7 +280,7 @@ def _floor_material():
     rmix.inputs[3].default_value = 0.9
     L.new(rmix.outputs[0], bsdf.inputs["Roughness"])
     bsdf.inputs["Specular IOR Level"].default_value = 0.45
-    m.diffuse_color = (0.045, 0.045, 0.048, 1.0)
+    m.diffuse_color = (0.035, 0.035, 0.038, 1.0)
     m.roughness = 0.4
     return m
 
@@ -319,7 +319,7 @@ def _preview_grid(center, half, col):
 # Wheel paths drawn on the floor for the turn (rear-wheel contact paths of the whole
 # planned turn, extended at constant curvature to 90 deg of heading change)
 # ---------------------------------------------------------------------------
-PATH_W = 0.018
+PATH_W = 0.026
 
 
 def _wheel_paths(track, i0, extra_deg=90.0):
@@ -393,8 +393,8 @@ def _path_material():
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     em = nt.nodes.new("ShaderNodeEmission")
-    em.inputs["Color"].default_value = (0.55, 0.78, 1.0, 1.0)
-    em.inputs["Strength"].default_value = 0.9
+    em.inputs["Color"].default_value = (0.10, 0.42, 1.0, 1.0)
+    em.inputs["Strength"].default_value = 1.4
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     at = nt.nodes.new("ShaderNodeAttribute")
     at.attribute_type = "OBJECT"
@@ -404,7 +404,7 @@ def _path_material():
     nt.links.new(tr.outputs[0], mix.inputs[1])
     nt.links.new(em.outputs[0], mix.inputs[2])
     nt.links.new(mix.outputs[0], out.inputs[0])
-    m.diffuse_color = (0.55, 0.78, 1.0, 1.0)
+    m.diffuse_color = (0.10, 0.42, 1.0, 1.0)
     return m
 
 
@@ -421,11 +421,12 @@ POSES = [
     (4.6, (0.0, -2.28, 0.32), -122.0, 1.00, 0.38, 40.0, 5.6, "cubic"),
     (6.3, (0.0, -2.52, 0.31), -134.0, 0.98, 0.48, 40.0, 5.6, "cubic"),
     # ringpinion: in on the pinion / ring mesh (housing cut away), then up to the top view
-    (8.6, (-0.02, -2.53, 0.33), 150.0, 0.50, 0.32, 45.0, 5.6, "cubic"),
-    (12.5, (-0.02, -2.54, 0.33), 160.0, 0.47, 0.28, 45.0, 5.6, "cubic"),
-    (15.3, (-0.02, -2.55, 0.33), 166.0, 0.45, 0.26, 45.0, 5.6, "cubic"),
-    (18.2, (0.0, -2.52, 0.32), 178.0, 0.14, 1.02, 40.0, 6.3, "cubic"),
-    (19.4, (0.0, -2.52, 0.32), 182.0, 0.15, 1.00, 40.0, 6.3, "cubic"),
+    # (azimuths continue past -180 so the camera swings round the front, not the back)
+    (8.6, (-0.02, -2.53, 0.355), -210.0, 0.52, 0.32, 45.0, 5.6, "cubic"),
+    (12.5, (-0.02, -2.54, 0.36), -200.0, 0.49, 0.28, 45.0, 5.6, "cubic"),
+    (15.3, (-0.02, -2.55, 0.36), -194.0, 0.47, 0.26, 45.0, 5.6, "cubic"),
+    (18.2, (0.0, -2.52, 0.32), -182.0, 0.14, 1.02, 40.0, 6.3, "cubic"),
+    (19.4, (0.0, -2.52, 0.32), -178.0, 0.15, 1.00, 40.0, 6.3, "cubic"),
     # diffparts: ring back face (bolts) from the left-rear, then wider for the exploded view
     (22.0, (-0.03, YD, ZD + 0.02), -64.0, 0.56, 0.42, 45.0, 5.6, "cubic"),
     (24.1, (-0.03, YD, ZD + 0.03), -58.0, 0.60, 0.42, 45.0, 5.6, "cubic"),
@@ -435,8 +436,8 @@ POSES = [
     (32.6, (0.0, YD + 0.01, ZD + 0.01), 26.0, 0.42, 0.46, 45.0, 5.6, "cubic"),
     (37.8, (0.0, YD + 0.01, ZD + 0.01), 14.0, 0.40, 0.48, 45.0, 5.6, "cubic"),
     # pull out and up: steep high view over the rear axle for the turn (engine bay out of frame)
-    (41.0, (0.0, -2.42, 0.30), 0.0, 0.95, 2.45, 28.0, 8.0, "cubic"),
-    (46.9, (0.0, -2.42, 0.30), 3.0, 0.92, 2.40, 28.0, 8.0, "cubic"),
+    (41.0, (0.0, -2.45, 0.30), 0.0, 0.85, 2.25, 30.0, 8.0, "cubic"),
+    (46.9, (0.0, -2.45, 0.30), 3.0, 0.82, 2.20, 30.0, 8.0, "cubic"),
     # push in on the spiders (steep: the tyres stay out of frame at x8)
     (49.3, (0.0, YD + 0.01, ZD + 0.01), 12.0, 0.25, 0.56, 40.0, 5.6, "cubic"),
     (55.0, (0.0, YD + 0.01, ZD + 0.01), 19.0, 0.25, 0.56, 40.0, 5.6, "cubic"),
@@ -534,7 +535,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     W.root.parent = root
     B = None
     if not preview:          # x-ray shell: Workbench cannot show it (opacity is ignored)
-        B = BODY.build({"detail": detail})
+        B = BODY.build({"detail": detail, "xray_edges": True})
         B.root.parent = root
     G = None
     if GBX is not None:
@@ -601,12 +602,16 @@ def build(quality: str) -> scenebase.SceneBuild:
                          (38.4, 0.0, "linear"), (40.0, 1.0, "ease")])
     for ob in W.meshes():
         bake_vis(ob, fr, wheel_op)
-    # x-ray body for the turn
+    # x-ray body for the turn (faint shell + feature lines)
+    XRAY = 0.08
     body_in = curve(t, [(0.0, 0.0, "step"), (38.8, 0.0, "linear"), (40.8, 1.0, "ease"),
                         (46.8, 1.0, "linear"), (48.2, 0.0, "ease")])
     if B is not None:
-        B.drive(track, {"exterior_opacity": 0.12 * body_in, "glass_opacity": 0.06 * body_in,
-                        "interior_opacity": 0.05 * body_in, "underbody_opacity": 0.0 * body_in})
+        B.drive(track, {"exterior_opacity": XRAY * body_in, "glass_opacity": 0.0 * body_in,
+                        "interior_opacity": 0.0 * body_in, "underbody_opacity": 0.0 * body_in,
+                        "xray_edges_opacity": 0.6 * body_in})
+        # headliner / door cards / parcel shelf would fog the view from above
+        rig.bake_fade([B.parts["cabin_trim"]], fr, np.zeros(n))
     if preview:   # Workbench shadow volumes are very slow on llvmpipe with this many triangles
         for ob in bpy.context.scene.objects:
             if ob.type == "MESH":
@@ -625,7 +630,7 @@ def build(quality: str) -> scenebase.SceneBuild:
         path_obs.append(ob)
 
     # ---------------- glow --------------------------------------------------
-    GP, GH = 0.045, 0.012
+    GP = 0.022          # warm highlight (materials: emission 2 x cv_glow): subtle on bright steel
     glow = {}
 
     def add_glow(keys, arr):
@@ -633,10 +638,12 @@ def build(quality: str) -> scenebase.SceneBuild:
             glow[m.name] = np.maximum(glow.get(m.name, np.zeros(n)), arr)
 
     t_prop = wt("prop", "propeller")
-    add_glow([k for k in PA if k.startswith("prop_")], pulse(t, t_prop, 5.6, GP, GH))
-    add_glow(["pinion", "companion_flange"], pulse(t, wt("ringpinion", "pinion"), 19.8, GP, GH))
-    add_glow(["ring_gear"], pulse(t, wt("ringpinion", "ring"), 19.8, GP, GH))
-    add_glow(["stub_left", "stub_right"], pulse(t, wt("ringpinion", "turning"), 19.8, GP, GH))
+    add_glow([k for k in PA if k.startswith("prop_")], pulse(t, t_prop, 4.2, 0.6 * GP))   # dark tube
+    add_glow(["pinion", "companion_flange"], pulse(t, wt("ringpinion", "pinion"), 11.6, GP))
+    add_glow(["ring_gear"], pulse(t, wt("ringpinion", "ring"), 13.2, GP))
+    # "turning the drive through a right angle": pinion -> ring -> both output stubs
+    add_glow(["pinion", "companion_flange", "ring_gear", "stub_left", "stub_right"],
+             pulse(t, wt("ringpinion", "turning"), 18.8, GP))
     add_glow(["ring_gear"], pulse(t, wt("diffparts", "bolted"), 24.0, GP))
     add_glow(["case_left", "case_right"], pulse(t, wt("diffparts", "differential"), 25.6, GP))
     add_glow(["spider_1", "spider_2"], pulse(t, wt("diffparts", "spider"), 28.0, GP))
@@ -644,9 +651,9 @@ def build(quality: str) -> scenebase.SceneBuild:
     add_glow(["stub_left", "stub_right"], pulse(t, wt("diffparts", "splined"), 31.2, GP))
     t_one = wt("straight", "Everything")
     add_glow(["case_left", "case_right", "ring_gear", "spider_1", "spider_2", "side_gear_left",
-              "side_gear_right", "cross_pin", "stub_left", "stub_right"], pulse(t, t_one, t_one + 2.6, 0.035))
-    add_glow(["spider_1", "spider_2"], pulse(t, 47.8, 53.6, GP, GH))
-    add_glow(["case_left", "case_right"], pulse(t, wt("turn", "case"), 57.8, 0.08, 0.04))
+              "side_gear_right", "cross_pin", "stub_left", "stub_right"], pulse(t, t_one, t_one + 2.6, GP))
+    add_glow(["spider_1", "spider_2"], pulse(t, 47.8, 53.6, GP))
+    add_glow(["case_left", "case_right"], pulse(t, wt("turn", "case"), 57.8, 0.06, 0.035))   # ghosted
     by_name = {o.name: o for o in A.meshes()}
     for name, g in glow.items():
         bake_glow(by_name.get(name) or bpy.data.objects[name], fr, np.clip(g, 0.0, 0.1))
@@ -694,11 +701,32 @@ def build(quality: str) -> scenebase.SceneBuild:
     AN = A.anchors
     body_objs = tuple(B.meshes()) if B is not None else ()
     ghost = (PA["case_left"], PA["case_right"])
-    L.add("prop", "Propeller shaft", AN["propshaft"], t_prop, 6.1, offset=(0.06, -0.12))
-    L.add("ujoint", "Universal joint", AN["ujoint_front"], 1.3, 3.6, offset=(-0.06, -0.13), style="dim")
-    L.add("rear_axle", "Rear axle", AN["diff_housing"], wt("prop", "rear"), 6.4, offset=(0.07, -0.10))
-    L.add("pinion", "Pinion 10T", AN["pinion"], wt("ringpinion", "pinion"), 19.6, offset=(0.08, -0.08))
-    L.add("ring", "Ring gear 41T", AN["ring_gear"], wt("ringpinion", "ring"), 19.6, offset=(-0.12, 0.02))
+    # propshaft label: the point of the shaft axis nearest the camera's line of sight (it
+    # slides smoothly along the shaft as the camera travels, so it never leaves the frame)
+    J1 = np.array(A.meta["prop"]["J1"])
+    J2 = np.array(A.meta["prop"]["J2"])
+
+    def prop_anchor(f):
+        i = int(np.clip(f - 1, 0, n - 1))
+        e, g = eye[i], tgt[i]
+        d = (g - e) / np.linalg.norm(g - e)
+        u = J2 - J1
+        w0 = J1 - e
+        a, b, c = u @ u, u @ d, d @ d
+        dd, ee = u @ w0, d @ w0
+        s_ = np.clip((b * ee - c * dd) / max(a * c - b * b, 1e-12), 0.05, 0.95)
+        p = J1 + s_ * u
+        h = track.car_heading[i]
+        ch, sh = math.cos(h), math.sin(h)
+        return (track.car_x[i] + ch * p[0] - sh * p[1], track.car_y[i] + sh * p[0] + ch * p[1], p[2])
+    L.add("prop", "Propeller shaft", prop_anchor, t_prop, 6.1, offset=(0.06, -0.12), occlusion=False)
+    L.add("ujoint", "Universal joint", AN["ujoint_front"], 0.7, 1.9, offset=(-0.06, -0.13), style="dim")
+    L.add("rear_axle", "Rear axle", AN["diff_housing"], wt("prop", "rear"), 6.4, offset=(0.07, -0.10),
+          occlusion=False)
+    L.add("pinion", "Pinion 10T", AN["pinion"], wt("ringpinion", "pinion"), 19.6, offset=(0.08, -0.08),
+          occlusion=False)
+    L.add("ring", "Ring gear 41T", AN["ring_gear"], wt("ringpinion", "ring"), 15.9, offset=(-0.12, 0.03))
+    L.add("ring_top", "Ring gear 41T", AN["ring_gear"], 17.3, 19.6, offset=(-0.12, 0.03))
     L.add("ring2", "Ring gear", AN["ring_gear"], wt("diffparts", "ring"), 23.7, offset=(-0.07, -0.08))
     L.add("case", "Differential case", AN["diff_case"], wt("diffparts", "differential"), 25.3,
           offset=(0.08, -0.08))

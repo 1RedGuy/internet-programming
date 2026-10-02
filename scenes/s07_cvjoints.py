@@ -7,9 +7,13 @@ hidden for the close-ups (it would clip the tyre at full bump) and fades back in
 Drivetrain state (one Program, no cuts)
   * 1st gear, clutch engaged, straight line at 10 km/h (engine 1245 rpm, wheels 87 rpm);
     slow motion x12 (tyre tread 64 pitches: x11.05 is the limit at 10 km/h).
-  * susp_RR = 0.06 m * sin(2 pi (t - 4.65) / 5 s) inside a smooth envelope: bump peaks at
-    5.9, 10.9, ... 30.9 s (the words "up", "splits the angle", "distance between the joints"),
-    droop at 8.4 ... 28.4 s; it dies out by 34.4 s so the tyre is back on the road for `moves`.
+  * Body bounce (heave): every wheel centre moves by the same s(t) relative to the body
+    (+-0.06 m = spec SUSPENSION_TRAVEL) while the tyres stay on the road; the car root is
+    lowered by s (z = -s), and the camera rides with the body, so the wheel moves up and
+    down while the differential stays put in the picture.  s(t): at rest, a half-cosine rise
+    to full bump at 5.9 s ("moves up"), then a 9 s video period (0.75 s real time = 1.33 Hz,
+    the body-bounce frequency of a car) - droop 10.4 / 19.4 / 28.4 s, bump 14.9 / 23.9 /
+    32.9 s - and a half-cosine settle to ride height by 35.3 s, before `moves`.
     The driveshaft geometry (shaft angle, Rzeppa cage in the bisecting plane, tripod plunge
     p = L - sqrt(L^2 - s^2) >= 0 on bump AND droop, 3.78 mm at +-60 mm) is the wheels
     assembly's exact kinematics.
@@ -28,7 +32,10 @@ rollers stay whole, as on a real cutaway.  Section faces get the section_cut mat
 
 The RR coil-over (between a camera behind the car and the outer joint) is faded out while
 the joints are shown.  The plunge is shown at true scale (no magnification) with a live
-"Plunge x.x mm" readout; the joint angle (max 7.2 deg) is read out too.
+"Plunge x.x mm" readout next to the diff-to-hub distance (tulip centre on the diff to the
+Rzeppa centre on the hub, sqrt(L^2 + s^2): 478.0 -> 481.7 mm at +-60 mm; the shaft between the
+joint centres is rigid, so the spider slides out p = L - sqrt(L^2 - s^2), 3.78 mm); the joint
+angle (max 7.2 deg) is read out too.
 """
 from __future__ import annotations
 
@@ -39,7 +46,7 @@ import numpy as np
 from mathutils import Vector
 
 from carviz import camera as CAM
-from carviz import lighting, rig, scenebase, state, timeline
+from carviz import lighting, materials, rig, scenebase, state, timeline
 from carviz import meshutil as MU
 from carviz import spec as S
 from carviz.assemblies import car as CAR
@@ -79,16 +86,23 @@ V_END = 20.0                      # pull-away target in `moves`
 SLOW = 1.0 / 12.0                 # tyre tread (64 pitches) needs >= x11.05 at 10 km/h
 T_RAMP = (35.3, 38.6)             # slow motion -> real time
 T_ACCEL = (38.2, 41.5)            # 10 -> 20 km/h
-SUSP_PERIOD = 5.0
-SUSP_T0 = 4.65                    # zero crossing before the first bump (peak at 5.9 s: "up")
-SUSP_ON = (4.4, 5.6)
-SUSP_OFF = (31.2, 34.4)
+SUSP_PERIOD = 9.0                 # video s: 0.75 s real time at x12 (1.33 Hz, a natural ride motion)
+SUSP_RISE = (4.0, 5.9)            # from rest up to the first bump ("moves up")
+SUSP_LAST = 32.9                  # last bump peak (plunge beat) ...
+SUSP_SETTLE = 35.3                # ... then the wheel settles back to ride height (tyre on the road)
 
 
 def susp_rr(t):
+    """RR wheel-centre offset (m): rest, a half-cosine rise to full bump at 5.9 s, a 9 s
+    (video) sine through bump/droop (droop 10.4, 19.4, 28.4 s; bump 14.9, 23.9, 32.9 s),
+    then a half-cosine settle to ride height by 35.3 s.  C1 everywhere."""
     t = np.asarray(t, dtype=float)
-    env = _ss(*SUSP_ON, t) * (1.0 - _ss(*SUSP_OFF, t))
-    return S.SUSPENSION_TRAVEL * env * np.sin(TAU * (t - SUSP_T0) / SUSP_PERIOD)
+    A = S.SUSPENSION_TRAVEL
+    t0, t1 = SUSP_RISE
+    rise = A * 0.5 * (1.0 - np.cos(np.pi * np.clip((t - t0) / (t1 - t0), 0.0, 1.0)))
+    osc = A * np.cos(TAU * (t - t1) / SUSP_PERIOD)
+    settle = A * 0.5 * (1.0 + np.cos(np.pi * np.clip((t - SUSP_LAST) / (SUSP_SETTLE - SUSP_LAST), 0.0, 1.0)))
+    return np.where(t < t1, rise, np.where(t < SUSP_LAST, osc, settle))
 
 
 def slowmo_curve():
@@ -113,8 +127,11 @@ def build_program():
     P.throttle_rpm.key(0.0, rpm0 + 100.0, "step").key(T_ACCEL[0] - 0.3, rpm0 + 100.0, "linear")
     P.throttle_rpm.key(T_ACCEL[0] + 0.3, rpm0 + 450.0, "ease").key(T_ACCEL[1] - 0.6, rpm1 + 300.0, "linear")
     P.throttle_rpm.key(T_ACCEL[1], rpm1 + 100.0, "ease")
+    # body bounce (heave): every wheel moves by the same offset relative to the body while the
+    # tyres stay on the road; the car root is lowered by that offset (build(): car root z = -s)
     for t in np.arange(0.0, DUR + 0.05, 0.1):
-        P.susp["RR"].key(float(t), float(susp_rr(t)), "cubic")
+        for w in ("FL", "FR", "RL", "RR"):
+            P.susp[w].key(float(t), float(susp_rr(t)), "cubic")
     return P
 
 
@@ -127,24 +144,27 @@ Y_RA = S.Y_REAR_AXLE
 ZW = S.WHEEL_CENTER_Z
 
 POSES = [
-    (0.0, (0.26, -4.30, 0.70), (0.40, -2.58, 0.30), 32.0, 8.0),
-    (1.5, (0.28, -4.20, 0.68), (0.41, -2.58, 0.30), 32.0, 8.0),
-    (5.4, (0.48, -3.62, 0.52), (0.46, -2.62, 0.31), 35.0, 8.0),
-    (10.0, (0.52, -3.52, 0.50), (0.46, -2.62, 0.31), 35.0, 8.0),
-    # rzeppa: in to the outer joint (section opens 11.2-12.4)
+    # why: wide on the rear axle from behind-right, then a slow push to the whole RR shaft
+    (0.0, (0.40, -4.65, 0.88), (0.30, -2.52, 0.30), 32.0, 8.0),
+    (1.2, (0.41, -4.57, 0.86), (0.31, -2.53, 0.30), 32.0, 8.0),
+    (5.0, (0.46, -4.05, 0.66), (0.40, -2.60, 0.28), 35.0, 8.0),
+    (10.0, (0.48, -3.95, 0.62), (0.41, -2.60, 0.28), 35.0, 8.0),
+    # rzeppa: in to the outer joint (section opens 11.2-12.4); rides with the wheel
     (12.2, (0.50, -2.96, 0.45), (0.650, -2.62, 0.312), 50.0, 8.0),
-    (19.0, (0.53, -2.95, 0.44), (0.652, -2.62, 0.312), 50.0, 8.0),
-    (26.2, (0.55, -2.96, 0.43), (0.652, -2.62, 0.312), 50.0, 8.0),
-    # plunge: track along the shaft to the tripod (section opens 27.2-28.3)
-    (28.2, (0.40, -2.95, 0.40), (0.188, -2.62, 0.305), 50.0, 8.0),
-    (33.4, (0.41, -2.94, 0.39), (0.186, -2.62, 0.305), 52.0, 8.0),
-    # moves: pull out past the wheel to the tyre on the road, then wide
-    (35.6, (1.35, -4.35, 0.40), (0.72, -2.62, 0.22), 35.0, 8.0),
-    (37.4, (1.70, -5.30, 0.60), (0.55, -2.30, 0.35), 35.0, 8.0),
-    (39.2, (2.60, -8.20, 1.35), (0.05, -1.60, 0.60), 35.0, 8.0),
-    (DUR, (2.70, -8.60, 1.45), (0.0, -1.40, 0.62), 42.0, 8.0),
+    (19.0, (0.52, -2.955, 0.44), (0.652, -2.62, 0.312), 50.0, 8.0),
+    (26.2, (0.54, -2.96, 0.43), (0.652, -2.62, 0.312), 50.0, 8.0),
+    # plunge: track along the shaft to the tripod (section opens 27.2-28.3), seen from behind
+    (28.2, (0.28, -3.03, 0.40), (0.195, -2.62, 0.322), 44.0, 8.0),
+    (33.3, (0.27, -3.04, 0.395), (0.193, -2.62, 0.322), 46.0, 8.0),
+    # moves: pull out past the wheel to the tyre on the road, then wide; the car drives off
+    (35.4, (1.40, -4.30, 0.38), (0.74, -2.62, 0.22), 35.0, 8.0),
+    (37.0, (1.95, -6.40, 0.90), (0.50, -2.30, 0.45), 35.0, 8.0),
+    (39.0, (2.60, -8.40, 1.35), (0.05, -1.60, 0.60), 40.0, 8.0),
+    (DUR, (2.70, -8.80, 1.45), (0.0, -1.40, 0.62), 55.0, 8.0),
 ]
-T_DETACH = (38.6, 40.6)          # the camera stops riding with the car (eases to a halt)
+T_DETACH = (38.8, 41.0)          # the camera's carrier slows from the car's speed ...
+DETACH_KEEP = 0.25               # ... to this fraction of it (the car pulls away from the camera)
+CORNER_FOLLOW = ((10.4, 12.0), (26.4, 28.0))   # blend in / out of riding with the RR wheel
 CAM_SMOOTH = 0.25                # s, Gaussian low-pass on the keyed path
 
 
@@ -175,9 +195,14 @@ def camera_world(track):
     carrier decelerates to a stop while the target stays on the car."""
     t = track.t
     eye_c, tgt_c, lens, fstop = camera_car(t)
+    # outer-joint close-up: the camera rides with the RR wheel (corner frame = body frame + s
+    # vertically), so the joint stays framed and the shaft visibly swings about it
+    wc = (_ss(*CORNER_FOLLOW[0], t) - _ss(*CORNER_FOLLOW[1], t)) * track.susp_RR
+    eye_c = eye_c + np.stack([0 * wc, 0 * wc, wc], 1)
+    tgt_c = tgt_c + np.stack([0 * wc, 0 * wc, wc], 1)
     assert np.max(np.abs(track.car_heading)) < 1e-9, "s07 drives straight"
-    pos = np.stack([track.car_x, track.car_y, np.zeros(track.n)], 1)
-    g = 1.0 - _ss(*T_DETACH, t)
+    pos = np.stack([track.car_x, track.car_y, -track.susp_RR], 1)       # car root (heave: z = -s)
+    g = 1.0 - (1.0 - DETACH_KEEP) * _ss(*T_DETACH, t)
     carrier = np.zeros_like(pos)
     carrier[0] = pos[0]
     gm = 0.5 * (g[1:] + g[:-1])
@@ -216,8 +241,12 @@ INNER_CLOSE = (33.7, 34.7)
 SWEEP_FROM = -0.075               # cutter plane start/end offset behind the joint centre (m)
 COIL_OUT = (1.2, 2.3)             # RR coil-over fades away (it hides the outer joint)
 COIL_IN = (34.6, 35.6)
-BODY_IN = (35.6, 38.6)
-SHUTTER = (0.25, 0.5)             # motion-blur shutter (frames): slow motion / real time
+BODY_IN = (36.0, 38.8)
+SHUTTER = (0.25, 0.5)
+GAUGE_IN = (28.3, 28.9)           # plunge gauge ticks fade in / out
+GAUGE_OUT = (33.1, 33.6)
+GAUGE_Z = 0.0605                  # tick centre above the tulip axis (tulip OD 97 mm)
+GAUGE_SIZE = (0.0012, 0.0012, 0.013)             # motion-blur shutter (frames): slow motion / real time
 
 
 def _key_curve(t, keys):
@@ -284,6 +313,36 @@ def _section(name, parent, center, targets, offsets, frames, active):
     return cut
 
 
+def _gauge_material(name, rgb, strength):
+    """Emissive mark (honours cv_opacity through the shared presentation group)."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*rgb, 1.0)
+    em.inputs["Strength"].default_value = strength
+    grp = nt.nodes.new("ShaderNodeGroup")
+    grp.node_tree = materials.presentation_group()
+    nt.links.new(em.outputs[0], grp.inputs["Shader"])
+    nt.links.new(grp.outputs["Shader"], out.inputs["Surface"])
+    m.diffuse_color = (*rgb, 1.0)
+    return m
+
+
+def _tick(name, parent, loc, size, mat):
+    ob = MU.rounded_box(name, size, radius=0.0, material=mat, smooth_angle=None)
+    ob.parent = parent
+    ob.location = loc
+    for a in ("visible_diffuse", "visible_glossy", "visible_transmission", "visible_volume_scatter",
+              "visible_shadow"):
+        setattr(ob, a, False)                       # camera-only drawing aid
+    ob.display.show_shadows = False
+    materials.ensure_props(ob)
+    return ob
+
+
 # ---------------------------------------------------------------------------
 # build
 # ---------------------------------------------------------------------------
@@ -313,6 +372,12 @@ def build(quality: str) -> scenebase.SceneBuild:
     pres = {"wheels": {}, "body": {"exterior_opacity": body_op, "interior_opacity": body_op,
                                    "underbody_opacity": body_op, "glass_opacity": body_op}}
     C.drive(track, pres)
+    rig.bake_channel(C.root, "location", 2, fr, -track.susp_RR)   # body heave: tyres stay on the road
+    if quality == "preview":
+        # Workbench on llvmpipe: shadow volumes of ~1.5 M triangles cost ~40 s/frame
+        for ob in bpy.data.objects:
+            if ob.type == "MESH":
+                ob.display.show_shadows = False
 
     # coil-over RR out of the way of the outer joint
     coil = [o for o in W.meta["groups"]["coilover"] if o.name.endswith("_RR")]
@@ -335,6 +400,20 @@ def build(quality: str) -> scenebase.SceneBuild:
     cut_i = _section("s07_cut_inner", W.root, (x_ij, Y_RA, ZW),
                      [WP[k] for k in ("tulip_RR", "clamp_ib_RR", "boot_inner_RR", "clamp_is_RR")],
                      off_i, fr, act_i)
+
+    # plunge gauge (drawing aid, true scale): a white tick at the spider centre's ride-height
+    # position and an orange tick that follows the spider centre (x_ij + p), just above the
+    # tulip in the section plane; their gap IS the plunge
+    p_rr = W.meta["kinematics"]["rear_kin"](track["susp_RR"], 1, x_ij)["p"]
+    z_tk = ZW + GAUGE_Z
+    m_rest = _gauge_material("s07_gauge_rest", (0.85, 0.87, 0.90), 2.5)
+    m_now = _gauge_material("s07_gauge_now", (1.0, 0.32, 0.02), 4.0)
+    tick_rest = _tick("s07_tick_rest", W.root, (x_ij, Y_RA - 0.004, z_tk), GAUGE_SIZE, m_rest)
+    tick_car = rig.empty("s07_tick_carrier", loc=(x_ij, Y_RA - 0.005, z_tk), parent=W.root, size=0.01)
+    rig.bake_channel(tick_car, "location", 0, fr, x_ij + p_rr)
+    tick_now = _tick("s07_tick_now", tick_car, (0.0, 0.0, 0.0), GAUGE_SIZE, m_now)
+    gauge_op = _ss(*GAUGE_IN, t) * (1.0 - _ss(*GAUGE_OUT, t))
+    rig.bake_fade([tick_rest, tick_now], fr, gauge_op)
 
     # ---------------- camera ---------------------------------------------
     eye, tgt, lens, fstop, eye_c, tgt_c, pos = camera_world(track)
@@ -394,31 +473,39 @@ def build(quality: str) -> scenebase.SceneBuild:
     WA = W.anchors
     t_ds, t_joint, t_end = wt("why", "driveshaft"), wt("why", "joint"), wt("why", "each end")
     t_diff = wt("why", "differential")
-    L.add("driveshaft", "Driveshaft", WA["driveshaft_right"], t_ds, t_diff - 0.2, offset=(-0.02, -0.10))
-    L.add("outer_joint", "Outer joint", WA["outer_joint_right"], t_joint, bend("why") - 0.5, offset=(0.06, -0.09))
-    L.add("inner_joint", "Inner joint", WA["inner_joint_right"], t_end, bend("why") - 0.5, offset=(-0.06, -0.09))
+    L.add("driveshaft", "Driveshaft", WA["driveshaft_right"], t_ds, t_diff - 0.2, offset=(0.0, 0.11))
+    L.add("outer_joint", "Outer joint", WA["outer_joint_right"], t_joint, bend("why") - 0.5, offset=(0.05, -0.12))
+    L.add("inner_joint", "Inner joint", WA["inner_joint_right"], t_end, bend("why") - 0.5, offset=(0.0, -0.13))
     if A is not None and "diff_housing" in A.anchors:
-        L.add("diff", "Differential", A.anchors["diff_housing"], t_diff, bend("why") - 0.5, offset=(-0.05, 0.10))
-    # rzeppa (points fixed in the RR corner frame, facing the camera: the parts turn past them)
-    corner = F["corner_RR"]
+        L.add("diff", "Differential", A.anchors["diff_housing"], t_diff, bend("why") - 0.5, offset=(-0.04, 0.12))
+    # rzeppa: anchors in the (tilting, non-spinning) cage / inner-race pivots and the corner
+    # frame, on the side facing the camera; the spinning parts turn past them
+    corner, cgp, irp = F["corner_RR"], F["cagepiv_RR"], F["irpiv_RR"]
     ox = X_OJ - S.TRACK_REAR / 2.0
-    e = math.radians(18.0)
-    rb = W.meta["driveshaft"]["ball_pcr"]
+    ds = W.meta["driveshaft"]
+    rb, cg_o = ds["ball_pcr"], ds["cage"][1]
+
+    def facing(r, el_deg, axial):          # pivot-local point (local X = rear, Y = outboard, Z = up)
+        el = math.radians(el_deg)
+        return (r * math.cos(el), axial, r * math.sin(el))
     t_rz_end = bend("rzeppa") - 0.6
-    L.add("balls", "Balls", (corner, (ox - 0.004, -rb * math.cos(e), rb * math.sin(e))), wt("rzeppa", "balls"),
-          t_rz_end, offset=(-0.10, -0.12))
-    L.add("inner_race", "Inner race", (corner, (ox - 0.012, -0.012, -0.016)), wt("rzeppa", "inner"), t_rz_end,
+    balls = [WP[f"ball_RR_{k}"] for k in range(S.RZEPPA_BALLS)]
+    L.add("balls", "Balls", (cgp, facing(rb, 22.0, 0.0)), wt("rzeppa", "balls"), t_rz_end, offset=(-0.10, -0.12),
+          ignore=tuple(balls) + (WP["cage_RR"],))          # the anchor is on the ball track
+    # inner race: its inboard face, seen through the cage's inboard opening around the shaft
+    L.add("inner_race", "Inner race", (irp, facing(0.019, 8.0, -0.0112)), wt("rzeppa", "inner"), t_rz_end,
           offset=(-0.12, 0.10))
-    L.add("outer_race", "Outer race", (corner, (ox + 0.004, -0.004, W.meta["driveshaft"]["outer_race"] + 0.006)),
-          wt("rzeppa", "outer", 2), t_rz_end, offset=(0.08, -0.10))
-    cg_o = W.meta["driveshaft"]["cage"][1]
-    L.add("cage", "Cage", (corner, (ox + 0.002, -cg_o * math.cos(-0.9), cg_o * math.sin(-0.9))),
-          wt("rzeppa", "cage"), t_rz_end, offset=(0.10, 0.10))
+    L.add("outer_race", "Outer race", (corner, (ox + 0.004, -0.004, ds["outer_race"] + 0.006)),
+          wt("rzeppa", "outer", 2), t_rz_end, offset=(0.07, -0.11))
+    L.add("cage", "Cage", (cgp, facing(cg_o, -20.0, -0.0105)), wt("rzeppa", "cage"), t_rz_end, offset=(0.09, 0.11))
     # plunge
-    L.add("inner_joint2", "Inner joint", WA["inner_joint_right"], wt("plunge", "inner"), bend("plunge") - 0.3,
-          offset=(-0.06, -0.10))
-    L.add("plunge", "Plunge", WA["plunge_right"], wt("plunge", "slide"), bend("plunge") - 0.3, offset=(0.08, 0.10),
-          style="emph")
+    # on the tulip's section face (the wall always exists at r = 45 mm), lower left
+    L.add("inner_joint2", "Inner joint", (W.root, (x_ij - 0.008, Y_RA - 0.0015, ZW - 0.045)), wt("plunge", "inner"),
+          bend("plunge") - 0.3, offset=(-0.09, 0.05))
+    L.add("plunge", "Plunge", (tick_now, (0.0, 0.0, 0.5 * GAUGE_SIZE[2])), wt("plunge", "slide"),
+          bend("plunge") - 0.3, offset=(0.07, -0.07), style="emph", occlusion=False)
+    L.add("rest", "At rest", (tick_rest, (0.0, 0.0, 0.5 * GAUGE_SIZE[2])), GAUGE_IN[1], bend("plunge") - 0.3,
+          offset=(-0.07, -0.07), occlusion=False)
 
     # ---------------- HUD -----------------------------------------------
     H = Hud(track)
@@ -435,13 +522,15 @@ def build(quality: str) -> scenebase.SceneBuild:
         hi = bool(t_hi0 <= t[i] <= t_hi1)
         return [["Driveshaft", f"{fmt_rpm(rpm_shaft[i])} rpm", hi], ["Wheel", f"{fmt_rpm(rpm_wheel[i])} rpm", hi]]
     H.add("readouts", 1.0, DUR, rows=rows)
+    RX = 0.05 * 9.0 / 16.0                # HUD margin (5 u, u = H/100) as a fraction of W
     kin_rr = W.meta["kinematics"]["rear_kin"](track["susp_RR"], 1, x_ij)
     ang = np.degrees(kin_rr["alpha"])
     plunge_mm = kin_rr["p"] * 1000.0
-    H.add("readouts", wt("why", "wheel"), bend("rzeppa") - 0.5, pos=(0.05, 0.235),
+    H.add("readouts", wt("why", "wheel"), bend("rzeppa") - 0.5, pos=(RX, 0.235),
           rows=lambda i: [["Joint angle", f"{ang[i]:+.1f}°"]])
-    H.add("readouts", wt("plunge", "inner"), bend("plunge") - 0.2, pos=(0.05, 0.235),
-          rows=lambda i: [["Plunge", f"{plunge_mm[i]:.1f} mm"]])
+    hub_mm = np.sqrt(kin_rr["L"] ** 2 + track["susp_RR"] ** 2) * 1000.0     # tulip centre (on the diff) -> O
+    H.add("readouts", wt("plunge", "inner"), bend("plunge") - 0.2, pos=(RX, 0.235),
+          rows=lambda i: [["Diff to hub", f"{hub_mm[i]:.1f} mm"], ["Plunge", f"{plunge_mm[i]:.1f} mm"]])
     H.add("slowmo", 0.6, DUR, factor=lambda i: float(1.0 / track.slowmo[i]))
 
     sb = scenebase.SceneBuild(SCENE_ID, track, cam, L, H, motion_blur=True, shutter=SHUTTER[1],

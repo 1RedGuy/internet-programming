@@ -118,7 +118,8 @@ def solve_valve_slowmo():
 
 # highlight glow (materials.CV_Presentation: emission ~2.9 x rim at 0.7 x cv_glow, so small
 # values already read as a clear warm highlight on dark forged steel)
-GLOW_PEAK = 0.07
+GLOW_PEAK = 0.07          # connecting rods
+GLOW_PEAK_CRANK = 0.045   # the crankshaft is large and reads stronger
 GLOW_HOLD = 0.025
 
 # ---------------------------------------------------------------------------
@@ -305,8 +306,8 @@ POSES = [
 
 
 # key-light azimuth relative to the camera azimuth (deg; the studio rig turns with the camera)
-KEY_OFFSET = [(0.0, 50.0, "step"), (49.5, 50.0, "linear"), (52.0, 75.0, "ease"), (55.5, 75.0, "linear"),
-              (57.5, 50.0, "ease"), (76.0, 50.0, "linear"), (79.5, 75.0, "ease")]
+KEY_OFFSET = [(0.0, 50.0, "step"), (48.6, 50.0, "linear"), (50.6, 75.0, "ease"), (60.2, 75.0, "linear"),
+              (62.2, 50.0, "ease"), (76.0, 50.0, "linear"), (79.5, 75.0, "ease")]
 
 
 def _pose_curves():
@@ -424,8 +425,8 @@ def build(quality: str) -> scenebase.SceneBuild:
     g_rod = _fade_curve(t, [(0.0, 0.0, "step"), (t_rod, 0.0, "linear"), (t_rod + 0.6, GLOW_PEAK, "ease"),
                             (t_crank, GLOW_PEAK, "linear"), (t_crank + 0.6, GLOW_HOLD, "ease"),
                             (bend("crank") - 0.6, GLOW_HOLD, "linear"), (bend("crank") + 0.6, 0.0, "ease")])
-    g_crank = _fade_curve(t, [(0.0, 0.0, "step"), (t_crank, 0.0, "linear"), (t_crank + 0.6, GLOW_PEAK, "ease"),
-                              (bend("crank") - 1.2, GLOW_PEAK, "linear"), (bend("crank") + 0.6, 0.0, "ease")])
+    g_crank = _fade_curve(t, [(0.0, 0.0, "step"), (t_crank, 0.0, "linear"), (t_crank + 0.6, GLOW_PEAK_CRANK, "ease"),
+                              (bend("crank") - 1.2, GLOW_PEAK_CRANK, "linear"), (bend("crank") + 0.6, 0.0, "ease")])
     for c in range(1, 5):
         rig.bake_prop(E.parts[f"conrod{c}"], "cv_glow", track.frames, g_rod)
     rig.bake_prop(E.parts["crankshaft"], "cv_glow", track.frames, g_crank)

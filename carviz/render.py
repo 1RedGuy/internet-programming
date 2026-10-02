@@ -75,8 +75,7 @@ def apply_quality(sc, quality, sb=None, threads=0):
         sh.color_type = "MATERIAL"
         sh.show_cavity = True
         sh.cavity_type = "BOTH"
-        sh.show_shadows = True
-        sh.shadow_intensity = 0.4
+        sh.show_shadows = False   # Workbench shadows x AA samples are very slow on llvmpipe
         sh.show_specular_highlight = True
         sc.display.render_aa = "8"
         sc.view_settings.view_transform = "Standard"

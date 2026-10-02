@@ -99,7 +99,11 @@ class Labels:
                             owners = set()
                             if isinstance(a, (tuple, list)) and len(a) == 2 and hasattr(a[0], "matrix_world"):
                                 owners.add(a[0].name)
-                                owners.update(c.name for c in a[0].children_recursive)
+                                kids = list(a[0].children_recursive)
+                                # an anchor on a part (or a part's frame Empty) owns its few children;
+                                # an anchor on an assembly ROOT must not own the whole assembly
+                                if a[0].type != "EMPTY" or len(kids) <= 12:
+                                    owners.update(c.name for c in kids)
                             owners.update(o.name for o in it["ignore"])
                             occ = hob.name not in owners if hob is not None else True
                 raw.setdefault(it["id"], []).append((f, co.x, 1.0 - co.y, co.z, occ, al))
