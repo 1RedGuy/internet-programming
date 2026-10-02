@@ -18,10 +18,13 @@ def _bvh(ob, dg):
     ev = ob.evaluated_get(dg)
     me = ev.to_mesh()
     mw = ev.matrix_world
+    me.calc_loop_triangles()
     verts = [mw @ v.co for v in me.vertices]
-    polys = [tuple(p.vertices) for p in me.polygons]
+    # loop triangles (Blender's own triangulation) avoid false overlaps from
+    # concave n-gons left by booleans
+    tris = [tuple(t.vertices) for t in me.loop_triangles]
     ev.to_mesh_clear()
-    return BVHTree.FromPolygons(verts, polys, epsilon=0.0)
+    return BVHTree.FromPolygons(verts, tris, epsilon=0.0)
 
 
 def overlap_count(a, b, dg=None):

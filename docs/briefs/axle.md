@@ -18,9 +18,10 @@ flanges spin with track.theta_out (pinion side identical), the tube spins with
 * Pinion (10T, spiral bevel, `steel_machined`) with shaft, two taper-roller bearings and the
   companion flange; pinion axis along Y on the ring-gear centre line (spec: no hypoid offset).
 * Ring gear (41T spiral bevel, pitch diameter spec.RING_PITCH_DIAMETER) bolted (bolts!) to
-  the differential case on the RIGHT (+X) side of the pinion axis, pinion meshing at the
-  FRONT of the ring (this gives forward wheel rotation for normal engine rotation; derived
-  in spec docstring: ring turns about -X).
+  the differential case on the LEFT (-X) side of the pinion axis, pinion meshing at the
+  FRONT of the ring (this gives forward wheel rotation for normal engine rotation: ring turns
+  about -X).  [Corrected: the first version of this brief said +X, which would drive the car
+  backwards; the axle agent and FACTS FD-04 caught it.]
 * Differential case (`cast_iron`, windows so the gears are visible), cross-pin (`steel_ground`)
   with retaining bolt, 2 spider (pinion) gears 10T and 2 side gears 16T (straight bevel), thrust
   washers. Side gears are splined to the left/right output stubs/inner joint housings at

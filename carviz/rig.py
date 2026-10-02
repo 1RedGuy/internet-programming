@@ -208,11 +208,12 @@ class Assembly:
         self.bake_explode(track, presentation or {})
 
     def bake_explode(self, track, presentation):
-        ex = presentation.get("explode")
-        if ex is None or not self.explode:
+        if not self.explode:
             return
-        ex = np.asarray(ex)
+        ex = presentation.get("explode")
         frames = track.frames
+        # no explode requested: bake the rest pose so keys from an earlier drive() never linger
+        ex = np.zeros(len(frames)) if ex is None else np.asarray(ex)
         for pname, off in self.explode.items():
             ob = self.parts.get(pname)
             if ob is None:
