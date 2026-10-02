@@ -212,8 +212,8 @@ def clutch_geometry(pedal, pedal_arm=0.30):
 
     Returns dict (metres / radians):
       pedal_angle   - pedal arm rotation (pad travel along an arc of pedal_arm)
-      master        - master-cylinder pushrod travel
-      slave         - slave-cylinder pushrod travel (volume conservation)
+      master        - master-cylinder piston travel (after pedal free play)
+      slave         - slave-cylinder pushrod travel (volume conservation A_m x_m = A_s x_s)
       bearing       - release bearing travel toward the flywheel (-> +Y)
       finger        - diaphragm finger-tip deflection (= bearing travel)
       plate_lift    - pressure plate retraction (away from flywheel, -Y)
@@ -221,11 +221,11 @@ def clutch_geometry(pedal, pedal_arm=0.30):
     """
     p = np.clip(np.asarray(pedal, dtype=float), 0.0, 1.0)
     pad = p * S.CLUTCH_PEDAL_TRAVEL
-    master = pad / S.CLUTCH_PEDAL_RATIO
-    slave = master * (S.MASTER_CYL_BORE / S.SLAVE_CYL_BORE) ** 2
-    # free play: the first CLUTCH_FREE_PLAY of travel takes up clearances
+    # free play (pushrod clearance) is taken up before the master piston moves
     eff = np.clip((p - S.CLUTCH_FREE_PLAY) / (1.0 - S.CLUTCH_FREE_PLAY), 0.0, 1.0)
-    bearing = eff * S.RELEASE_BEARING_TRAVEL
+    master = eff * S.MASTER_WORKING_STROKE
+    slave = master * (S.MASTER_CYL_BORE / S.SLAVE_CYL_BORE) ** 2
+    bearing = slave / S.RELEASE_FORK_RATIO_EFFECTIVE      # = eff * RELEASE_BEARING_TRAVEL
     # Plate only starts to lift once the clamp load is relieved (bite zone)
     lift = S.PRESSURE_PLATE_LIFT * np.clip((p - S.CLUTCH_BITE_LO) / (1.0 - S.CLUTCH_BITE_LO), 0.0, 1.0)
     return dict(pedal_angle=pad / pedal_arm, master=master, slave=slave, bearing=bearing,

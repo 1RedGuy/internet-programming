@@ -69,3 +69,17 @@ Track for all `track.frames`. `presentation` may carry per-frame arrays (e.g. `e
 
 Be a good neighbour on the 4 shared CPU cores: one Blender process at a time, small test
 renders, no background jobs left running.
+
+## Notes from wave 1 (gears / materials / lighting agents)
+* gears.py: bevel gears are built with local +Y pointing AT THE APEX — a gear whose apex
+  direction is opposite to its conventional spin axis must have its scalar angle negated
+  when baked. Place bevel pairs with `gears.bevel_pair_frames` + `gears.bevel_mesh_phase`.
+* Helix hands: input + output-shaft gears `'right'`, countershaft gears `'left'`.
+* Splines/dogs: use the same (n, r_in, r_out) for hub external splines, gear dog rings and the
+  sleeve internal teeth (tested: n = spec.DOG_TEETH = 32, r_in 30 mm, r_out 33.5 mm).
+* meshutil.cut_half / cut_quarter / cut_and_apply keep closed meshes closed; give cutaway
+  objects their main material in slot 0 before cutting so only section faces get section_cut.
+* Materials: use `cast_iron` (not steel) for cylinder bores. Ghosted closed shells look right at
+  cv_opacity ~0.10-0.15 (two surfaces). Workbench ignores cv_opacity/cv_glow.
+* Lighting: `lighting.setup_studio('dark', key_azimuth=...)` — aim the key ~45-60 deg off the
+  camera azimuth so cut faces catch light.

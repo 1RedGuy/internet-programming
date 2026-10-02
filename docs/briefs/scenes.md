@@ -165,3 +165,15 @@ limitations, shared-module requests, and paths of 6-10 representative draft fram
   pulls back/up; power path glows once more; fade to black over the last 1.5 s.
 * Camera tracks alongside the moving car (parent to the car root or keyed in world space).
 * HUD: gear, rpm gauge, speed km/h, pedal, hpattern, status; "REAL TIME" slowmo badge.
+
+## Slow-motion limits found by the FACTS reviewers (verify with Track.validate aliasing)
+* s02: ~198x only for the four stroke beats; firing beat ~95-100x with the flywheel ring gear
+  out of frame; any shot showing the 132T ring gear needs >= ~223x (or motion blur).
+* s03: release/slip beats need ~10-15x for a realistic take-off — keep the ring gear out of
+  frame or use motion blur for those frames.
+* s04: >= 66x while the input gear/dogs are visible at idle (input-gear dogs need 191x at
+  3000 rpm-class speeds; 5th dog ring 234x; 23T/38T pair 168x — check per shot).
+* s06: >= 10.6x at 15 km/h.
+* HUD values: always read the Track (never hard-code e.g. 1446 rpm).
+* Ghosted body/housings: cv_opacity ~0.10-0.15. Workbench previews ignore opacity/glow: use
+  preview_hide for ghosted shells.

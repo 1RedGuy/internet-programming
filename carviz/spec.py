@@ -326,3 +326,11 @@ Y_RELEASE_BEARING = Y_DISC_CENTRE - 0.050      # release bearing face at rest (a
 H_POINT = (X_DRIVER, -1.520, 0.420)            # driver hip point
 STEERING_WHEEL_CENTRE = (X_DRIVER, -1.020, 0.900)
 SHIFT_KNOB_REST = (0.0, Y_SHIFT_LEVER - 0.040, 0.880)
+
+# Clutch free play sits between pedal pushrod and master piston (appended):
+# the hydraulics only move once the free play is taken up, and the release
+# bearing (self-adjusting hydraulic release) is always in light contact with
+# the fingers, so every mm of slave travel moves the bearing.
+MASTER_WORKING_STROKE = CLUTCH_PEDAL_TRAVEL * (1 - CLUTCH_FREE_PLAY) / CLUTCH_PEDAL_RATIO      # 21.5 mm
+SLAVE_WORKING_STROKE = MASTER_WORKING_STROKE * (MASTER_CYL_BORE / SLAVE_CYL_BORE) ** 2       # 14.9 mm
+RELEASE_FORK_RATIO_EFFECTIVE = SLAVE_WORKING_STROKE / RELEASE_BEARING_TRAVEL                  # 1.655

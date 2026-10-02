@@ -45,8 +45,8 @@ _Inline-4, four-stroke cycle, valvetrain, firing order, flywheel._
 *Picture:* Cylinder 1, crank 0-180 deg of its intake stroke. Intake valves open, cool blue charge fills the cylinder. Stroke strip: INTAKE. Label: Intake valve.
 
 **1:00.0–1:07.0** [28.0–35.0 s] `s02.compression`  
-*Narration:* “Compression: both valves close, and the rising piston squeezes the mixture.”  
-*Picture:* Valves closed, piston rises, charge becomes denser. Spark plug fires ~15 deg before TDC at the very end. Strip: COMPRESSION. Label: Spark plug.
+*Narration:* “Compression: the intake valves close, and the rising piston squeezes the mixture.”  
+*Picture:* Intake valves close ~50 deg after BDC (~1.9 s in); then the piston rises with both valves shut and the charge becomes denser. Spark plug fires ~15 deg before TDC at the very end. Strip: COMPRESSION. Label: Spark plug.
 
 **1:07.0–1:14.0** [35.0–42.0 s] `s02.power`  
 *Narration:* “Power: a spark ignites the mixture, and the hot gas forces the piston down.”  
@@ -81,7 +81,7 @@ _Parts, splines, engaged, released via hydraulics, slipping take-off._
 *Picture:* Close-up of the disc hub on the input-shaft splines. Labels: Splines, Input shaft.
 
 **2:13.0–2:24.0** [18.5–29.5 s] `s03.engaged`  
-*Narration:* “With the pedal up, the spring clamps the disc between the pressure plate and the flywheel, and the gearbox turns with the engine.”  
+*Narration:* “With the pedal up, the spring clamps the disc between the pressure plate and flywheel, so the input shaft turns with the engine.”  
 *Picture:* Half-section of the assembled clutch, everything turning together (gearbox in neutral, engine idling). HUD: CLUTCH ENGAGED, engine rpm = input-shaft rpm.
 
 **2:24.0–2:43.0** [29.5–48.5 s] `s03.release`  
@@ -89,7 +89,7 @@ _Parts, splines, engaged, released via hydraulics, slipping take-off._
 *Picture:* Pull back to show pedal, master cylinder, hydraulic line, slave cylinder, release fork. Pedal goes down; a pulse runs along the line; fork and bearing move; fingers deflect; pressure plate lifts. Disc slows (no longer driven). At the end, first gear is selected (HUD) and the disc stops.
 
 **2:43.0–2:58.0** [48.5–63.5 s] `s03.slip`  
-*Narration:* “To pull away, the pedal comes up slowly. The disc slips against the flywheel, speeding up as it passes on torque, until it matches the engine and locks.”  
+*Narration:* “To pull away, the pedal comes up slowly. The disc slips between the flywheel and pressure plate, speeding up as it passes on torque, until it matches the engine and locks.”  
 *Picture:* Pedal rises; HUD shows engine rpm and disc rpm converging; status SLIPPING then ENGAGED; car starts to roll in 1st.
 
 ## 4. The gearbox — 2:58.0–4:29.0 (91.0 s, 2184 frames)
@@ -105,7 +105,7 @@ _Three shafts, constant mesh, synchronisers, linkage, ratios, reverse._
 *Picture:* Slow track along the gear train. All gears turn, but the output shaft and synchro hubs stand still. Label: Free-spinning gears. HUD gear N.
 
 **3:27.5–3:43.5** [29.5–45.5 s] `s04.synchro`  
-*Narration:* “Synchronizers do the locking. A hub is splined to the shaft, and a sleeve slides on it. Each gear carries a ring of dog teeth and a cone, with a brass blocker ring in between.”  
+*Narration:* “Synchronizers do the locking. A hub is splined to the shaft, and a sleeve slides on it. Each gear carries dog teeth and a cone, with a brass blocker ring between cone and sleeve.”  
 *Picture:* Close-up on the 1-2 synchroniser; exploded view: hub, sleeve, blocker ring, cone, dog teeth; reassembles. Clutch pressed at the start of this beat (HUD).
 
 **3:43.5–3:51.0** [45.5–53.0 s] `s04.lock`  
@@ -117,8 +117,8 @@ _Three shafts, constant mesh, synchronisers, linkage, ratios, reverse._
 *Picture:* Pull back: gear lever, selector finger, three rails and forks. Lever moves across the gate and back to 1st; matching rail/fork/sleeve moves. H-pattern diagram in HUD.
 
 **4:01.5–4:21.5** [63.5–83.5 s] `s04.ratios`  
-*Narration:* “In first, a small countershaft gear drives a large output gear, so the engine turns about three and a half times for each turn of the output shaft. Fourth locks input to output: one to one. Fifth is an overdrive.”  
-*Picture:* Driving shots (hard cuts between gears): power path glows through the engaged pair. HUD: input rpm, output rpm and ratio for 1st (3.48:1), then 4th (1:1), then 5th (0.82:1).
+*Narration:* “In first, the input gear turns the countershaft more slowly, and a small countershaft gear drives a large output gear: the engine turns about three and a half times per output-shaft turn. Fourth locks input to output: one to one. Fifth is an overdrive.”  
+*Picture:* Driving shots (hard cuts between gears): power path glows through the engaged pair. HUD: input rpm, output rpm and ratio for 1st (3.48:1), then 4th (1:1), then 5th (0.81:1). Glow: headset + selected pair (4th: dogs, sleeve, hub only).
 
 **4:21.5–4:29.0** [83.5–91.0 s] `s04.reverse`  
 *Narration:* “Reverse adds an idler gear between the shafts, so the output turns backwards.”  
@@ -189,8 +189,8 @@ _Constant-velocity joints, plunge, wheels, car moves._
 *Picture:* Cutaway outer (Rzeppa) joint: balls, cage, races; joint articulates. Labels: Balls, Cage, Inner race, Outer race. HUD: shaft rpm = wheel rpm.
 
 **6:45.0–6:51.5** [27.0–33.5 s] `s07.plunge`  
-*Narration:* “The inner joint can also slide, as the shaft's length changes.”  
-*Picture:* Cutaway inner (tripod) joint; rollers slide in their tracks as the wheel moves. Label: Plunge.
+*Narration:* “The inner joint can also slide, as the distance between the joints changes.”  
+*Picture:* Cutaway inner (tripod) joint; rollers slide outboard in their tracks on both bump and droop. Label: Plunge.
 
 **6:51.5–6:59.5** [33.5–41.5 s] `s07.moves`  
 *Narration:* “Finally, the wheel turns, the tire grips the road, and the car moves.”  
@@ -217,6 +217,6 @@ _Drive through 1st, 2nd and 3rd with live readouts._
 *Picture:* Shift to 3rd: rpm drops to ~2010 and climbs.
 
 **7:21.5–7:31.5** [22.0–32.0 s] `s08.summary`  
-*Narration:* “Engine, clutch, gearbox, final drive, differential, and driveshafts: one chain of gears and shafts, turning fuel into motion.”  
+*Narration:* “Engine, clutch, gearbox, propeller shaft, final drive, differential, and driveshafts: one chain of gears and shafts, turning fuel into motion.”  
 *Picture:* Camera pulls back and up as the car cruises; power path glows once more; fade to black.
 

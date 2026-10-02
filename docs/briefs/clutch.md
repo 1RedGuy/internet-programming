@@ -56,3 +56,13 @@ Anchors: `disc`, `facing`, `hub_splines`, `damper_springs`, `pressure_plate`,
 `master_cylinder`, `pedal`, `hydraulic_line`, `bellhousing`.
 Note: real pressure-plate lift (1.8 mm) is small; keep it physically correct in the model
 (the scene may add an on-screen note or magnified inset; do not exaggerate in geometry).
+
+## Hydraulics note (updated kin.clutch_geometry)
+Pedal free play is taken up BEFORE the master piston moves; `clutch_master` / `clutch_slave`
+are the working strokes (21.5 / 14.9 mm max) and `clutch_bearing` = slave /
+spec.RELEASE_FORK_RATIO_EFFECTIVE (1.655). Design the fork lever arms so that ratio holds
+exactly (you may move the fork pivot / slave a few cm from the spec positions — the spec
+positions give only ~1.1-1.2; e.g. pivot near X ~ -0.047 or slave near X ~ -0.159 — record the
+positions you use in meta). The release bearing stays in light contact with the fingers at rest
+(self-adjusting hydraulic release). Pressure plate follows `clutch_plate_lift` (lever ~4.24
+over its lifting range), not bearing/5.

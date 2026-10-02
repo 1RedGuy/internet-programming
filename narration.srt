@@ -63,9 +63,9 @@ drawing air and fuel in through the open
 intake valves.
 
 15
-00:01:00,250 --> 00:01:05,214
-Compression: both valves close, and the
-rising piston squeezes the mixture.
+00:01:00,250 --> 00:01:05,643
+Compression: the intake valves close, and
+the rising piston squeezes the mixture.
 
 16
 00:01:07,250 --> 00:01:13,500
@@ -130,13 +130,13 @@ input shaft, so they always turn together.
 With the pedal up,
 
 29
-00:02:14,964 --> 00:02:20,107
+00:02:14,964 --> 00:02:19,679
 the spring clamps the disc between the
-pressure plate and the flywheel,
+pressure plate and flywheel,
 
 30
-00:02:20,107 --> 00:02:23,357
-and the gearbox turns with the engine.
+00:02:19,679 --> 00:02:23,357
+so the input shaft turns with the engine.
 
 31
 00:02:24,250 --> 00:02:30,250
@@ -158,13 +158,14 @@ pulls back, and the disc is free.
 To pull away, the pedal comes up slowly.
 
 35
-00:02:46,679 --> 00:02:52,250
-The disc slips against the flywheel,
-speeding up as it passes on torque,
+00:02:46,679 --> 00:02:50,536
+The disc slips between the flywheel and
+pressure plate,
 
 36
-00:02:52,250 --> 00:02:55,500
-until it matches the engine and locks.
+00:02:50,536 --> 00:02:56,786
+speeding up as it passes on torque, until
+it matches the engine and locks.
 
 37
 00:02:58,250 --> 00:03:00,393
@@ -205,13 +206,13 @@ A hub is splined to the shaft, and a
 sleeve slides on it.
 
 45
-00:03:35,036 --> 00:03:39,750
-Each gear carries a ring of dog teeth and
-a cone,
+00:03:35,036 --> 00:03:38,464
+Each gear carries dog teeth and a cone,
 
 46
-00:03:39,750 --> 00:03:43,000
-with a brass blocker ring in between.
+00:03:38,464 --> 00:03:42,571
+with a brass blocker ring between cone and
+sleeve.
 
 47
 00:03:43,750 --> 00:03:50,429
@@ -228,198 +229,203 @@ Moving the lever sideways picks a rail;
 forward or back slides it.
 
 50
-00:04:01,750 --> 00:04:06,464
-In first, a small countershaft gear drives
-a large output gear,
+00:04:01,750 --> 00:04:06,036
+In first, the input gear turns the
+countershaft more slowly,
 
 51
-00:04:06,464 --> 00:04:13,750
-so the engine turns about three and a half
-times for each turn of the output shaft.
+00:04:06,036 --> 00:04:10,321
+and a small countershaft gear drives a
+large output gear:
 
 52
-00:04:13,750 --> 00:04:17,179
-Fourth locks input to output: one to one.
+00:04:10,321 --> 00:04:15,464
+the engine turns about three and a half
+times per output-shaft turn.
 
 53
-00:04:17,179 --> 00:04:19,143
-Fifth is an overdrive.
+00:04:15,464 --> 00:04:18,893
+Fourth locks input to output: one to one.
 
 54
+00:04:18,893 --> 00:04:20,857
+Fifth is an overdrive.
+
+55
 00:04:21,750 --> 00:04:27,571
 Reverse adds an idler gear between the
 shafts, so the output turns backwards.
 
-55
+56
 00:04:29,250 --> 00:04:35,500
 Here's a shift from first to second at
 three thousand rpm, slowed right down.
 
-56
+57
 00:04:36,250 --> 00:04:37,536
 One: clutch in.
 
-57
+58
 00:04:37,536 --> 00:04:39,500
 The engine is disconnected.
 
-58
+59
 00:04:41,750 --> 00:04:45,857
 Two: the sleeve slides out of first, into
 neutral.
 
-59
+60
 00:04:47,250 --> 00:04:51,107
 Three: the blocker ring's cone presses on
 second gear.
 
-60
+61
 00:04:51,107 --> 00:04:56,250
 Friction slows it, along with the
 countershaft, input shaft and clutch disc,
 
-61
+62
 00:04:56,250 --> 00:04:59,500
 until it matches the output shaft's speed.
 
-62
+63
 00:05:01,250 --> 00:05:05,536
 Four: speeds matched, the blocker ring
 lets the sleeve through,
 
-63
+64
 00:05:05,536 --> 00:05:07,929
 onto second gear's dog teeth.
 
-64
+65
 00:05:09,750 --> 00:05:11,036
 Five: clutch out.
 
-65
+66
 00:05:11,036 --> 00:05:16,179
 The engine is reconnected at about
 eighteen hundred rpm: same road speed,
 
-66
+67
 00:05:16,179 --> 00:05:17,286
 taller gear.
 
-67
+68
 00:05:19,250 --> 00:05:24,214
 The propeller shaft carries the drive back
 to the rear axle.
 
-68
+69
 00:05:25,750 --> 00:05:31,321
 There, a small pinion drives a large ring
 gear: ten teeth against forty-one,
 
-69
+70
 00:05:31,321 --> 00:05:38,000
 a final drive ratio of 4.1 to 1, turning
 the drive through a right angle.
 
-70
+71
 00:05:39,750 --> 00:05:43,607
 The ring gear is bolted to the
 differential case.
 
-71
+72
 00:05:43,607 --> 00:05:47,464
 Inside, two spider gears mesh with two
 side gears,
 
-72
+73
 00:05:47,464 --> 00:05:49,857
 one splined to each driveshaft.
 
-73
+74
 00:05:51,250 --> 00:05:55,536
 Going straight, the spider gears don't
 spin on their pin.
 
-74
+75
 00:05:55,536 --> 00:05:59,214
 Everything turns as one, and both wheels
 match.
 
-75
+76
 00:06:00,250 --> 00:06:05,393
 In a turn, the outer wheel travels further
 than the inner one.
 
-76
+77
 00:06:05,393 --> 00:06:08,821
 The spider gears now spin on their pin,
 
-77
+78
 00:06:08,821 --> 00:06:12,679
 letting one side speed up as the other
 slows.
 
-78
+79
 00:06:12,679 --> 00:06:16,786
 The case turns at the average of the two.
 
-79
+80
 00:06:18,250 --> 00:06:22,107
 Each driveshaft has a constant-velocity
 joint at each end,
 
-80
+81
 00:06:22,107 --> 00:06:27,500
 because the wheel moves up and down while
 the differential stays put.
 
-81
+82
 00:06:28,750 --> 00:06:34,750
 In the outer joint, six balls run in
 grooves between inner and outer races.
 
-82
+83
 00:06:34,750 --> 00:06:39,464
 A cage holds them in the plane that splits
 the angle,
 
-83
+84
 00:06:39,464 --> 00:06:43,571
 so the wheel turns at exactly the shaft's
 speed.
 
-84
-00:06:45,250 --> 00:06:50,214
-The inner joint can also slide, as the
-shaft's length changes.
-
 85
+00:06:45,250 --> 00:06:51,071
+The inner joint can also slide, as the
+distance between the joints changes.
+
+86
 00:06:51,750 --> 00:06:57,571
 Finally, the wheel turns, the tire grips
 the road, and the car moves.
 
-86
+87
 00:06:59,750 --> 00:07:02,143
 Let's put it all together.
 
-87
+88
 00:07:03,750 --> 00:07:09,143
 Clutch up in first, and the engine pulls
 to three thousand rpm.
 
-88
+89
 00:07:09,750 --> 00:07:16,000
 Clutch in, second gear, clutch out: the
 revs drop, and the car keeps accelerating.
 
-89
+90
 00:07:16,750 --> 00:07:17,857
 Then third.
 
-90
-00:07:21,750 --> 00:07:25,179
-Engine, clutch, gearbox, final drive,
-differential, and driveshafts:
-
 91
-00:07:25,179 --> 00:07:29,714
-one chain of gears and shafts, turning
-fuel into motion.
+00:07:21,750 --> 00:07:25,179
+Engine, clutch, gearbox, propeller shaft,
+final drive, differential,
+
+92
+00:07:25,179 --> 00:07:30,571
+and driveshafts: one chain of gears and
+shafts, turning fuel into motion.

@@ -45,3 +45,7 @@ side gears -> stubs).
 Also publish `meta['power_groups'] = {'prop': [...propshaft part names...], 'diff': [...pinion,
 ring, case, spiders, side gears, stubs...]}` (used by carviz/assemblies/car.py for the
 power-path glow in scenes 1 and 8).
+Bevel data from gears.py: final drive tested with spiral 35 deg (pinion left hand, ring right
+hand) and module = spec.RING_PITCH_DIAMETER/41; differential straight bevel module 4.0 mm.
+Remember the apex-orientation note in the common brief (negate angles where needed) and show a
+slip yoke at the gearbox end of the propshaft.

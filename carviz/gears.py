@@ -8,6 +8,7 @@ Conventions (ARCHITECTURE.md section 2 / 6):
 * Tooth 0 of every external toothed part is centred on psi = 0 (local +X);
   tooth k at psi = k * 2pi/z.  Internal teeth (hub bores, synchro sleeves) sit
   at psi = (k + 1/2) * 2pi/z so they mate with an external part at phase 0.
+  Sprocket roller seats are at psi = (k + 1/2) * 2pi/z.
 * Spur/helical/sprocket/spline parts: mid-face plane at local y = 0.
 * Helical gears: the transverse profile is twisted along Y with
       psi_offset(y) = s * y * tan(helix) / r_pitch,   s = -1 for hand='right',
@@ -16,17 +17,32 @@ Conventions (ARCHITECTURE.md section 2 / 6):
   psi is right-handed about -Y).  At y = 0 the phase is the nominal one, so a
   mesh phase computed at the mid-plane (``mesh_phase`` / ``kin.mesh_phase``)
   holds on every slice when the mating gear has the opposite hand.
+  Gearbox: input + main-shaft gears 'right', countershaft gears 'left'.
 * Bevel gears: the HEEL pitch circle lies in the plane y = 0, the pitch-cone
   APEX is at local (0, bevel_apex_y(...), 0) on +Y, the teeth face +Y and the
-  back of the gear is toward -Y.  See ``bevel_gear`` and ``bevel_pair_frames``.
+  back of the gear is toward -Y.  Because local +Y must point at the apex, a
+  bevel gear's local +Y can be OPPOSITE to the part's conventional spin axis
+  (e.g. the final-drive pinion points rearward at the ring-gear centre, one
+  side gear points -X): then bake its scalar angle negated.  See
+  ``bevel_gear`` and ``bevel_pair_frames`` for placing pairs.
+* Backlash: every gear is thinned by backlash/2 (default total 0.05*m; spiral
+  bevels 0.07*m), so a pair at the exact centre distance / apex has a small
+  clearance on both flanks and never interpenetrates (tools/test_gears.py
+  proves it in 2D and on the built meshes).
 
-Pure-python/numpy profile functions (no bpy needed):
-    involute_profile, profile_polygon, pitch_radius, mesh_phase,
-    helix_psi_offset, working_centre_distance, min_profile_shift,
-    check_mesh_2d, check_helical_pair, check_bevel_pair, bevel_cone,
-    bevel_apex_y, bevel_pair_frames, sprocket_profile, spline_profile
-Mesh builders (need bpy):
-    spur_gear, helical_gear, ring_gear, bevel_gear, sprocket,
+Pure-python/numpy (no bpy needed):
+    involute_profile(z, m_t, alpha_t, x_shift, ...)   closed (N,2) outline
+    profile_polygon(z, m_n, helix, pressure_angle, ...)  same from normal values
+    transverse, pitch_radius, helix_psi_offset, mesh_phase, min_profile_shift,
+    working_centre_distance
+    spline_profile(n, r_minor, r_major, internal=...)  splines / dogs / sleeves
+    sprocket_profile(z, pitch, roller_d)
+    bevel_cone, bevel_apex_y, bevel_geom, bevel_pair_frames, bevel_mesh_phase,
+    bevel_default_shift
+    check_mesh_2d, check_helical_pair, check_bevel_pair     (shapely)
+Mesh builders (bpy; return a linked mesh object, material default
+'steel_machined' via carviz.materials, collection default = scene root):
+    helical_gear, spur_gear, ring_gear, bevel_gear, sprocket,
     external_splines, internal_splines, dog_ring, sleeve_internal_teeth
 
 All lengths in metres, angles in radians unless a name ends in ``_deg``.
@@ -290,7 +306,6 @@ def _half_tooth(z, m_t, alpha_t, m_n=None, x=0.0, ha=None, hf=None, thin=0.0,
             t = diff[idx - 1] / (diff[idx - 1] - diff[idx])
             r_form = float(fr[idx - 1] + t * (fr[idx] - fr[idx - 1]))
         fil = np.vstack([fil[:idx], inv_pts(np.array([r_form]))])
-        del ip
 
     # resample the fillet evenly in arc length
     fil_r = _resample(fil, d["fillet"] + 1)
@@ -335,7 +350,6 @@ def _half_tooth(z, m_t, alpha_t, m_n=None, x=0.0, ha=None, hf=None, thin=0.0,
     half[:, 1] -= tau / 2.0               # tooth frame: tooth centred at 0
     half[0, 1] = -tau / 2.0
     half[-1, 1] = 0.0
-    # enforce monotone non-decreasing angle in the tip region (numerical safety)
     return ToothInfo(z=z, m_t=m_t, m_n=m_n, alpha_t=alpha_t, x=x, r_p=r_p, r_b=r_b, r_a=r_a,
                      r_f=r_f, s_t=s_t, undercut=undercut, r_form=r_form, half=half)
 
@@ -399,77 +413,63 @@ def profile_polygon(z, m_n, helix=0.0, pressure_angle=20 * DEG, x_shift=0.0, **k
 
 
 def spline_profile(n, r_minor, r_major, internal=False, flank_angle=30 * DEG, fill=0.5,
-                   clearance=None, pts_flank=3, pts_arc=2, r_pitch=None):
-    """Outline of a straight-flank (involute-like) spline, polar half-tooth data.
+                   clearance=None, radial_clearance=None, pts_flank=3, pts_arc=2, r_pitch=None):
+    """Straight-flank (involute-like) spline / dog-tooth outline.
 
-    External teeth (internal=False) are centred at psi = k*tau and occupy
-    r_minor..r_major; flanks are straight lines (in XZ) inclined at
-    flank_angle to the tooth centre line, tooth thickness at r_pitch
-    (default mid-depth) = fill * pitch.
-    Internal teeth (internal=True) are the complement of the external teeth
-    of the same (n, r_pitch, flank_angle, fill), shrunk by ``clearance`` on
-    every flank, centred at psi = (k+1/2)*tau, and run from r_minor (tips,
-    inner) to r_major (roots, outer).
+    (n, r_minor, r_major) always describe the EXTERNAL teeth (shaft, synchro
+    hub, dog ring): teeth centred at psi = k*tau, from r_minor (root) to
+    r_major (tip); flanks are straight lines (in XZ) inclined at flank_angle
+    to the tooth centre line; tooth thickness at r_pitch (default mid-depth)
+    = fill * pitch.
+    internal=True gives the MATING internal teeth (hub bore, synchro sleeve):
+    the complement of those external teeth with ``clearance`` on every flank
+    (default 0.06 mm) and ``radial_clearance`` (default 0.15 mm): internal
+    tips at r_minor + rc, roots at r_major + rc, centred at psi=(k+1/2)*tau.
 
-    Returns dict(xy=(N,2) closed outline (CCW in psi), tags=list, d=array)
-    where tags[i] in {'gap','corner','tooth'} and d[i] is the distance of a
-    tooth point from that tooth's centre plane (0 for gap points), used to
-    build roof-shaped (pointed) tooth ends.
+    Returns dict(xy=(N,2) closed outline, CCW in psi, tags=[...], d=array,
+    r_root, r_tip, ...): tags[i] in {'gap', 'corner', 'tooth'}; d[i] is the
+    distance of a tooth point from its tooth's centre plane (for roof ends).
     """
     tau = TAU / n
     r_pitch = 0.5 * (r_minor + r_major) if r_pitch is None else r_pitch
-    clearance = 0.0 if clearance is None else clearance
+    clearance = 0.06e-3 if clearance is None else clearance
+    rc = 0.15e-3 if radial_clearance is None else radial_clearance
     tf = math.tan(flank_angle)
-    h_p = math.sin(fill * tau / 2) * r_pitch      # half chordal thickness at r_pitch (ext. tooth)
+    h_p = math.sin(fill * tau / 2) * r_pitch      # half chordal thickness at r_pitch
+    x_p = r_pitch * math.cos(fill * tau / 2)
 
-    def ext_halfwidth(x):
-        """Half width (perp. distance to the centre line) of the external tooth at abscissa x."""
-        return h_p - (x - r_pitch * math.cos(fill * tau / 2)) * tf
-
-    # For internal teeth the tooth centred at tau/2 sits between external tooth 0
-    # (upper flank) and tooth 1 (lower flank).  Its half-width about its own
-    # centre line follows from the external flank line offset by clearance.
-    def flank_point_ext(r):
-        # point on the upper flank of external tooth 0 at radius r: (x, hw(x)) with x^2+hw^2=r^2
+    def ext_half_angle(r):
+        # upper flank of external tooth 0: points (x, h(x)), h = h_p - (x - x_p)*tf
+        # solve x^2 + h(x)^2 = r^2 for x (bisection)
         lo, hi = 0.0, r
-        for _ in range(50):
+        for _ in range(60):
             x = 0.5 * (lo + hi)
-            if x * x + ext_halfwidth(x) ** 2 > r * r:
+            h = h_p - (x - x_p) * tf
+            if x * x + h * h > r * r:
                 hi = x
             else:
                 lo = x
         x = 0.5 * (lo + hi)
-        return x, ext_halfwidth(x)
+        return math.atan2(h_p - (x - x_p) * tf, x)
 
-    def ext_half_angle(r):
-        x, h = flank_point_ext(r)
-        return math.atan2(h, x)
-
-    def int_half_angle(r):
-        # angular half width of the internal tooth at radius r: gap of external
-        # teeth minus clearance (clearance converted to angle at r)
-        return tau / 2 - ext_half_angle(r) - clearance / r
-
-    pts = []
-    tags = []
     if not internal:
         r_root, r_tip = r_minor, r_major
         half_ang = ext_half_angle
         centre = 0.0
     else:
-        r_root, r_tip = r_major, r_minor
-        half_ang = int_half_angle
+        r_root, r_tip = r_major + rc, r_minor + rc
+
+        def half_ang(r):
+            return tau / 2 - ext_half_angle(r) - clearance / r
         centre = tau / 2
     a_root = half_ang(r_root)
     a_tip = half_ang(r_tip)
-    if a_tip <= 0.02 * tau:
-        raise ValueError("spline tooth becomes pointed: reduce depth or flank angle")
-    # one pitch, from centre - tau/2 (gap centre) to centre + tau/2 (exclusive)
-    # gap arc (half)
+    if a_tip <= 0.02 * tau or a_root >= 0.49 * tau:
+        raise ValueError("spline tooth geometry invalid: check depth / flank angle / fill")
+    pts, tags = [], []
     g0 = centre - tau / 2
     for i in range(pts_arc):
-        a = g0 + (centre - a_root - g0) * i / pts_arc
-        pts.append((r_root, a)); tags.append("gap")
+        pts.append((r_root, g0 + (centre - a_root - g0) * i / pts_arc)); tags.append("gap")
     pts.append((r_root, centre - a_root)); tags.append("corner")
     rr = np.linspace(r_root, r_tip, pts_flank + 2)[1:-1]
     for r in rr:
@@ -482,22 +482,19 @@ def spline_profile(n, r_minor, r_major, internal=False, flank_angle=30 * DEG, fi
     pts.append((r_root, centre + a_root)); tags.append("corner")
     g1 = centre + tau / 2
     for i in range(1, pts_arc):
-        a = centre + a_root + (g1 - centre - a_root) * i / pts_arc
-        pts.append((r_root, a)); tags.append("gap")
+        pts.append((r_root, centre + a_root + (g1 - centre - a_root) * i / pts_arc)); tags.append("gap")
     one = np.array(pts)
+    d_one = np.array([abs(r * math.sin(a - centre)) if t != "gap" else 0.0 for (r, a), t in zip(pts, tags)])
     r_all = np.concatenate([one[:, 0]] * n)
     a_all = np.concatenate([one[:, 1] + k * tau for k in range(n)])
-    tag_all = tags * n
-    # distance to the tooth's own centre plane
-    d_one = np.array([abs(r * math.sin(a - centre)) if t != "gap" else 0.0 for (r, a), t in zip(pts, tags)])
-    return dict(xy=_cart(r_all, a_all), r=r_all, a=a_all, tags=tag_all, d=np.concatenate([d_one] * n),
-                per_tooth=len(pts), centre=centre, tau=tau, r_root=r_root, r_tip=r_tip)
+    return dict(xy=_cart(r_all, a_all), r=r_all, a=a_all, tags=tags * n, d=np.concatenate([d_one] * n),
+                per_tooth=len(pts), centre=centre, tau=tau, r_root=r_root, r_tip=r_tip, n=n)
 
 
 def sprocket_profile(z, pitch=9.525e-3, roller_d=6.35e-3, detail="high"):
     """ANSI-style roller-chain sprocket outline (approximation).
 
-    Rollers seat in circular gaps (radius 0.505*d + 0.0381 mm) centred on the
+    Rollers seat in circular gaps (radius 0.5025*d + 0.0381 mm) centred on the
     pitch circle at psi = (k+1/2)*tau, so tooth 0 is centred on +X.  Tooth
     flanks are arcs centred on the neighbouring seat centre with radius
     (pitch - seat radius) - the envelope of a roller swinging out about its
@@ -517,19 +514,17 @@ def sprocket_profile(z, pitch=9.525e-3, roller_d=6.35e-3, detail="high"):
     T = Sm + R_s * u                      # seat/flank tangent point (lower flank of tooth 0)
     a_in = math.atan2(-Sm[1], -Sm[0])     # direction from seat centre toward the gear centre
     a_T = math.atan2(u[1], u[0])
-    # seat arc from the gap centre (pointing inward) to T (going CCW in angle from a_in?)
-    # a_in ~ pi - tau/2, a_T ~ pi/2: sweep downward in angle
+    # seat arc from the gap bottom (direction a_in ~ pi - tau/2) to T (a_T ~ pi/2)
     sweep = np.linspace(a_in, a_T if a_T < a_in else a_T + TAU, nseat + 1)
     seat = Sm + R_s * np.stack([np.cos(sweep), np.sin(sweep)], axis=1)
     # flank arc centred on Sp with radius p - R_s, from T outward to the tip circle
     R_f = pitch - R_s
     a0 = math.atan2(T[1] - Sp[1], T[0] - Sp[0])
-    # find angle where the arc reaches r_tip (or the tooth centre line z=0)
     def pt(a):
         return Sp + R_f * np.array([math.cos(a), math.sin(a)])
-    # the arc goes from T toward smaller z (toward the tooth centre line); search direction
-    lo, hi = a0, a0 + (-0.5 * PI)
-    # choose direction that increases radius from T
+    # walk along the arc in the direction that moves away from the gear centre
+    # until it reaches the tip circle (or the tooth centre line z = 0)
+    hi = a0 - 0.5 * PI
     if np.linalg.norm(pt(a0 - 0.01)) < np.linalg.norm(pt(a0 + 0.01)):
         hi = a0 + 0.5 * PI
     end = hi
@@ -597,7 +592,7 @@ def check_mesh_2d(profileA, profileB, centre_distance, phaseA=0.0, ratio=None, n
     distance between the outlines near the mesh) in metres.  A correct pair
     has max_area ~ 0 and 0 < min_gap <= max_gap ~ (backlash/2)*cos(alpha).
     """
-    shapely, Polygon, box = _shapely()
+    _, Polygon, box = _shapely()
     if ratio is None:
         ratio = zA / zB
     if phaseB is None:
@@ -701,9 +696,18 @@ class BevelGeom:
         return self.R_e - self.b / 2
 
     def spiral_psi(self, R):
+        """Tooth-trace twist about the axis at cone distance R (0 at R_m).
+
+        On the developed pitch cone the trace is theta(R) = tan(beta_m) *
+        (R - R_m) / R_m, i.e. the spiral angle is ``spiral`` at the mean cone
+        distance and grows toward the heel (tan beta = tan beta_m * R / R_m)
+        like a face-milled spiral bevel.  psi = theta / sin(delta) is LINEAR in
+        R, so straight interpolation between mesh slices is exact
+        tangentially (only a tiny radial chord sag)."""
+        R = np.asarray(R, dtype=float)
         if self.spiral == 0.0:
-            return np.zeros_like(np.asarray(R, dtype=float))
-        return self.hand_sign * math.tan(self.spiral) * np.log(np.asarray(R) / self.R_m) / math.sin(self.delta)
+            return np.zeros_like(R)
+        return self.hand_sign * math.tan(self.spiral) * (R - self.R_m) / (self.R_m * math.sin(self.delta))
 
     def heel_points(self, psi_extra=0.0, rho=None, psi=None):
         """3D local points (N,3) of the heel outline (on the back cone)."""
@@ -732,7 +736,10 @@ def bevel_geom(z, z_mate, module_outer, face_width=None, shaft_angle=PI / 2, spi
     b = min(R_e / 3.0, 10 * m) if face_width is None else face_width
     z_v = z / math.cos(delta)
     x = bevel_default_shift(z, z_mate, spiral) if x_shift is None else x_shift
-    backlash = 0.05 * m if backlash is None else backlash
+    # spiral teeth: a little more backlash absorbs the slice interpolation error
+    backlash = (0.07 if spiral else 0.05) * m if backlash is None else backlash
+    if detail == "high" and z_v > 60:
+        detail = "medium"     # near-straight involutes (large virtual gear): fewer points suffice
     ti = _half_tooth(z_v, m, pressure_angle, m_n=m, x=x, thin=backlash / 2, rho=root_fillet,
                      tip_round=tip_round, detail=detail)
     r, a = _full_outline_polar(ti.half, z, ang_scale=z_v / z)
@@ -793,7 +800,7 @@ def check_bevel_pair(zA, zB, module_outer, face_width=None, shaft_angle=PI / 2, 
     overlapping projected teeth <=> 3D interpenetration.  Returns the same
     dict as check_mesh_2d (areas in m^2, gaps in m, worst over all slices).
     """
-    shapely, Polygon, box = _shapely()
+    _, Polygon, box = _shapely()
     if handB is None:
         handB = "right" if (isinstance(handA, str) and handA.lower()[0] == "l") else "left"
     gA = bevel_geom(zA, zB, module_outer, face_width, shaft_angle, spiral, handA, pressure_angle, xA, backlash, detail)
@@ -840,3 +847,596 @@ def check_bevel_pair(zA, zB, module_outer, face_width=None, shaft_angle=PI / 2, 
     out["face_width"] = gA.b
     out["deltaA"], out["deltaB"] = gA.delta, gB.delta
     return out
+
+
+# ===========================================================================
+# Mesh builders (bpy)
+# ===========================================================================
+
+
+def _mu():
+    from . import meshutil
+    return meshutil
+
+
+def _body_profile(r_in, y_top, y_bot, bore_r, hub=None, web=None, bore_chamfer=0.0):
+    """(r, y) profile of the gear body inside the rim, from (r_in, y_top) to
+    (r_in, y_bot), passing through the web, hub and bore."""
+    if web is not None:
+        wt, wo = (web, 0.0) if np.isscalar(web) else (web[0], web[1] if len(web) > 1 else 0.0)
+        wy1, wy0 = min(y_top, wo + wt / 2), max(y_bot, wo - wt / 2)
+    else:
+        wy1, wy0 = y_top, y_bot
+    if hub is not None:
+        hd, hw = hub[0], hub[1]
+        ho = hub[2] if len(hub) > 2 else 0.0
+        r_h = hd / 2.0
+        hy1, hy0 = ho + hw / 2, ho - hw / 2
+    else:
+        r_h, hy1, hy0 = None, wy1, wy0
+    ty, by = max(wy1, hy1), min(wy0, hy0)
+    cb = min(bore_chamfer, 0.3 * (ty - by)) if bore_r > 0 else 0.0
+    pts = [(r_in, y_top), (r_in, wy1)]
+    if r_h is not None and bore_r < r_h < r_in:
+        pts += [(r_h, wy1), (r_h, ty)]
+    if bore_r > 0:
+        pts += [(bore_r + cb, ty), (bore_r, ty - cb), (bore_r, by + cb), (bore_r + cb, by)]
+    else:
+        pts += [(0.0, ty), (0.0, by)]
+    if r_h is not None and bore_r < r_h < r_in:
+        pts += [(r_h, by), (r_h, wy0)]
+    pts += [(r_in, wy0), (r_in, y_bot)]
+    out = []
+    for p in pts:
+        if not out or abs(p[0] - out[-1][0]) > 1e-9 or abs(p[1] - out[-1][1]) > 1e-9:
+            out.append(p)
+    return out
+
+
+def _safe_inset(xz, c):
+    """Inset a closed outline by c (chamfer ring); shrink c if it self-intersects."""
+    from shapely.geometry import Polygon
+    mu = _mu()
+    for _ in range(6):
+        ins = mu.offset_polygon(xz, -c)
+        if Polygon(ins).is_valid:
+            return ins, c
+        c *= 0.6
+    return mu.offset_polygon(xz, 0.0), 0.0
+
+
+def _toothed_prism(mb, outline, y_lo, y_hi, chamfer=(0.0, 0.0), twist=None, n_slices=1):
+    """Rings of a (possibly twisted) toothed prism.  Returns (bottom_ring, top_ring)."""
+    c_lo, c_hi = chamfer
+    tw = twist or (lambda y: 0.0)
+    ins_lo, c_lo = _safe_inset(outline, c_lo) if c_lo > 0 else (outline, 0.0)
+    ins_hi, c_hi = _safe_inset(outline, c_hi) if c_hi > 0 else (outline, 0.0)
+    rings = []
+    if c_lo > 0:
+        rings.append(mb.ring_xz(_rot2(ins_lo, tw(y_lo)), y_lo))
+    ys = np.linspace(y_lo + c_lo, y_hi - c_hi, max(1, n_slices) + 1)
+    for y in ys:
+        rings.append(mb.ring_xz(_rot2(outline, tw(y)), y))
+    if c_hi > 0:
+        rings.append(mb.ring_xz(_rot2(ins_hi, tw(y_hi)), y_hi))
+    for a, b in zip(rings[:-1], rings[1:]):
+        mb.bridge(a, b)
+    return rings[0], rings[-1]
+
+
+def _finish(obj, material, props):
+    mu = _mu()
+    if material is not None:
+        mu.assign_material(obj, material)
+    for k, v in props.items():
+        obj[k] = v
+    return obj
+
+
+def _segments_for(r, detail, minimum=32):
+    d = _detail(detail)
+    return int(max(minimum, min(192, d["seg"] * max(0.5, min(2.0, r / 0.04)))) // 4 * 4)
+
+
+def helical_gear(name, z, m_n, helix=0.0, hand="right", width=0.02, pressure_angle=20 * DEG, bore=0.0,
+                 hub=None, web=None, rim=None, chamfer=None, detail="high", x_shift=0.0, backlash=None,
+                 tip_round=None, root_fillet=None, material="steel_machined", collection=None,
+                 segments=None, slices=None, bore_chamfer=None, link=True):
+    """Involute helical (or spur, helix=0) external gear -> mesh object.
+
+    Axis = local +Y, tooth 0 centred on +X at y = 0, face from -width/2 to
+    +width/2.  psi_offset(y) = s*y*tan(helix)/r_pitch (s=-1 right hand,
+    +1 left hand); mating gears need opposite hands.
+    bore: bore DIAMETER (0 = solid).  hub=(dia, width[, y_offset]) boss.
+    web=thickness or (thickness, y_offset): thinner web between rim and hub.
+    rim: rim thickness below the root circle (default 2.5*m_n when a web is
+    given).  chamfer: tooth-end chamfer (float or (lo, hi)), default 0.15*m_n.
+    detail: 'low' | 'medium' | 'high'.
+    Custom props: gear_z, gear_r_pitch, gear_r_tip, gear_r_root, gear_m_n.
+    """
+    mu = _mu()
+    m_t, at = transverse(m_n, helix, pressure_angle)
+    outline, ti = involute_profile(z, m_t, at, x_shift=x_shift, m_n=m_n, backlash=backlash, tip_round=tip_round,
+                                   root_fillet=root_fillet, detail=detail, info=True)
+    if chamfer is None:
+        chamfer = 0.15 * m_n
+    ch = (chamfer, chamfer) if np.isscalar(chamfer) else tuple(chamfer)
+    r_p = ti.r_p
+    y_lo, y_hi = -width / 2.0, width / 2.0
+    twist = None
+    n_sl = 1
+    if helix:
+        sgn = _hand_sign(hand)
+        k = sgn * math.tan(helix) / r_p
+        twist = lambda y: k * y  # noqa: E731
+        tot = abs(k) * (width - ch[0] - ch[1])
+        n_sl = slices or int(max(2, min(24, math.ceil(tot / _detail(detail)["helix_step"]))))
+    bore_r = bore / 2.0
+    if web is not None or hub is not None:
+        r_in = ti.r_f - (2.5 * m_n if rim is None else rim)
+    else:
+        r_in = max(bore_r + 1.5 * m_n, 0.55 * ti.r_f) if bore_r > 0 else 0.55 * ti.r_f
+        r_in = min(r_in, ti.r_f - 1.0 * m_n)
+    if bore_r >= r_in - 0.5 * m_n:
+        raise ValueError(f"{name}: bore too large for the gear (bore r {bore_r}, r_in {r_in})")
+    segs = segments or _segments_for(r_in, detail)
+    mb = mu.MeshBuilder()
+    bot, top = _toothed_prism(mb, outline, y_lo, y_hi, ch, twist, n_sl)
+    cb = 0.3 * m_n if bore_chamfer is None else bore_chamfer
+    prof = _body_profile(r_in, y_hi, y_lo, bore_r, hub, web, cb)
+    rings = mu._revolve_into(mb, prof, segs)
+    mb.cap([top, rings[0]], axis=1)
+    mb.cap([bot, rings[-1]], axis=1)
+    obj = mb.to_object(name, collection, smooth_angle=35.0, link=link, inward_quads=bool(helix))
+    return _finish(obj, material, dict(gear_z=int(z), gear_r_pitch=r_p, gear_r_tip=ti.r_a, gear_r_root=ti.r_f,
+                                       gear_m_n=m_n, gear_helix=float(helix)))
+
+
+def spur_gear(name, z, module, width=0.015, pressure_angle=20 * DEG, **kw):
+    """Spur gear (helical_gear with helix = 0)."""
+    kw.pop("helix", None)
+    return helical_gear(name, z, module, helix=0.0, width=width, pressure_angle=pressure_angle, **kw)
+
+
+def ring_gear(name, z=132, module=None, width=0.012, inner_d=None, outer_d=None, chamfer_side="+Y",
+              detail="medium", material="steel_machined", collection=None, link=True, **kw):
+    """Flywheel starter ring gear: thin external spur ring.
+
+    module: default chosen so the tip diameter equals outer_d (default
+    spec.FLYWHEEL_DIAMETER).  inner_d: ring bore (default root dia - 16 mm).
+    The tooth ends on ``chamfer_side`` ('+Y'/'-Y', the starter-pinion entry
+    side) get a large chamfer, the other side a small one.
+    """
+    from . import spec as S
+    outer_d = S.FLYWHEEL_DIAMETER if outer_d is None else outer_d
+    if module is None:
+        module = outer_d / (z + 2.0)
+    r_f = module * (z / 2.0 - 1.25)
+    inner_d = 2 * r_f - 0.016 if inner_d is None else inner_d
+    big, small = 0.45 * module, 0.12 * module
+    ch = (small, big) if chamfer_side == "+Y" else (big, small)
+    mu = _mu()
+    outline, ti = involute_profile(z, module, 20 * DEG, m_n=module, detail=detail, info=True, **kw)
+    mb = mu.MeshBuilder()
+    bot, top = _toothed_prism(mb, outline, -width / 2, width / 2, ch)
+    segs = max(z * 2, 96)
+    ri = inner_d / 2
+    c = 0.0006
+    prof = [(ri + c, width / 2), (ri, width / 2 - c), (ri, -width / 2 + c), (ri + c, -width / 2)]
+    rings = mu._revolve_into(mb, prof, segs)
+    mb.cap([top, rings[0]], axis=1)
+    mb.cap([bot, rings[-1]], axis=1)
+    obj = mb.to_object(name, collection, smooth_angle=35.0, link=link)
+    return _finish(obj, material, dict(gear_z=int(z), gear_r_pitch=ti.r_p, gear_r_tip=ti.r_a,
+                                       gear_r_root=ti.r_f, gear_m_n=module))
+
+
+def sprocket(name, z, pitch=9.525e-3, roller_d=6.35e-3, width=None, bore=0.0, hub=None, rows=1,
+             row_spacing=None, detail="high", material="steel_machined", collection=None, link=True):
+    """Roller-chain sprocket (ANSI-style teeth), axis +Y, tooth 0 on +X,
+    roller seats at psi = (k+1/2)*2pi/z.  width: tooth width per row (default
+    0.9*inner chain width ~ 5.2 mm for 3/8"); rows > 1 makes a duplex/triplex
+    sprocket with rows centred about y = 0 (row_spacing default 10.24 mm)."""
+    mu = _mu()
+    width = 0.0052 if width is None else width
+    row_spacing = 0.01024 if row_spacing is None else row_spacing
+    outline, info = sprocket_profile(z, pitch, roller_d, detail)
+    r_root = info["r_root"]
+    mb = mu.MeshBuilder()
+    segs = _segments_for(r_root, detail)
+    ch = 0.12 * width
+    ys = [(k - (rows - 1) / 2.0) * row_spacing for k in range(rows)]
+    r_gap = r_root - 0.6 * roller_d
+    r_in = r_root - 0.9 * roller_d
+    bore_r = bore / 2.0
+    tops, bots = [], []
+    for yc in ys:
+        b, t = _toothed_prism(mb, outline, yc - width / 2, yc + width / 2, (ch, ch))
+        bots.append(b)
+        tops.append(t)
+    # grooves between rows (lathe at r_gap) and the body
+    for k in range(rows - 1):
+        y0 = ys[k] + width / 2
+        y1 = ys[k + 1] - width / 2
+        rg = mu._revolve_into(mb, [(r_gap, y0), (r_gap, y1)], segs)
+        mb.cap([tops[k], rg[0]], axis=1)
+        mb.cap([bots[k + 1], rg[-1]], axis=1)
+    y_top = ys[-1] + width / 2
+    y_bot = ys[0] - width / 2
+    prof = _body_profile(r_in, y_top, y_bot, bore_r, hub, None, 0.0006)
+    rings = mu._revolve_into(mb, prof, segs)
+    mb.cap([tops[-1], rings[0]], axis=1)
+    mb.cap([bots[0], rings[-1]], axis=1)
+    obj = mb.to_object(name, collection, smooth_angle=40.0, link=link)
+    return _finish(obj, material, dict(gear_z=int(z), gear_r_pitch=info["r_pitch"], gear_r_tip=info["r_tip"]))
+
+
+# ---------------------------------------------------------------------------
+# Bevel gear mesh
+# ---------------------------------------------------------------------------
+
+
+def bevel_gear(name, z, z_mate, module_outer, face_width=None, shaft_angle=PI / 2, spiral=0.0, hand="right",
+               pressure_angle=20 * DEG, x_shift=None, backlash=None, bore=0.0, back_hub=None, front_hub=None,
+               back_depth=None, chamfer=None, detail="high", material="steel_machined", collection=None,
+               spherical_back=False, slices=None, link=True):
+    """Straight (spiral=0) or spiral bevel gear with Tredgold back-cone teeth.
+
+    Local frame: axis +Y, teeth face +Y.  The HEEL pitch circle (radius
+    module_outer*z/2) lies in the plane y = 0; the pitch-cone APEX is at
+    local (0, A, 0) with A = bevel_apex_y(z, z_mate, module_outer,
+    shaft_angle) = r_heel / tan(delta).  All tooth elements run toward the
+    apex (taper), from cone distance R_e - face_width (toe) to R_e (heel).
+    Assemble a pair by making the two apexes coincide: bevel_pair_frames()
+    gives both local->world matrices around a common apex at the origin plus
+    the phase rule (bevel_mesh_phase); apply any further rigid transform to
+    BOTH (e.g. a parent Empty) and the rule still holds in local psi terms.
+    Tooth 0 is centred on psi = 0 (spiral: at the mean cone distance).
+    NOTE local +Y points at the apex: if that is opposite to the part's
+    conventional spin axis, negate its scalar angle when baking.
+    spiral: mean spiral angle (0 = straight; see BevelGeom.spiral_psi);
+    hand: 'right' (outer half of the tooth inclined clockwise seen from the
+    apex) or 'left'; mates have opposite hands (final drive: pinion 'left',
+    ring 'right').  x_shift: profile shift (default Gleason-style long/short
+    addendum, + on the smaller gear).
+    bore: bore diameter; back_hub=(dia, length) behind the heel (pinion
+    stem); front_hub=(dia, length) toward the apex; back_depth: thickness of
+    the blank behind the heel root; spherical_back: back face is a sphere
+    about the apex (differential spider/side gears).
+    Custom props: gear_z, bevel_apex_y, bevel_delta, bevel_R_e, bevel_face_width.
+    """
+    mu = _mu()
+    geo = bevel_geom(z, z_mate, module_outer, face_width, shaft_angle, spiral, hand, pressure_angle, x_shift,
+                     backlash, detail)
+    m = module_outer
+    d = geo.delta
+    cd, sd = math.cos(d), math.sin(d)
+    R_e, b = geo.R_e, geo.b
+    s_toe = (R_e - b) / R_e
+    apex = np.array([0.0, geo.apex_y, 0.0])
+    c = (0.12 * m) if chamfer is None else chamfer
+    # ring parameters along the cone distance
+    if spiral:
+        # straight interpolation between slices deviates (mostly tangentially)
+        # by ~ (2*(b/R_e)*T + T^2) * r_tip / (8 n^2)   (T = total twist): the
+        # cross term of the apex scaling and the twist.  Keep it below tol.
+        T = abs(float(geo.spiral_psi(R_e)) - float(geo.spiral_psi(R_e - b)))
+        r_tip = geo.tooth.r_a * cd
+        tol = (0.004 if detail in ("high", None) else 0.01) * m
+        need = math.sqrt((2.0 * (b / R_e) * T + T * T) * r_tip / (8.0 * tol))
+        n_sl = slices or int(max(3, min(48, math.ceil(need))))
+    else:
+        n_sl = 1
+    # 2D virtual-gear outline at the heel (xy in the developed back cone)
+    rho, psi = geo.outline_r, geo.outline_psi
+    # chamfer: inset the virtual outline in the developed plane (phi_v = psi*cos d)
+    xy_v = _cart(rho, psi * cd)
+    ins, c = _safe_inset(xy_v, c) if c > 0 else (xy_v, 0.0)
+    rho_i, phv_i = _polar(ins)
+    psi_i = np.unwrap(phv_i) / cd
+    psi_i += (psi[0] - psi_i[0])
+
+    def sec(R, inset=False):
+        r_, p_ = (rho_i, psi_i) if inset else (rho, psi)
+        return geo.section(R, 0.0, rho=r_, psi=p_)
+
+    mb = mu.MeshBuilder()
+    Rs = []
+    if c > 0:
+        Rs.append((R_e - b, True))
+    for R in np.linspace(R_e - b + c, R_e - c, n_sl + 1):
+        Rs.append((R, False))
+    if c > 0:
+        Rs.append((R_e, True))
+    rings = [mb.verts(sec(R, ins_)) for R, ins_ in Rs]
+    for a_, b_ in zip(rings[:-1], rings[1:]):
+        mb.bridge(a_, b_)
+    toe_ring, heel_ring = rings[0], rings[-1]
+
+    # ---- blank (lathe) profile in the meridian plane (r, y)
+    r_root_v = geo.tooth.r_f                 # virtual root radius (rho)
+    rho_body = r_root_v - 0.35 * m           # where the end faces meet the blank
+    def merid(rho_, s=1.0):
+        r = rho_ * cd
+        y = -geo.r_o * math.tan(d) + rho_ * sd
+        return apex[1] + s * (y - apex[1]), s * r   # (y, r)
+    yH, rH = merid(rho_body, 1.0)            # heel end-face inner edge
+    yT, rT = merid(rho_body, s_toe)          # toe end-face inner edge
+    # back-cone direction (from heel toward the back-cone apex): (-cd, -sd) in (r, y)
+    depth = (back_depth if back_depth is not None else max(2.0 * m, 0.25 * b))
+    bore_r = bore / 2.0
+    prof = [(rH, yH)]
+    # step down the back cone a little, then the back face
+    rB = max(rH - depth * cd, bore_r + 1.5 * m)
+    yB = yH - depth * sd
+    if spherical_back:
+        # back face = sphere about the apex (all gears of a differential share it)
+        Rb = math.hypot(rB, yB - apex[1])
+        a0 = math.atan2(rB, apex[1] - yB)
+        r_stop = (back_hub[0] / 2.0) if back_hub is not None else bore_r + 1e-4
+        r_stop = max(r_stop, bore_r + 1e-4)
+        a1 = math.asin(min(1.0, r_stop / Rb))
+        for t in np.linspace(a0, a1, 9)[1:]:
+            prof.append((Rb * math.sin(t), apex[1] - Rb * math.cos(t)))
+        y_back = prof[-1][1]
+        if back_hub is not None:
+            prof.append((r_stop, y_back - back_hub[1]))
+            y_back = y_back - back_hub[1]
+        prof.append((bore_r, y_back))
+    else:
+        prof.append((rB, yB))
+        y_back = yB
+        if back_hub is not None:
+            rh = max(back_hub[0] / 2.0, bore_r + 1e-4)
+            prof.append((rh, y_back))
+            prof.append((rh, y_back - back_hub[1]))
+            y_back = y_back - back_hub[1]
+        prof.append((bore_r, y_back))
+    # front (toe side)
+    yF = yT - 0.6 * m * sd if not front_hub else yT
+    y_front = max(yF, y_back + 1e-3)
+    tail = []
+    if front_hub is not None:
+        rh = front_hub[0] / 2.0
+        y_fh = y_front + front_hub[1]
+        tail = [(bore_r, y_fh), (max(rh, bore_r + 1e-4), y_fh), (max(rh, bore_r + 1e-4), y_front)]
+    else:
+        tail = [(bore_r, y_front)]
+    rFace = max(min(rT - 0.6 * m * cd, rT), bore_r + 1e-4)
+    tail += [(rFace, y_front), (rT, yT)]
+    prof += tail
+    clean = []
+    for p in prof:
+        if not clean or math.hypot(p[0] - clean[-1][0], p[1] - clean[-1][1]) > 1e-7:
+            clean.append(p)
+    segs = _segments_for(max(geo.r_o * 0.6, 0.02), detail)
+    brings = mu._revolve_into(mb, clean, segs)
+    # end faces (heel: tooth heel ring <-> blank ring at rH ; toe similarly)
+    mb.cap([heel_ring, brings[0]], axis=1)
+    mb.cap([toe_ring, brings[-1]], axis=1)
+    obj = mb.to_object(name, collection, smooth_angle=35.0, link=link, inward_quads=bool(spiral))
+    return _finish(obj, material, dict(gear_z=int(z), bevel_apex_y=geo.apex_y, bevel_delta=d, bevel_R_e=R_e,
+                                       bevel_face_width=b, gear_r_pitch=geo.r_o))
+
+
+# ---------------------------------------------------------------------------
+# Splines, dog rings, synchro sleeves
+# ---------------------------------------------------------------------------
+
+
+def external_splines(name, n, d_major, d_minor, length, bore=0.0, flank_angle=30 * DEG, fill=0.5, chamfer=None,
+                     material="steel_machined", collection=None, detail="high", link=True):
+    """Splined shaft / synchro-hub section: n external teeth (tooth 0 on +X)
+    from d_minor to d_major, along Y from -length/2 to +length/2, solid or
+    with a bore (diameter).  Mates with internal_splines / sleeve teeth of
+    the same (n, d_major, d_minor)."""
+    mu = _mu()
+    sp = spline_profile(n, d_minor / 2, d_major / 2, flank_angle=flank_angle, fill=fill,
+                        pts_flank=3 if detail == "high" else 1)
+    c = (0.25 * (d_major - d_minor) / 2) if chamfer is None else chamfer
+    mb = mu.MeshBuilder()
+    bot, top = _toothed_prism(mb, sp["xy"], -length / 2, length / 2, (c, c))
+    bore_r = bore / 2
+    r_in = max(bore_r + 0.3 * (d_minor / 2 - bore_r), 0.6 * d_minor / 2) if bore_r > 0 else 0.6 * d_minor / 2
+    prof = _body_profile(r_in, length / 2, -length / 2, bore_r, None, None, 0.0004)
+    rings = mu._revolve_into(mb, prof, _segments_for(r_in, detail))
+    mb.cap([top, rings[0]], axis=1)
+    mb.cap([bot, rings[-1]], axis=1)
+    obj = mb.to_object(name, collection, smooth_angle=35.0, link=link)
+    return _finish(obj, material, dict(spline_n=int(n)))
+
+
+def internal_splines(name, n, d_major, d_minor, length, outer_d=None, flank_angle=30 * DEG, fill=0.5,
+                     clearance=None, radial_clearance=None, chamfer=None, outer_chamfer=0.0006,
+                     material="steel_machined", collection=None, detail="high", link=True):
+    """Hub with an internal spline bore that slides on external_splines of
+    the same (n, d_major, d_minor): internal teeth at psi=(k+1/2)*2pi/n (gaps
+    on k*2pi/n), cylinder outside of diameter outer_d, along Y from
+    -length/2 to +length/2."""
+    mu = _mu()
+    sp = spline_profile(n, d_minor / 2, d_major / 2, internal=True, flank_angle=flank_angle, fill=fill,
+                        clearance=clearance, radial_clearance=radial_clearance,
+                        pts_flank=3 if detail == "high" else 1)
+    outer_d = 1.6 * d_major if outer_d is None else outer_d
+    ro = outer_d / 2
+    c = (0.2 * (d_major - d_minor) / 2) if chamfer is None else chamfer
+    mb = mu.MeshBuilder()
+    xy = sp["xy"]
+    # chamfer of a bore = grow the hole (outward offset of the CCW outline)
+    grow = mu.offset_polygon(xy, c)
+    y0, y1 = -length / 2, length / 2
+    r0 = mb.ring_xz(grow, y0)
+    r1 = mb.ring_xz(xy, y0 + c)
+    r2 = mb.ring_xz(xy, y1 - c)
+    r3 = mb.ring_xz(grow, y1)
+    for a_, b_ in ((r0, r1), (r1, r2), (r2, r3)):
+        mb.bridge(a_, b_)
+    oc = outer_chamfer
+    prof = [(ro - oc, y1), (ro, y1 - oc), (ro, y0 + oc), (ro - oc, y0)]
+    rings = mu._revolve_into(mb, prof, _segments_for(ro, detail))
+    mb.cap([rings[0], r3], axis=1)
+    mb.cap([rings[-1], r0], axis=1)
+    obj = mb.to_object(name, collection, smooth_angle=35.0, link=link)
+    return _finish(obj, material, dict(spline_n=int(n)))
+
+
+def _roofed_ring(mb, sp, y_lo, y_hi, roof_lo, roof_hi, flush_lo, flush_hi, body_lo_ring_fn, body_hi_ring_fn):
+    """Toothed ring (external or internal teeth from spline_profile `sp`)
+    whose tooth ends may be roof-shaped (pointed).  roof_* = None (flat end)
+    or tan(half included point angle).  flush_*: body end face level with the
+    tooth ridges (True) or recessed to the roof base (False).
+    body_*_ring_fn(y) -> index ring of the body boundary at that end."""
+    r_arr, tags, d_arr = sp["r"], sp["tags"], sp["d"]
+    N = len(r_arr)
+    per = sp["per_tooth"]
+    n = sp["n"]
+    centre0, tau = sp["centre"], sp["tau"]
+    xy = sp["xy"]
+
+    def end_levels(sgn, y_end, roof, flush):
+        """per-point roof level and the body level for one end."""
+        if roof is None:
+            return np.full(N, y_end), y_end
+        roof_y = y_end - sgn * d_arr / roof
+        corner_y = roof_y[[i for i, t in enumerate(tags) if t == "corner"][0]]
+        body_y = y_end if flush else corner_y
+        return roof_y, body_y
+
+    roof_lo_y, body_lo = end_levels(-1, y_lo, roof_lo, flush_lo)
+    roof_hi_y, body_hi = end_levels(+1, y_hi, roof_hi, flush_hi)
+    # columns: dict y -> vertex index for each outline point
+    cols = []
+    for i in range(N):
+        ys = set()
+        if tags[i] == "gap":
+            ys |= {body_lo, body_hi}
+        elif tags[i] == "corner":
+            ys |= {body_lo, body_hi, float(roof_lo_y[i]), float(roof_hi_y[i])}
+        else:
+            ys |= {float(roof_lo_y[i]), float(roof_hi_y[i])}
+        ys = sorted(ys)
+        idx = mb.ring_xz(np.repeat(xy[i:i + 1], len(ys), axis=0), np.array(ys))
+        cols.append(dict(zip(ys, [int(k) for k in idx])))
+
+    def rng(i, kind):
+        if kind == "gap":
+            return body_lo, body_hi
+        return float(roof_lo_y[i]), float(roof_hi_y[i])
+
+    for i in range(N):
+        j = (i + 1) % N
+        ti, tj = tags[i], tags[j]
+        kind = "gap" if (ti == "gap" or tj == "gap") else "tooth"
+        lo_i, hi_i = rng(i, kind)
+        lo_j, hi_j = rng(j, kind)
+        ci = [cols[i][y] for y in sorted(cols[i]) if lo_i - 1e-12 <= y <= hi_i + 1e-12]
+        cj = [cols[j][y] for y in sorted(cols[j], reverse=True) if lo_j - 1e-12 <= y <= hi_j + 1e-12]
+        mb.face(ci + cj)
+
+    def end_faces(sgn, y_end, roof, flush, roof_y, body_y, body_ring):
+        if roof is None:
+            loop = [cols[i][y_end] for i in range(N)]
+            mb.cap([loop, body_ring], axis=1)
+            return
+        body_loop = []
+        for k in range(n):
+            base = k * per
+            ids = list(range(base, base + per))
+            ic = [i for i in ids if tags[i] == "corner"]
+            iL, iR = ic[0], ic[1]
+            tooth_ids = list(range(iL, iR + 1))
+            mid = [i for i in tooth_ids if abs(d_arr[i]) < 1e-12][0]
+            ca = centre0 + k * tau
+            rb = sp["r_root"]
+            RB = int(mb.verts([[rb * math.cos(ca), y_end, rb * math.sin(ca)]])[0])
+            left = [cols[i][float(roof_y[i])] for i in range(iL, mid + 1)]
+            right = [cols[i][float(roof_y[i])] for i in range(mid, iR + 1)]
+            mb.face(left + [RB])
+            mb.face(right + [RB])
+            cL_roof, cR_roof = cols[iL][float(roof_y[iL])], cols[iR][float(roof_y[iR])]
+            cL_body, cR_body = cols[iL][body_y], cols[iR][body_y]
+            if flush:
+                mb.face([cL_roof, cL_body, RB])
+                mb.face([cR_body, cR_roof, RB])
+                tooth_loop = [cL_body, RB, cR_body]
+            else:
+                B = int(mb.verts([[rb * math.cos(ca), body_y, rb * math.sin(ca)]])[0])
+                mb.face([cL_body, B, RB])
+                mb.face([B, cR_body, RB])
+                tooth_loop = [cL_body, B, cR_body]
+            gaps_before = [cols[i][body_y] for i in range(base, iL)]
+            gaps_after = [cols[i][body_y] for i in range(iR + 1, base + per)]
+            body_loop += gaps_before + tooth_loop + gaps_after
+        mb.cap([body_loop, body_ring], axis=1)
+
+    end_faces(-1, y_lo, roof_lo, flush_lo, roof_lo_y, body_lo, body_lo_ring_fn(body_lo))
+    end_faces(+1, y_hi, roof_hi, flush_hi, roof_hi_y, body_hi, body_hi_ring_fn(body_hi))
+    return body_lo, body_hi
+
+
+def dog_ring(name, n, r_in, r_out, width, chamfer_angle_deg=110.0, facing="+Y", r_body=None,
+             flank_angle=30 * DEG, fill=0.5, material="steel_machined", collection=None, detail="high", link=True):
+    """Ring of dog (clutch) teeth for a gearbox gear: n external teeth at
+    psi = k*2pi/n from r_in (root) to r_out (tip), axial length `width`
+    centred on y = 0, with pointed (roof) ends facing ``facing`` ('+Y'/'-Y').
+    chamfer_angle_deg: INCLUDED angle of the pointed tooth end (default 110).
+    r_body: inner radius of the collar under the teeth (default r_in - 4 mm).
+    Same tooth form as external_splines(n, 2*r_out, 2*r_in) so a synchro
+    sleeve (sleeve_internal_teeth(n, r_in, r_out, ...)) slides over both the
+    hub and the dog teeth."""
+    mu = _mu()
+    sp = spline_profile(n, r_in, r_out, flank_angle=flank_angle, fill=fill, pts_flank=2 if detail == "high" else 1,
+                        pts_arc=2)
+    tan_half = math.tan(math.radians(chamfer_angle_deg) / 2)
+    r_body = (r_in - 0.004) if r_body is None else r_body
+    mb = mu.MeshBuilder()
+    segs = _segments_for(r_body, detail)
+    up = facing.strip().startswith("+")
+    cb = 0.0004
+    lo_y, hi_y = -width / 2, width / 2
+    roof_lo, roof_hi = (None, tan_half) if up else (tan_half, None)
+    # body (collar) end-face levels: recessed to the roof base on the pointed end
+    d_c = sp["d"][[i for i, t in enumerate(sp["tags"]) if t == "corner"][0]]
+    body_hi = hi_y - d_c / tan_half if up else hi_y
+    body_lo = lo_y if up else lo_y + d_c / tan_half
+    bore_rings = mu._revolve_into(mb, [(r_body + cb, body_hi), (r_body, body_hi - cb), (r_body, body_lo + cb),
+                                       (r_body + cb, body_lo)], segs)
+    _roofed_ring(mb, sp, lo_y, hi_y, roof_lo, roof_hi, False, False,
+                 lambda y: bore_rings[-1], lambda y: bore_rings[0])
+    obj = mb.to_object(name, collection, smooth_angle=35.0, link=link)
+    return _finish(obj, material, dict(spline_n=int(n)))
+
+
+def sleeve_internal_teeth(name, n, r_in, r_out, width, r_outer=None, groove=None, chamfer_angle_deg=110.0,
+                          flank_angle=30 * DEG, fill=0.5, clearance=None, radial_clearance=None,
+                          material="steel_machined", collection=None, detail="high", link=True):
+    """Synchroniser sleeve: internal teeth at psi=(k+1/2)*2pi/n that slide on
+    a hub / dog ring with external teeth (n, r_in, r_out); roof-pointed tooth
+    ends at BOTH ends (included angle chamfer_angle_deg), body faces flush
+    with the tooth ridges at y = +-width/2; external selector-fork groove
+    groove=(groove_width, groove_depth[, y_centre]) (default 0.3*width wide,
+    40 % of the wall deep)."""
+    mu = _mu()
+    sp = spline_profile(n, r_in, r_out, internal=True, flank_angle=flank_angle, fill=fill, clearance=clearance,
+                        radial_clearance=radial_clearance, pts_flank=2 if detail == "high" else 1, pts_arc=2)
+    tan_half = math.tan(math.radians(chamfer_angle_deg) / 2)
+    r_root = sp["r_root"]
+    r_outer = (r_root + 0.008) if r_outer is None else r_outer
+    if groove is None:
+        groove = (0.3 * width, 0.4 * (r_outer - r_root))
+    gw, gd = groove[0], groove[1]
+    gy = groove[2] if len(groove) > 2 else 0.0
+    mb = mu.MeshBuilder()
+    segs = _segments_for(r_outer, detail)
+    y0, y1 = -width / 2, width / 2
+    c = 0.0005
+    rg = r_outer - gd
+    gc = min(0.0004, 0.2 * gd)
+    prof = [(r_outer - c, y1), (r_outer, y1 - c),
+            (r_outer, gy + gw / 2 + gc), (r_outer - gc, gy + gw / 2), (rg, gy + gw / 2),
+            (rg, gy - gw / 2), (r_outer - gc, gy - gw / 2), (r_outer, gy - gw / 2 - gc),
+            (r_outer, y0 + c), (r_outer - c, y0)]
+    outer = mu._revolve_into(mb, prof, segs)
+    _roofed_ring(mb, sp, y0, y1, tan_half, tan_half, True, True, lambda y: outer[-1], lambda y: outer[0])
+    obj = mb.to_object(name, collection, smooth_angle=35.0, link=link)
+    return _finish(obj, material, dict(spline_n=int(n)))

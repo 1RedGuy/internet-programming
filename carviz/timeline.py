@@ -124,8 +124,8 @@ SCENES = [
              "Cylinder 1, crank 0-180 deg of its intake stroke. Intake valves open, cool blue charge fills the "
              "cylinder. Stroke strip: INTAKE. Label: Intake valve."),
         Beat("compression", 7.0,
-             "Compression: both valves close, and the rising piston squeezes the mixture.",
-             "Valves closed, piston rises, charge becomes denser. Spark plug fires ~15 deg before TDC at the "
+             "Compression: the intake valves close, and the rising piston squeezes the mixture.",
+             "Intake valves close ~50 deg after BDC (~1.9 s in); then the piston rises with both valves shut and the charge becomes denser. Spark plug fires ~15 deg before TDC at the "
              "very end. Strip: COMPRESSION. Label: Spark plug."),
         Beat("power", 7.0,
              "Power: a spark ignites the mixture, and the hot gas forces the piston down.",
@@ -160,8 +160,8 @@ SCENES = [
              "The disc's hub is splined to the gearbox input shaft, so they always turn together.",
              "Close-up of the disc hub on the input-shaft splines. Labels: Splines, Input shaft."),
         Beat("engaged", 11.0,
-             "With the pedal up, the spring clamps the disc between the pressure plate and the flywheel, and "
-             "the gearbox turns with the engine.",
+             "With the pedal up, the spring clamps the disc between the pressure plate and flywheel, so the "
+             "input shaft turns with the engine.",
              "Half-section of the assembled clutch, everything turning together (gearbox in neutral, engine "
              "idling). HUD: CLUTCH ENGAGED, engine rpm = input-shaft rpm."),
         Beat("release", 19.0,
@@ -172,8 +172,8 @@ SCENES = [
              "goes down; a pulse runs along the line; fork and bearing move; fingers deflect; pressure plate "
              "lifts. Disc slows (no longer driven). At the end, first gear is selected (HUD) and the disc stops."),
         Beat("slip", 15.0,
-             "To pull away, the pedal comes up slowly. The disc slips against the flywheel, speeding up as it "
-             "passes on torque, until it matches the engine and locks.",
+             "To pull away, the pedal comes up slowly. The disc slips between the flywheel and pressure plate, "
+             "speeding up as it passes on torque, until it matches the engine and locks.",
              "Pedal rises; HUD shows engine rpm and disc rpm converging; status SLIPPING then ENGAGED; car "
              "starts to roll in 1st."),
     ]),
@@ -191,7 +191,7 @@ SCENES = [
              "still. Label: Free-spinning gears. HUD gear N."),
         Beat("synchro", 16.0,
              "Synchronizers do the locking. A hub is splined to the shaft, and a sleeve slides on it. Each gear "
-             "carries a ring of dog teeth and a cone, with a brass blocker ring in between.",
+             "carries dog teeth and a cone, with a brass blocker ring between cone and sleeve.",
              "Close-up on the 1-2 synchroniser; exploded view: hub, sleeve, blocker ring, cone, dog teeth; "
              "reassembles. Clutch pressed at the start of this beat (HUD)."),
         Beat("lock", 7.5,
@@ -204,11 +204,11 @@ SCENES = [
              "Pull back: gear lever, selector finger, three rails and forks. Lever moves across the gate and "
              "back to 1st; matching rail/fork/sleeve moves. H-pattern diagram in HUD."),
         Beat("ratios", 20.0,
-             "In first, a small countershaft gear drives a large output gear, so the engine turns about three "
-             "and a half times for each turn of the output shaft. Fourth locks input to output: one to one. "
-             "Fifth is an overdrive.",
+             "In first, the input gear turns the countershaft more slowly, and a small countershaft gear drives "
+             "a large output gear: the engine turns about three and a half times per output-shaft turn. Fourth "
+             "locks input to output: one to one. Fifth is an overdrive.",
              "Driving shots (hard cuts between gears): power path glows through the engaged pair. HUD: input "
-             "rpm, output rpm and ratio for 1st (3.48:1), then 4th (1:1), then 5th (0.82:1)."),
+             "rpm, output rpm and ratio for 1st (3.48:1), then 4th (1:1), then 5th (0.81:1). Glow: headset + selected pair (4th: dogs, sleeve, hub only)."),
         Beat("reverse", 7.5,
              "Reverse adds an idler gear between the shafts, so the output turns backwards.",
              "Cut to reverse: idler highlighted, output shaft turning the opposite way. HUD gear R."),
@@ -273,8 +273,8 @@ SCENES = [
              "Cutaway outer (Rzeppa) joint: balls, cage, races; joint articulates. Labels: Balls, Cage, Inner "
              "race, Outer race. HUD: shaft rpm = wheel rpm."),
         Beat("plunge", 6.5,
-             "The inner joint can also slide, as the shaft's length changes.",
-             "Cutaway inner (tripod) joint; rollers slide in their tracks as the wheel moves. Label: Plunge."),
+             "The inner joint can also slide, as the distance between the joints changes.",
+             "Cutaway inner (tripod) joint; rollers slide outboard in their tracks on both bump and droop. Label: Plunge."),
         Beat("moves", 8.0,
              "Finally, the wheel turns, the tire grips the road, and the car moves.",
              "Pull out; body fades back in; slow motion ramps to real time and the car drives off."),
@@ -294,8 +294,8 @@ SCENES = [
              "Then third.",
              "Shift to 3rd: rpm drops to ~2010 and climbs."),
         Beat("summary", 10.0,
-             "Engine, clutch, gearbox, final drive, differential, and driveshafts: one chain of gears and "
-             "shafts, turning fuel into motion.",
+             "Engine, clutch, gearbox, propeller shaft, final drive, differential, and driveshafts: one chain "
+             "of gears and shafts, turning fuel into motion.",
              "Camera pulls back and up as the car cruises; power path glows once more; fade to black."),
     ]),
 ]

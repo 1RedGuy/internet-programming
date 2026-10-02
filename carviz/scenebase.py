@@ -40,6 +40,11 @@ def new_scene(scene_id):
     sc.frame_start = 1
     sc.frame_end = timeline.scene(scene_id).frames
     sc.frame_set(1)
+    try:  # AgX + look used by every Cycles render (Workbench previews switch to Standard)
+        from . import lighting
+        lighting.setup_color_management(sc)
+    except Exception as e:  # pragma: no cover
+        print("[scenebase] colour management not applied:", e)
     return sc
 
 
