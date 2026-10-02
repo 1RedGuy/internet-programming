@@ -1,0 +1,19 @@
+# Orchestrator sync list (things to fold into FACTS.md / docs at the final pass)
+
+FACTS.md must reflect the as-built model:
+- Valve lift law: flat-tappet three-arc cam (kin.valve_lift; base R 18 mm, nose R 5 mm) — same
+  IVO/IVC/EVO/EVC and peak lift; not a sin^2 law.
+- Timing chain travel: exactly z*p per sprocket turn (kin.chain_travel). Cam centre spacing
+  135.52 mm, chain 126 links.
+- Ring gear on the LEFT (-X) of the pinion, pinion at the front (FD-04 already says -X; check text).
+- Propshaft Hooke joint angle 2.64 deg (joint centres 44 mm inside the flanges), not 2.46.
+- Inner (tripod) joint centre at |x| = 0.1771 (bolted to the diff flange at 0.150): joint
+  spacing 0.478 m, plunge 3.78 mm, joint angle 7.2 deg at +-60 mm (CVJ-01/02/06).
+  CVJ-06 plunge formula: exact L - sqrt(L^2 - dz^2).
+- Clutch hydraulics: free play before the master piston; working strokes master 21.5 mm,
+  slave 14.9 mm; effective fork ratio 1.655 (arms 69.7:115.4 mm); pedal 6:1;
+  pressure plate lift via diaphragm lever 4.24 over its lifting range; disc gap 0.615 mm/face
+  at full release (facing cushion 0.65 mm).
+- Narration lines changed (s02.compression, s04.ratios, s04.synchro, s03.engaged, s03.slip,
+  s07.plunge, s08.summary): update the narration->facts table (section 20) and section 21.
+- Slow-motion factors actually used per scene (from the scene modules) -> PRS section.

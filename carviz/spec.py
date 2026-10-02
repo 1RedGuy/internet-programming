@@ -255,7 +255,7 @@ Z_DIFF = WHEEL_CENTER_Z
 # Driveshafts (half shafts): plunging tripod inner joint, Rzeppa outer joint
 # ---------------------------------------------------------------------------
 HALFSHAFT_D = 0.025
-X_DIFF_OUTPUT = 0.150        # inner joint centres at +-X
+X_DIFF_OUTPUT = 0.150        # diff output-flange outer face at +-X (the tripod housing bolts on here)
 X_WHEEL_HUB = TRACK_REAR / 2 - 0.085   # outer joint centre (inboard of wheel centre plane)
 RZEPPA_BALLS = 6
 TRIPOD_ROLLERS = 3
@@ -343,3 +343,8 @@ CAM_NOSE_RADIUS = 5.0 * MM
 # Clutch-disc / input-shaft splines (appended; shared by clutch and gearbox)
 CLUTCH_SPLINE_D_MAJOR = 25.4 * MM
 CLUTCH_SPLINE_D_MINOR = 21.5 * MM
+
+# As built (wheels assembly, inner_joint='flange'): tripod joint centre sits 27 mm
+# outboard of the diff output flange.  Joint spacing 0.478 m; plunge 3.78 mm and
+# joint angle 7.2 deg at +-60 mm wheel travel.
+X_INNER_JOINT_CENTRE = 0.1771
