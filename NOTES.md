@@ -11,7 +11,7 @@ _(Living document; sections marked TODO are completed after the final renders.)_
 | EEVEE headless | Fails without an OpenGL/EGL driver (`libEGL.so.1` missing). After `apt install libegl1 libegl-mesa0 libgl1-mesa-dri` it **does render** through Mesa **llvmpipe** (software GL) with `EGL_PLATFORM=surfaceless`, but slowly: 38 s for the default cube and **30–60 s per frame** at 640x360 on a simple test scene — slower than Cycles, so it is not used. |
 | Workbench | Works through the same Mesa EGL path: **~0.2–0.5 s per frame at 640x360** → used for motion/framing/pacing previews. |
 | Previews | Workbench (motion, framing, pacing) + low-sample Cycles "draft" stills/sequences (materials, lighting). |
-| Finals | Cycles CPU, adaptive sampling, OpenImageDenoise. |
+| Finals | Cycles, adaptive sampling, OpenImageDenoise. First planned on this CPU at 720p; rendered at 1080p on the owner's Mac GPU instead (section 3). |
 
 Machine: 4 vCPU Intel Xeon @ 2.8 GHz (AVX-512), 15 GB RAM, no GPU.
 
@@ -57,7 +57,7 @@ stopped and the whole film is rendered at 1080p on the Mac (`tools/mac_render_al
 | Light tree | **off** | with ~6 area lights + HDRI it cost **38 %** of render time (CPU measurement: 42.8 -> 26.6 CPU-s at 4 spp) |
 | Bounces | max 6, diffuse 2, glossy 3, transmission 4, transparent 12 | lowering them saved < 10 % on these scenes |
 | Seed | fixed (not animated) | avoids frame-to-frame noise "boiling" on static areas |
-| Motion blur | s08 recap (shutter 0.5), s07 end (keyed), s02 flywheel only (keyed shutter = 1 tooth pitch), s03 take-off (0.4) | real-time spinning parts; anti-strobing |
+| Motion blur | s08 recap (shutter 0.5), s07 end (keyed), s02 flywheel only (keyed shutter = 1 tooth pitch), s03 release (0.75) and take-off (0.4, opening to 1.1 at 53.4-54.2 s) | real-time spinning parts; anti-strobing |
 | Encoding | scene videos H.264 CRF 18 (2-pass to <= 95 MB if larger); `final.mp4` 2-pass <= 95 MB with soft subtitles; `final_hq.mp4` CRF 18 master | GitHub refuses files > 100 MB |
 
 **Cloud CPU measurements** (idle 4-core Xeon, one 4-thread process, 1280x720), heaviest scene
@@ -135,11 +135,12 @@ kinematics tests, validators).
 
 **Rendering:**
 
-- 720p at 8 samples + OpenImageDenoise: fine detail is slightly soft, and dark glossy areas can
+- 1080p at 8 samples + OpenImageDenoise: fine detail is slightly soft, and dark glossy areas can
   show faint denoiser blotches. The seed is fixed, so residual noise does not "boil" on static
   areas but can look like a slight pattern sliding over moving parts.
-- Motion blur only where real-time motion would otherwise strobe (s08, the end of s07, the s02
-  flywheel). Elsewhere slow motion keeps per-frame motion below 0.35 tooth pitch.
+- Motion blur only where fast motion would otherwise strobe (s08, the end of s07, the s02
+  flywheel, the s03 ring gear in the release and the s03 take-off at 8-10x). Elsewhere slow motion
+  keeps per-frame motion below 0.35 tooth pitch.
 - Workbench previews show flat studio shading (no materials' roughness/transparency), so look
   decisions were checked on low-sample Cycles draft frames.
 

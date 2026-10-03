@@ -54,8 +54,10 @@ Simplifications a car engineer should know before reviewing the film. None of th
   ripple of 2-4% would move the crank by less than ±1° from uniform rotation (ε/2 rad for a ripple at twice crank
   frequency), so it would be invisible anyway. The flywheel's smoothing role is narrated, not simulated.
 - **AB-03, synchroniser as a speed blend.** Between cone contact and the end of the blocking hold, `state.py` blends
-  the input-side speed to the target with a cosine ramp; it does not integrate a cone torque. It then indexes the
-  gear so the dogs meet exactly aligned and flags any clash or misalignment.
+  the input-side speed to the target with a cosine ramp; it does not integrate a cone torque. Until the end of the
+  hold it keeps the blocker ring indexed 2.81° from the hub in the direction the gear slips (SYN-03). As the sleeve
+  then passes, its chamfers turn the ring back to 0 and the gear is indexed so the dogs meet exactly aligned; any
+  clash or misalignment is flagged.
 - **AB-04, single-mass flywheel** (300 × 30 mm solid disc with a 132T starter ring), no dual-mass flywheel or
   torsional damper on the crank other than the pulley damper shown.
 - **AB-05, flat-tappet three-arc cam** (VLV-06). It meets spec's opening/closing angles and peak lifts exactly, but
@@ -352,8 +354,8 @@ Simplifications a car engineer should know before reviewing the film. None of th
   in constant contact with the diaphragm finger tips, pedal up or down (HYD-05). The bearing's rotating race (the one
   touching the fingers) therefore always turns with the cover at engine speed (clutch option race_spin 'always').
   The other race, held by the fork and carrier, does not rotate.
-- **CLU-13**: **HUD clutch status** (`state.py`, `Track.status`), shown in s03, s04 ("CLUTCH …"), s05 (which shows
-  SYNCHRONIZING while the cone works) and s08:
+- **CLU-13**: **HUD clutch status** (`state.py`, `Track.status`), shown in s03, s04 ("CLUTCH …"), s05 (with its own
+  synchroniser states, last item) and s08:
   - **DISENGAGED** whenever capacity < 2% (p > 0.477), even if engine and disc speeds still differ or the car has
     already started to creep. In the s03 take-off the car starts to roll at 51.42 s but the status reads DISENGAGED
     until 51.92 s (0.06 s real).
@@ -363,6 +365,11 @@ Simplifications a car engineer should know before reviewing the film. None of th
     in 1st / 2nd / 3rd. The pedal then comes up the rest of the way with nothing slipping.
   - **SLIPPING** otherwise (capacity ≥ 2% and the speeds differ).
   - **ENGINE OFF** when the engine is stopped (s01; the status is not shown there).
+  - **s05** overrides the status while the synchroniser works: SYNCHRONIZING while the cone works (19.54-30.54 s),
+    then **SPEEDS MATCHED** with a green dot from 30.58 s, once 2nd gear and the output shaft agree within 1 rpm,
+    until the sleeve is through the blocker (36.17 s); DISENGAGED from 36.21 s. It also hides a status that would
+    last one frame: as the pedal goes down at 8.29 s (frame 200; pedal 0.472, capacity 2.7%, not locked) it shows
+    DISENGAGED instead of a single SLIPPING frame between ENGAGED and DISENGAGED.
 
 ## 7. Hydraulic release (HYD)
 
@@ -509,8 +516,10 @@ Simplifications a car engineer should know before reviewing the film. None of th
 - **SYN-03**: Indexing: when the cones touch, friction drags the blocker ring round with the gear until its lugs hit
   the ends of their hub slots. That is a quarter of a tooth pitch (BLOCKER_INDEX = 0.25), 0.25 × 360°/32 =
   **2.81°**, in the direction the gear slips relative to the shaft (as built: 3 lugs in 3 hub slots with ±3.26°
-  free play; the model indexes exactly 2.81°). With teeth about half a pitch wide, this brings the roof chamfers
-  flank-to-flank against the sleeve's chamfers, a stable blocking position.
+  free play; the model indexes exactly 2.81° in that direction: in s05 2nd gear runs faster than the hub, so
+  `track.blocker_12` = +2.81° and the ring leads the hub; `tools/test_kinematics.py` checks the sign, and
+  `tools/test_gearbox.py` reports blocker_2 turned +2.812° from the hub while blocking). With teeth about half a
+  pitch wide, this brings the roof chamfers flank-to-flank against the sleeve's chamfers, a stable blocking position.
 - **SYN-04**: Blocking: the shift force F presses the sleeve onto the blocker chamfers. This produces a cone friction
   torque T = μ·F·r_c/sin α. As built α = 6.5° (mean cone diameter about 52 mm), so 1/sin α = 8.8. The chamfer angle
   is chosen so that this friction torque exceeds the chamfers' turn-back torque while any slip remains. The sleeve
@@ -846,7 +855,7 @@ Simplifications a car engineer should know before reviewing the film. None of th
   | s03: idle | Input gear's 4th-gear dogs | 32 | 850 rpm | 54 × (as built 56 ×: 0.34) |
   | s03 release, 56 × | Flywheel ring gear | 132 | 850 rpm | not met (1.39 teeth/frame): out of view or behind the flywheel, otherwise smeared ≥ 1 pitch by a 0.75-frame shutter |
   | s03 take-off, 8 × then 10 × | Cover pockets / windows / straps | 3 | ≤ 1342 / ≤ 1438 rpm | 8.0 × / 8.6 × (as built 8 × / 10 ×) |
-  | s03 take-off | Fingers, bolts, rivets, splines, damper springs, 26T gear and its dogs | 6-32 | up to 1438 rpm | not met (up to 3.4 pitch/frame): relaxed under a 0.4-frame shutter (O6) |
+  | s03 take-off | Fingers, bolts, rivets, splines, damper springs, 26T gear and its dogs | 6-32 | up to 1438 rpm | not met (up to 3.4 pitch/frame): relaxed under motion blur: 0.4-frame shutter after the cut, opening to 1.1 frames at 53.4-54.2 s; in the take-off view the cover's 18 bright rivet heads (1.7-1.9 spacings/frame) are smeared about 2 spacings (a uniform band) and the 26T gear and its dog ring at least 1 pitch from about 55.5 s (~400 rpm), about 0.5-1.0 pitch at 54.2-55.5 s (O6) |
   | s04: neutral, idle | 5th gear dog ring | 32 | 1043 rpm | **66 ×** (as built 72 ×) |
   | s04: neutral, idle | Input gear's 4th-gear dogs | 32 | 850 rpm | 54 × |
   | s04: neutral, idle | 5th pair 23T / 38T | 23 / 38 | 1043 / 631 rpm | 48 × |
@@ -866,8 +875,11 @@ Simplifications a car engineer should know before reviewing the film. None of th
   frame at 40.5 km/h. Spokes strobe exactly as they would on a real 24 fps camera; Cycles motion blur makes this look
   natural. As built: s07 keys the shutter from 0.25 frame in slow motion to 0.5 frame over the ramp to real time
   (35.3-36.5 s); s08 uses 0.5 frame (a 180° shutter) throughout.
-- **PRS-06**: Cutaways (with red section faces, AB-15), the x-ray or fading bodywork, exploded views, labels and the
-  warm power-path glow are presentation only. They never change any part's motion.
+- **PRS-06**: Cutaways (with red section faces, AB-15), the x-ray or fading bodywork, exploded views, labels, the
+  warm power-path glow and s07's fill light are presentation only. They never change any part's motion. The fill
+  light is a soft disc light riding with the camera (just right of and above the lens, not seen by it) for the
+  outer-joint close-up only, where the joint sits in the shadow of the wheel and tyre: it fades in during the
+  push-in (10.4-12.2 s) and out during the move to the plunge shot (26.2-28.0 s).
 - **PRS-07**: The gas colours (blue intake, orange combustion, grey-brown exhaust) are illustrative. A petrol flame is
   faint and bluish, and the gases are colourless.
 - **PRS-08**: Clearances and small motions are true scale: about 0.6 mm per clutch face at full pedal (0.575 mm,
@@ -891,8 +903,9 @@ Simplifications a car engineer should know before reviewing the film. None of th
     smeared ≥ 1 pitch by a 0.75-frame shutter whenever it is visible. The release is one continuous press,
     30.5-44.6 s = **0.25 s real**; capacity falls below 2% at 34.1 s (CLU-13) and the free disc coasts on oil drag
     from 850 to 762 rpm by the cut (CLU-08).
-  - **Hard cut at 46.5 s to 8 ×** (shutter 0.4 frame): 1st gear is selected (46.75-48.6 s) and the synchroniser
-    stops the disc and input shaft in about 0.1 s real, car stationary (CLU-09).
+  - **Hard cut at 46.5 s to 8 ×** (shutter 0.4 frame; it opens to 1.1 frames at 53.4-54.2 s as the camera settles
+    on the take-off view): 1st gear is selected (46.75-48.6 s) and the synchroniser stops the disc and input shaft
+    in about 0.1 s real, car stationary (CLU-09).
   - Take-off: the pedal leaves the floor at 49.0 s and reaches the bite (p = 0.49) at 51.4 s. From there the pedal
     is solved as the inverse of `kin.clutch_capacity` at the torque a prescribed take-off needs (illustrative
     1450 kg effective mass, 160 N rolling resistance, 92% driveline efficiency): up to about 95 N·m at the clutch,
@@ -912,7 +925,7 @@ Simplifications a car engineer should know before reviewing the film. None of th
   | s02 | firing | 85 × | four firings 3.0 s apart; ring motion-blurred (PRS-11) |
   | s03 | parts, splines, engaged (0-27.6 s) | 230 × | ring gear in shot (≥ 223 ×) |
   | s03 | end of engaged, release (ease 27.6-29.3 s, to the cut at 46.5 s) | 56 × | pedal press 0.25 s real; disc coasts 850 → 762 rpm (PRS-12) |
-  | s03 | end of release, slip (hard cut at 46.5 s) | 8 ×, easing to 10 × after the lock (60.9-62.0 s) | synchro stops the disc in ~0.1 s; bite → lock 1.15 s real, lock 60.62 s at 1168 rpm, 9.4 km/h; peak 2.7 m/s²; end 1438 rpm, 11.6 km/h; shutter 0.4 frame |
+  | s03 | end of release, slip (hard cut at 46.5 s) | 8 ×, easing to 10 × after the lock (60.9-62.0 s) | synchro stops the disc in ~0.1 s; bite → lock 1.15 s real, lock 60.62 s at 1168 rpm, 9.4 km/h; peak 2.7 m/s²; end 1438 rpm, 11.6 km/h; shutter 0.4 frame, opening to 1.1 frames at 53.4-54.2 s |
   | s04 | shafts, neutral, synchro, lock, linkage | 72 × | 5th dogs at idle ≥ 66 ×; the lock-beat synchro event (cone contact to end of hold, 1.7 s) is about 24 ms real |
   | s04 | ratios (hard cuts; 1500 rpm; 1st 12.1, 4th 42.1, 5th 51.6 km/h) | 130 × | 5th dogs at 1841 rpm ≥ 117 × |
   | s04 | reverse (950 rpm, -7.8 km/h) | 80 × | 5th dogs at 1166 rpm ≥ 74 × |
@@ -926,8 +939,9 @@ Simplifications a car engineer should know before reviewing the film. None of th
 - **PRS-14**: **Time freeze in s06.** For the exploded differential (diffparts) the slow-motion factor eases to zero
   (20.55-21.55 s), time stands still with a "PAUSED" badge until 31.45 s and resumes at 20 × by 32.45 s. The
   initial wheel phase is solved so the freeze lands with the cross-pin exactly vertical: the pin and spiders explode
-  straight up and down, the case halves, side gears and stubs sideways along the axle. No part moves relative to
-  another while time is frozen; only the explode carriers and the camera move.
+  straight up and down, the case halves, side gears and stubs sideways along the axle. The ring gear stays bolted to
+  the left (flange) case half and moves with it. No part moves relative to another while time is frozen; only the
+  explode carriers and the camera move.
 - **PRS-15**: **World-fixed live section planes on rotating parts.** A real cutaway part carries its cut round with
   it; these shots instead hold the section plane fixed (in the world or in the car) while the part turns inside it,
   using live Manifold booleans evaluated per frame, so the cut always faces the camera:
@@ -943,14 +957,15 @@ Simplifications a car engineer should know before reviewing the film. None of th
     Balls, cage, inner race, spider and rollers stay whole.
 - **PRS-16**: **Ghosted shells.** Bodywork and housings are faded so the parts inside show; nothing changes their
   motion (PRS-06):
-  - s01: the paint fades to an x-ray shell (exterior 0.15, trim and lamps half that, mirrors a quarter) with feature
-    lines; glass, cabin trim and floor/tunnel/firewall fade to 0; everything but the engine and flywheel fades out
-    at the end (29.0-30.1 s).
-  - s03: for the take-off (51.8-52.5 s) the half bellhousing ghosts to 10%, the hydraulics and pedal box to 12% and
-    the firewall patch to about 9% (the camera swings behind them).
+  - s01: the paint fades to an x-ray shell (exterior 0.15, trim and lamps half that until the camera is inside, then
+    0 over 13.4-14.0 s, mirrors a quarter) with feature lines; glass, cabin trim and floor/tunnel/firewall fade to 0;
+    everything but the engine and flywheel fades out at the end: the wheels, tyres, suspension and driveshafts over
+    28.9-29.6 s, the body, clutch, gearbox and axle over 29.0-30.1 s.
+  - s03: for the take-off (51.8-52.5 s) the half bellhousing ghosts to 10%; the hydraulics, pedal box and firewall
+    patch fade out completely (hidden from about 52.4 s; the camera swings behind them).
   - s04: the -X half of the case, web and tail housing fades away in the first beat.
   - s06: the axle housing is cut in half at 6.8 s; the kept half fades out for the exploded view; the case halves
-    are ghosted to 0.15 from 32 s; a faint x-ray body (0.08) with feature lines appears only for the wide turn shot.
+    are ghosted to 0.15 from 32 s; the wide turn shot shows only the body's x-ray feature lines (0.6), no shell.
   - s07: the body is hidden for the close-ups and fades back in for "moves"; the RR coil-over fades out while the
     joints are shown.
   - s08: x-ray body (exterior 0.12, glass 0.05, interior 0.06, underbody 0.05, feature lines 0.55); the housings
@@ -1140,13 +1155,17 @@ Still open:
     strobing (none, by construction, PRS-02); this accepts 0.37-0.39 pitch/frame in the 198.3 × stroke beats under
     the 1-frame shutter. Sprockets, chain and flywheel bolt holes are checked in every frame.
   - s03: everything is checked strictly at 230 ×. At 56 × the ring gear is checked only where it is visible (frustum
-    and occlusion by the flywheel) and not smeared ≥ 1 pitch by the 0.75-frame shutter. After the cut (8 × / 10 ×,
-    0.4-frame shutter) the fingers (18), cover/flywheel bolts (6), crank bolts (8), facing rivets (24), hub splines
-    (23), damper springs (6), 26T input gear and its dog ring (32) are relaxed, as the brief allows for
-    motion-blurred frames: they move 0.6-3.4 pitch/frame. The cover's 3-fold pockets, windows and straps (≤ 0.35)
-    and both witness marks stay checked everywhere. Open: the 6 cover bolts (0.70 pitch/frame) and 8 crank bolts
-    (0.93) are smeared only 0.28 / 0.37 pitch, inside PRS-04's 0.35-2 band, so if they are visible in the take-off
-    shot they may read as turning backwards; the witness mark on the cover shows the true direction.
+    and occlusion by the flywheel) and not smeared ≥ 1 pitch by the 0.75-frame shutter. After the cut (8 × / 10 ×;
+    0.4-frame shutter, 1.1 frames from 54.2 s) the fingers (18), cover/flywheel bolts (6), crank bolts (8), facing
+    rivets (24), hub splines (23), damper springs (6), 26T input gear and its dog ring (32) are relaxed, as the brief
+    allows for motion-blurred frames: they move 0.6-3.4 pitch/frame. The cover's 3-fold pockets, windows and straps
+    (≤ 0.35) and both witness marks stay checked everywhere. In the take-off view the 6 cover bolts (about 0.6
+    pitch/frame) and 8 crank bolts (about 0.8) are smeared about 0.7 / 0.9 pitch, still inside PRS-04's 0.35-2 band,
+    but they are dark steel and cannot be picked out even at 1080p. The cover's 18 bright rivet heads (1.7-1.9
+    spacings/frame; a 0.4-frame shutter left them crawling backwards at about 90°/s) are smeared about 2 spacings
+    into a uniform band. Still open: the 26T gear and its dogs are only partly smeared at 54.2-55.5 s (about
+    0.5-1.0 pitch), and after the cut the gear, at the frame edge, is inside the band (shutter 0.4): the coasting
+    disc turns it 1.6-1.7 teeth/frame until the synchroniser stops it (47.3-48.0 s).
   - s04: everything is checked strictly; only the frame pair across each hard cut is skipped, and the needle
     cages only while the synchro is exploded.
   - s05: no motion blur; every gear and dog ring is checked, with the headset, 4th-gear dogs, 5th pair and 5th dog
