@@ -32,7 +32,7 @@ Picture (beats from carviz.timeline; every glow/label time is a narration word t
                  dash/windscreen to a close, high 3/4 rear-left view of the engine (flywheel
                  side); the glow dies away and the picture fades to black over the last 0.4 s.
   The camera never crosses a visible surface (the window opening is the only way in), and
-  keeps >= 0.14 m from every visible surface (window frame at the crossing; >= 0.16 m inside
+  keeps >= 0.14 m from every visible surface (window frame at the crossing; >= 0.15 m inside
   the cabin) - checked numerically (BVH nearest-surface + segment ray casts) per frame.
 
 Power-path glow: each stage uses the assembly's meta['power_path'] / ['power_groups'] parts
@@ -134,9 +134,9 @@ LABELS = [
     ("clutch", "Clutch", "clutch", "bellhousing", T_CLUTCH, 20.3, (0.09, -0.12)),
     ("gearbox", "Gearbox", "gearbox", "case", T_GEARBOX, 20.7, (0.10, -0.06)),
     ("prop", "Propeller shaft", "axle", "propshaft", T_PROP, 22.0, (0.08, 0.10)),
-    ("diff", "Differential", "axle", "diff_housing", T_DIFF, 28.3, (-0.10, -0.12)),
-    ("shafts", "Driveshafts", "wheels", "driveshaft_left", T_SHAFTS, 28.3, (0.0, 0.13)),
-    ("wheels", "Rear wheels", "wheels", (-0.65, -2.62, 0.50), T_WHEELS, 28.3, (0.0, -0.15)),   # inner sidewall (seen from inside)
+    ("diff", "Differential", "axle", "diff_housing", T_DIFF, 28.4, (-0.10, -0.12)),
+    ("shafts", "Driveshafts", "wheels", "driveshaft_left", T_SHAFTS, 28.2, (0.0, 0.13)),
+    ("wheels", "Rear wheels", "wheels", (-0.65, -2.62, 0.50), T_WHEELS, 28.2, (0.0, -0.15)),   # inner sidewall (seen from inside)
 ]
 
 
@@ -190,15 +190,15 @@ INSIDE = [
     (21.9, (-0.45, -2.02, 1.20), (0.05, -2.30, 0.34)),     # differential (21.96)
     (23.5, (-0.30, -2.08, 1.22), (0.0, -2.58, 0.33)),      # over the rear seat, centring
     (25.6, (-0.15, -2.10, 1.24), (-0.04, -2.62, 0.33)),    # driveshafts (25.82)
-    (27.4, (-0.10, -2.11, 1.25), (-0.05, -2.62, 0.33)),    # wheels (27.11): both in view
+    (27.5, (-0.10, -2.11, 1.25), (-0.05, -2.62, 0.33)),    # wheels (27.11): both in view
 ]
 # follow: the look-at runs back along the drivetrain to the engine while the body fades;
 # once the shell is hidden (29.9 s) the camera leaves through the dash/windscreen
 FOLLOW = [
-    (28.2, (-0.18, -2.09, 1.24), (-0.02, -2.50, 0.34)),
-    (29.2, (-0.45, -1.92, 1.18), (0.03, -1.70, 0.37)),
-    (30.2, (-0.52, -1.45, 1.15), (0.0, -0.70, 0.47)),
-    (31.1, (-0.66, -1.00, 1.16), (0.0, -0.15, 0.55)),
+    (28.4, (-0.40, -2.08, 1.21), (0.02, -2.55, 0.34)),    # slide left, still on the axle
+    (29.5, (-0.47, -1.95, 1.17), (0.03, -1.80, 0.37)),    # look-at passes beside, not below
+    (30.6, (-0.52, -1.45, 1.15), (0.0, -0.65, 0.48)),
+    (31.3, (-0.66, -1.00, 1.16), (0.0, -0.15, 0.55)),
     (31.96, (-0.83, -0.65, 1.20), (0.0, -0.07, 0.56)),    # 3/4 rear-left, high: hand-off
 ]
 
@@ -216,7 +216,7 @@ def camera_keys():
 
 
 LENS_KEYS = [(0.0, 50.0), (8.5, 50.0), (12.8, 26.0), (14.6, 26.0), (16.2, 28.0), (17.6, 26.0), (21.9, 22.0), (24.5, 21.0),
-             (28.2, 21.0), (30.2, 24.0), (31.96, 32.0)]
+             (28.4, 21.0), (30.6, 24.0), (31.96, 32.0)]
 FSTOP_KEYS = [(0.0, 5.6), (8.0, 5.6), (13.0, 6.3), (31.96, 6.3)]
 
 
@@ -405,9 +405,11 @@ def build(quality: str) -> scenebase.SceneBuild:
     rig.bake_fade(pedal_objs, fr, cabin)
     # follow: chassis (everything but the engine) fades away for the hand-off to s02
     keep = set(pedal_objs)
+    # (hidden below 8 %: a 2-5 % ghost of the black suspension/tyres renders as dark speckle
+    #  at low sample counts while the camera moves)
     for asm in (CL, G, A, W):
         objs = [o for o in visible_meshes(asm.meshes()) if o not in keep]
-        rig.bake_fade(objs, fr, chassis)
+        rig.bake_fade(objs, fr, chassis, threshold=0.08)
 
     # ---------------- power-path glow ------------------------------------------
     stages = dict(C.power_path())        # label -> objects (assembly meta power paths)
