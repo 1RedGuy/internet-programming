@@ -57,7 +57,8 @@ def main():
     srt = os.path.join(ROOT, "narration.srt")
     total = TL.TOTAL
     base = ["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst]
-    vf = ["-vf", f"fps={S.FPS},format=yuv420p"]
+    # concat repeats the last file (so its duration is honoured): cap the frame count exactly
+    vf = ["-vf", f"fps={S.FPS},format=yuv420p", "-frames:v", str(len(items) * a.every)]
     tmp = out + ".tmp.mp4"
     if a.crf is not None:
         cmd = base + ["-i", srt] + vf + ["-c:v", "libx264", "-preset", "slow", "-crf", str(a.crf),

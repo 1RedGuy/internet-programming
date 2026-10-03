@@ -199,7 +199,7 @@ def encode(scene_id, quality, d, frames, every=1, crf=18, suffix=""):
         fh.write(f"file '{os.path.join(comp, f'{frames[-1]:05d}.png')}'\n")
     tmp = out + ".tmp.mp4"
     cmd = ["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst,
-           "-vf", f"fps={S.FPS},format=yuv420p", "-c:v", "libx264", "-preset", "slow", "-crf", str(crf),
+           "-vf", f"fps={S.FPS},format=yuv420p", "-frames:v", str(len(frames) * every), "-c:v", "libx264", "-preset", "slow", "-crf", str(crf),
            "-profile:v", "high", "-movflags", "+faststart", tmp]
     subprocess.run(cmd, check=True)
     os.replace(tmp, out)
