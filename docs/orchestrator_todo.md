@@ -25,3 +25,18 @@ FACTS.md must reflect the as-built model:
 - PRS-02/PRS-11: s02 flywheel is now visible all scene; ring gear de-strobed by per-object motion
   blur (only flywheel + ring gear) with a keyed shutter = 1 tooth pitch of smear (1.0 frame at
   x198-230, 1.09 at x85, up to ~1.9 in the ramps). Remove "faded out 17.4-75.0 s".
+- PRS-13 per scene (as built):
+  * s03: x230 (0-27.6 s) -> x56 (pedal press 0.25 s real; disc coasts 850->762 rpm) -> hard cut at
+    46.5 s to x8 (synchro stops disc ~0.1 s; take-off bite->lock 1.19 s real, lock 1208 rpm at
+    9.7 km/h, peak accel 2.7 m/s^2; clutch torque matched to the car's acceleration ~95 N m).
+    (slip shots being reworked — update if the slow-motion profile changes)
+  * s04: x72 idle/neutral/synchro/lock/linkage; driving cuts x130 (1st 12.05 km/h, 4th 42.0,
+    5th 51.6 at 1500 rpm); reverse x80 at -7.8 km/h (950 rpm); synchro at x72 = ~26 ms sim.
+  * s05: x150 constant; shift 0.27 s real; clutch locks at 1778 rpm (road speed coasts
+    24.15 -> 24.03 km/h at 0.13 m/s^2, SFT-07), lock at 47.4 s.
+  * s06: x20, frozen (PAUSED) 21.55-31.45 s for the exploded diff, x20 -> x12; 15 km/h held
+    through the R = 5 m left turn: inner 111.1, outer 149.8, case 130.5 rpm.
+  * s07: x12 (tyre tread needs >= x11.05 at 10 km/h), ramp to real time 35.3-38.6 s; body heave
+    +-60 mm at 1.33 Hz; true-scale plunge gauge.
+- Presentation liberties to list: s06 time freeze for the explode; s03/s05/s07 world-fixed live
+  section planes on rotating parts; ghosted shells; s04 housings removed for the reverse shot.
