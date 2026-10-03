@@ -37,6 +37,18 @@ python3 tools/contact_sheet.py s04 --quality final --step 2      # review sheet
 python3 tools/stitch.py                            # all scenes -> video/final.mp4
 python3 tools/make_docs.py                         # script.md, narration.srt, storyboard.md from the timeline
 ```
+### All finals (what produced `video/`)
+
+```bash
+# render queue: one scene at a time, 2 shard processes x 2 threads, nice 10, overlay + encode at the end
+setsid nohup tools/render_daemon.sh > out/render_daemon.log 2>&1 < /dev/null &
+echo s04 >> out/final_queue.txt        # schedule a scene; finished ones are listed in out/final_done.txt
+echo STOP >> out/final_queue.txt       # let the daemon exit once the queue is empty
+# or directly, without the daemon:
+python3 tools/render_finals.py s01 s02 --shards 2 --threads 2 --nice 10
+python3 tools/stitch.py                # video/final.mp4 (+ soft subtitles from narration.srt)
+```
+
 Rendering is **resumable**: frames are written atomically to `out/<scene>/<quality>/raw/`
 and existing frames are skipped, so re-running a command after a crash continues where it
 stopped. Labels/HUD are composited afterwards (`comp/`) from `labels.json`/`hud.json`, which
