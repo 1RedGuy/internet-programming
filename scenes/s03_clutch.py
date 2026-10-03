@@ -34,6 +34,7 @@ import numpy as np
 
 from carviz import camera as CAM
 from carviz import kin, lighting, rig, scenebase, state, timeline
+from carviz import materials as MAT
 from carviz import spec as S
 from carviz.assemblies import body as BODY
 from carviz.assemblies import clutch as CL
@@ -75,15 +76,15 @@ def _curve(keys, default=0.0):
 F_IDLE = 230.0           # ring gear 132T at 850 rpm: >= 223 (0.34 teeth/frame)
 F_REL = 56.0             # fingers 0.19, rivets 0.25, splines 0.24, input-gear dogs (32) 0.34 pitch/frame
 F_SLIP = 8.0             # take-off ~1.2 s real; everything fast is motion-blurred
+F_END, F_END_RAMP = 10.0, (60.9, 62.0)
 T_RAMP = (27.6, 29.3)    # x230 -> x56, camera on the hub (ring gear out of frame)
 T_CUT = 46.5             # hard cut; x56 -> x8
 SHUT_REL = 0.75          # ring gear 1.39 teeth/frame at x56 -> s*p = 1.04
-SHUT_SLIP = 0.95         # < 1 so the camera cut never falls inside a shutter interval
+SHUT_SLIP = 0.4          # take-off: features blurred but countable (witness marks, cover pockets)
 
 # warm presentation glow (cv_glow; materials.CV_Presentation is strong on dark iron / friction)
 GLOW_PART = 0.03         # a part glows briefly when it is named
 GLOW_PATH = 0.022        # engaged: the power path
-GLOW_TORQUE = 0.012      # take-off: power path, scaled by the clutch torque actually passed
 
 # explode (parts beat): staggered assembly, front to back
 ASM_T0, ASM_DUR, ASM_STAGGER = 8.95, 1.25, 0.11
@@ -92,7 +93,10 @@ OFF_SHAFT = -0.47        # input shaft travels with the release bearing group
 SWEEP = (10.9, 12.5)     # section cutter sweeps from outside the parts to the axis plane
 HOUSING_IN = (10.1, 11.4)
 HYD_IN = (30.6, 31.5)    # pedal box, hydraulics, firewall fade in (camera clear of the line)
-HYD_GHOST = (52.6, 53.6) # ... and ghost to 0.12 for the face-on take-off close-up
+HYD_GHOST = (51.8, 52.5) # ... and ghost to 0.12 for the take-off (the camera swings behind them)
+UNSECTION = (49.0, 51.0) # the section cutter sweeps back out while the camera is wide (pedal)
+MARK_IN = (51.0, 51.8)   # witness marks (marker paint) on the cover and the input gear fade in
+MARK_GLOW = 0.35         # ... slightly emissive so they stay readable through the motion blur
 
 # release: one continuous press while the camera follows the chain
 PEDAL_RELEASE = [(30.5, 0.0, "step"), (31.6, 0.10, "cubic"), (33.6, 0.42, "cubic"), (35.6, 0.62, "cubic"),
@@ -112,7 +116,7 @@ V_LOCK_KMH = 9.6
 M_EFF = 1450.0           # kg: car + driver + rotating-inertia equivalent (illustrative)
 F_ROLL = 160.0           # N:  rolling resistance (Crr 0.012)
 ETA = 0.92               # driveline efficiency in 1st
-THR_SLIP = 1420.0        # driver's throttle target while slipping
+THR_SLIP = 1385.0        # driver's throttle target while slipping
 THR_POST = 1640.0        # ... and at the end of the scene (engine ~1500 rpm, pulling in 1st)
 
 
@@ -123,7 +127,11 @@ def slowmo_curve():
     c.key(T_RAMP[1], 1.0 / F_REL, "ease")
     c.key(T_CUT - 1e-3, 1.0 / F_REL, "linear")
     c.key(T_CUT, 1.0 / F_SLIP, "step")
-    c.key(DUR, 1.0 / F_SLIP, "linear")
+    # after the lock the engine keeps pulling: ease to x10 so the cover's 3-fold features
+    # (the take-off's engine-side cue) stay below 0.35 pitch/frame up to ~1470 rpm
+    c.key(F_END_RAMP[0], 1.0 / F_SLIP, "linear")
+    c.key(F_END_RAMP[1], 1.0 / F_END, "ease")
+    c.key(DUR, 1.0 / F_END, "linear")
     return c
 
 
@@ -245,22 +253,22 @@ POSES = [
     (40.0, (-0.07, -0.395, 0.37), -99.0, 0.29, 0.35, 38.0, 6.3, "cubic"),
     # fingers (front-left, ahead of the slave hose)
     (41.7, (0.0, -0.372, 0.385), -100.0, 0.26, 0.18, 50.0, 8.0, "cubic"),
-    # macro on the facings / pressure plate (1.8 mm lift, ~0.6 mm per face clearance)
-    (43.2, (0.0, -0.343, 0.452), -96.0, 0.135, 0.012, 60.0, 8.0, "cubic"),
-    (46.5 - 1e-3, (0.0, -0.343, 0.452), -97.5, 0.13, 0.012, 60.0, 8.0, "cubic"),
+    # facings / pressure plate, slightly from above (the cut faces' motion blur is then
+    # vertical, along the gap lines): flywheel | facings | pressure plate with ~0.6 mm gaps
+    (43.2, (0.0, -0.342, 0.450), -90.0, 0.17, 0.05, 50.0, 8.0, "cubic"),
+    (46.5 - 1e-3, (0.0, -0.342, 0.450), -90.5, 0.165, 0.05, 50.0, 8.0, "cubic"),
     # --- cut: the clutch section (1st gear selected, the disc stops) ...
     (46.5, (0.0, -0.34, 0.40), -100.0, 0.48, 0.10, 45.0, 6.3, "step"),
     (48.5, (0.0, -0.34, 0.40), -103.0, 0.47, 0.10, 45.0, 6.3, "cubic"),
     # ... pull back for the pedal coming up ...
     (50.4, (-0.20, -0.43, 0.46), -121.0, 0.86, 0.30, 38.0, 6.3, "cubic"),
     (51.5, (-0.20, -0.43, 0.46), -119.0, 0.85, 0.30, 38.0, 6.3, "cubic"),
-    # ... and in on the section for the slip (disc hub, damper springs, facings)
-    # face-on to the cut plane: the transform motion blur of the sectioned parts moves the
-    # cut faces along the view axis only, so they stay crisp while the far halves blur
-    (54.0, (0.0, -0.322, 0.435), -92.0, 0.56, 0.0, 70.0, 8.0, "cubic"),
-    (59.6, (0.0, -0.322, 0.435), -91.0, 0.55, 0.0, 70.0, 8.0, "cubic"),
-    # locks: ease back
-    (DUR, (0.0, -0.335, 0.42), -94.0, 0.70, 0.03, 60.0, 6.3, "cubic"),
+    # take-off: swing round to a rear-left 3/4 of the whole clutch (section swept out):
+    # cover + witness mark (engine side) and input shaft / 26T gear + mark (gearbox side)
+    (52.8, (-0.10, -0.45, 0.42), -80.0, 0.84, 0.62, 40.0, 6.3, "cubic"),
+    (54.4, (-0.02, -0.44, 0.38), -45.0, 0.70, 0.22, 45.0, 6.3, "cubic"),
+    (59.8, (-0.02, -0.44, 0.38), -48.0, 0.68, 0.21, 45.0, 6.3, "cubic"),
+    (DUR, (-0.02, -0.43, 0.38), -50.0, 0.78, 0.24, 42.0, 6.3, "cubic"),
 ]
 CUTS = [T_CUT]
 CAM_SMOOTH = 0.3
@@ -396,6 +404,42 @@ def _firewall_patch(B, x=(-0.70, -0.28), z=(0.42, 0.90), y=(-0.47, -0.43)):
     return ob
 
 
+def _witness_mark(name, parent, surf_objs, r0, r1, psi, half_deg, thick=0.0005):
+    """White paint daub: an annular sector r0..r1, psi +- half_deg (in the part's local XZ
+    plane), on the rear-most (-Y) face of surf_objs, parented to the spinning `parent`
+    (coordinates in the parent's local frame)."""
+    import bmesh
+    bpy.context.view_layer.update()
+    inv = parent.matrix_world.inverted()
+    half = math.radians(half_deg)
+    ys = []
+    for ob in surf_objs:
+        M = inv @ ob.matrix_world
+        for v in ob.data.vertices:
+            p = M @ v.co
+            r = math.hypot(p.x, p.z)
+            ang = (math.atan2(p.z, p.x) - psi + math.pi) % TAU - math.pi
+            if r0 - 0.002 <= r <= r1 + 0.002 and abs(ang) <= half + 0.05:
+                ys.append(p.y)
+    y_face = min(ys)
+    bm = bmesh.new()
+    vs = []
+    for dy in (0.0, -thick):
+        for a in np.linspace(psi - half, psi + half, 7):
+            for rr in (r0, r1):
+                vs.append(bm.verts.new((rr * math.cos(a), y_face - 0.0002 + dy, rr * math.sin(a))))
+    bmesh.ops.convex_hull(bm, input=vs)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(MAT.get("ceramic"))
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.parent = parent
+    rig.set_presentation(ob, 1.0, 0.0)
+    return ob
+
+
 def _add_section(ob, cutter):
     m = ob.modifiers.new("s03_section", "BOOLEAN")
     m.operation = "DIFFERENCE"
@@ -451,10 +495,6 @@ def _glow(objs, frames, g):
         _bake_compressed(o, '["cv_glow"]', frames, g)
 
 
-def _smooth_series(x, sigma_frames):
-    return _gauss(np.asarray(x, float), sigma_frames)
-
-
 def _pulse(t, t_on, rise=0.5, hold=1.0, fall=1.2, peak=GLOW_PART, rest=0.0):
     up = kin.smoothstep(t_on, t_on + rise, t)
     dn = kin.smoothstep(t_on + rise + hold, t_on + rise + hold + fall, t)
@@ -494,8 +534,9 @@ def build(quality: str) -> scenebase.SceneBuild:
           "cover": ex_part(4), "release_bearing": ex_part(5), "shaft": ex_part(5)}
     # bellhousing: fades in after the assembly; ghosted (its slave-mount patch would sit in
     # front of the subject) for the face-on take-off close-up
-    housing = _ease_window(t, *HOUSING_IN) * (1.0 - 0.75 * _ease_window(t, *HYD_GHOST))
-    section_on = (t >= SWEEP[0] - 0.05).astype(float)
+    housing = _ease_window(t, *HOUSING_IN) * (1.0 - 0.9 * _ease_window(t, *HYD_GHOST))
+    # live section from the sweep-in (splines) until it has swept back out (pedal shot)
+    section_on = ((t >= SWEEP[0] - 0.05) & (t <= UNSECTION[1] + 0.05)).astype(float)
     hyd = _ease_window(t, *HYD_IN)
     pulse = np.where((t >= PULSE[0] - 0.3) & (t <= PULSE[1] + 0.4),
                      (t - PULSE[0]) / (PULSE[1] - PULSE[0]), -1.0)
@@ -520,9 +561,18 @@ def build(quality: str) -> scenebase.SceneBuild:
     _remove([o for k, o in GB.parts.items() if o.type == "MESH" and k not in GEARBOX_KEEP])
     rig.bake_channel(shaft_ex, "location", 1, fr, OFF_SHAFT * ex["shaft"])
 
+    # witness marks (marker-paint daubs, presentation): one on the back of the cover (engine
+    # side), one on the rear face of the input gear's cone (gearbox side); they ride on the
+    # parts' baked spin, so the take-off shows both sides' rotation directly
+    marks = [_witness_mark("s03_mark_cover", C.parts["cover"], [C.parts["cover"]], 0.086, 0.117, 0.0, 15.0),
+             _witness_mark("s03_mark_gear", GB.parts["input_gear"], [GB.parts["cone_4"], GB.parts["dogs_4"],
+                           GB.parts["input_gear"]], 0.0145, 0.0260, 0.0, 22.0)]
+    mark_op = _ease_window(t, *MARK_IN)
+    rig.bake_fade(marks, fr, mark_op, glow=MARK_GLOW * mark_op)     # bright marker paint
+
     # section: animated cutter (presentation) + the same cut on the flywheel and ring gear
     cutter = C.parts["section_cutter"]
-    sweep = _ease_window(t, *SWEEP)
+    sweep = _ease_window(t, *SWEEP) * (1.0 - _ease_window(t, *UNSECTION))
     cut_x = -0.175 * (1.0 - sweep)
     rig.bake_channel(cutter, "location", 0, fr, cut_x)
     for k in ("flywheel", "ring_gear"):
@@ -538,7 +588,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     if quality == "preview":
         firewall.hide_render = True
     else:
-        _fade([firewall], fr, 0.22 * hyd)
+        _fade([firewall], fr, 0.22 * hyd * (1.0 - 0.6 * _ease_window(t, *HYD_GHOST)))
 
     # ---------------- glow -------------------------------------------------
     gl = {}
@@ -558,17 +608,14 @@ def build(quality: str) -> scenebase.SceneBuild:
     gl["disc"] = np.maximum(gl["disc"], path(t_disc))
     gl["flywheel"] = np.maximum(gl["flywheel"], path(t_fly))
     gl["shaft"] = path(t_in)
-    # take-off: the power path glows with the torque the clutch actually passes (Track)
-    tq = np.clip(np.abs(track.clutch_torque) / 100.0, 0.0, 1.0) * kin.smoothstep(T_BITE, T_BITE + 0.3, t)
-    tq = _smooth_series(tq, 6) * GLOW_TORQUE * (1.0 - kin.smoothstep(DUR - 0.8, DUR, t))
-    for k in ("flywheel", "spring", "plate", "disc", "shaft"):
-        gl[k] = np.maximum(gl[k], tq)
+    # (no glow in the take-off: seen whole and motion-blurred from behind, a warm glow only
+    # tinted the spinning cover brown; the witness marks and the HUD carry the story)
     _glow([E.parts["flywheel"], E.parts["ring_gear"]], fr, gl["flywheel"])
     _glow([C.parts["disc"], C.parts["damper_springs"]], fr, gl["disc"])
     _glow([C.parts["pressure_plate"], C.parts["straps"]], fr, gl["plate"])
     # the cover only glows with the power path (it is not named in the parts beat)
     _glow([C.parts["diaphragm_spring"], C.parts["fulcrum"]], fr, gl["spring"])
-    _glow([C.parts["cover"]], fr, np.maximum(path(t_sp), tq))
+    _glow([C.parts["cover"]], fr, path(t_sp))
     _glow(gb_keep[:4], fr, gl["shaft"])
 
     # ---------------- camera + lights + motion blur -----------------------
@@ -618,7 +665,9 @@ def build(quality: str) -> scenebase.SceneBuild:
     def mask(vis, ang, pitch):
         return vis & ~blurred(ang, pitch)
 
-    blur_on = shut >= 0.9           # long-shutter take-off frames (relaxed, brief section 3)
+    # take-off frames (after the cut, shutter 0.5): motion blur on -> relaxed (brief, sec. 3);
+    # the witness marks (one feature each) are checked strictly everywhere
+    blur_on = (shut >= 0.35) & (t >= T_CUT)
     gear_ang = track.gb("input_gear")
     alias = {
         "flywheel ring gear 132T": (th_e, TAU / 132, mask(ring_vis, th_e, TAU / 132)),
@@ -630,6 +679,9 @@ def build(quality: str) -> scenebase.SceneBuild:
         "disc damper springs 6": (th_in, TAU / 6, mask(~blur_on, th_in, TAU / 6)),
         "input gear 26T": (gear_ang, TAU / 26, mask(~blur_on, gear_ang, TAU / 26)),
         "input gear dog ring 32": (gear_ang, TAU / 32, mask(~blur_on, gear_ang, TAU / 32)),
+        "cover pockets / windows / straps 3": (th_e, TAU / 3, None),
+        "witness mark, cover (1)": (th_e, TAU, None),
+        "witness mark, input gear (1)": (gear_ang, TAU, None),
     }
     track.validate(aliasing=alias)
 
@@ -639,7 +691,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     t_asm_end = ASM_T0 + 5 * ASM_STAGGER + ASM_DUR
     L.add("engine", "Engine", (E.parts["block"], (-0.10, -0.24, 0.10)), wt("parts", "engine"),
           wt("parts", "clutch") + 0.6, offset=(-0.07, -0.08), style="dim", occlusion=False)
-    L.add("gearbox", "Gearbox side", (GB.parts["input_gear"], (0.0, 0.0, 0.036)), wt("parts", "gearbox"),
+    L.add("gearbox", "Gearbox side", (shaft_ex, (0.0, -0.5085, 0.036)), wt("parts", "gearbox"),
           wt("parts", "clutch") + 0.6, offset=(0.06, -0.08), style="dim", occlusion=False)
     def fly_anchor(z_up, x=0.0):
         """flywheel rim point that follows the explode but not the spin"""
@@ -676,13 +728,20 @@ def build(quality: str) -> scenebase.SceneBuild:
           offset=(0.08, -0.08), occlusion=False)
     L.add("disc2", "Disc", A["disc"], wt("release", "disc") - 0.2, T_CUT - 0.1, offset=(-0.08, 0.06),
           occlusion=False)
+    L.add("fly2", "Flywheel", fly_anchor(0.104), 43.0, T_CUT - 0.1, offset=(-0.07, 0.12), occlusion=False)
+    L.add("gap", "Gap ~0.6 mm each side", (C.parts["disc_ex"], (0.0, -0.0046, 0.088)), 44.7, T_CUT - 0.1,
+          offset=(0.08, 0.11), occlusion=False)
     # slip
-    L.add("disc3", "Friction disc", (C.parts["disc_ex"], (0.0, 0.0, 0.085)), wt("slip", "disc") + 0.6, 58.8,
-          offset=(-0.10, -0.05), occlusion=False)
-    L.add("fly3", "Flywheel", fly_anchor(0.07), wt("slip", "flywheel"), 58.8,
-          offset=(-0.08, 0.12), occlusion=False)
-    L.add("plate3", "Pressure plate", plate_face, wt("slip", "pressure"), 58.8, offset=(0.10, 0.02),
-          occlusion=False)
+    # take-off (whole clutch from the rear-left): disc and plate are inside the cover, so
+    # their labels use the hidden-line style (occlusion on)
+    L.add("disc3", "Friction disc", (C.parts["disc_ex"], (-0.100, 0.0, 0.0)), wt("slip", "disc") + 0.6, 58.8,
+          offset=(-0.06, -0.12), occlusion=True)
+    L.add("fly3", "Flywheel", fly_anchor(-0.02, x=-0.146), wt("slip", "flywheel"), 58.8,
+          offset=(-0.07, 0.08), occlusion=False)
+    L.add("plate3", "Pressure plate", (C.parts["plate_ex"], (-0.104, CL._ly(CL.Y_PF) - 0.008, 0.02)),
+          wt("slip", "pressure"), 58.8, offset=(0.03, -0.14), occlusion=True)
+    L.add("shaft3", "Input shaft", (shaft_ex, (-0.022, -0.505, 0.026)), wt("slip", "speeding"), 60.6,
+          offset=(0.08, 0.09), occlusion=False)
 
     # ---------------- HUD -----------------------------------------------
     H = Hud(track)
