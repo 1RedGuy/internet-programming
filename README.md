@@ -59,7 +59,9 @@ cd internet-programming
 python3.11 -m venv .venv && .venv/bin/pip install -r requirements.txt
 tools/mac_render_all.sh --push      # all 8 scenes at 1080p on Metal, stitch, commit + push the videos
 ```
-The script checks the environment, keeps the Mac awake (`caffeinate`), renders each scene as two
+The script checks the environment, keeps the Mac awake (`caffeinate`), times one heavy frame
+(`tools/bench.py`: picks the ACCURATE denoiser prefilter unless it is too slow on that machine and
+prints an estimate of the total hours), renders each scene as two
 shard processes on the GPU (`tools/render_finals.py --device metal`), writes `video/sNN_final.mp4`,
 then `video/final.mp4` (2-pass, ≤ 95 MB) and `video/final_hq.mp4` (CRF 18). It is resumable: run
 it again after an interruption. Progress: `tail -f out/render_<scene>_final_shard0.log`.

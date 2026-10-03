@@ -64,6 +64,20 @@ if [ "$FRESH" = 1 ]; then
   rm -rf out/s0?/final
 fi
 
+# ---- benchmark one heavy frame; choose the denoiser prefilter ---------------------------
+# ACCURATE removes speckles on the see-through shells; if it cannot run on the GPU it is
+# much slower, and FAST keeps the overnight time budget (tools/bench.py decides).
+if [ -z "${CARVIZ_PREFILTER:-}" ]; then
+  BENCH=$("$PY" tools/bench.py s08 577 --device "$DEVICE" 2>&1 | tee -a "$LOG" | grep '^BENCH ' || true)
+  echo "$BENCH"
+  case "$BENCH" in
+    *choose=FAST*) export CARVIZ_PREFILTER=FAST ;;
+    *choose=ACCURATE*) export CARVIZ_PREFILTER=ACCURATE ;;
+    *) echo "benchmark failed - see $LOG"; exit 1 ;;
+  esac
+fi
+echo "denoiser prefilter: $CARVIZ_PREFILTER"
+
 # ---- render all scenes (resumable) -----------------------------------------------------
 T0=$(date +%s)
 # shellcheck disable=SC2086

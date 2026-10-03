@@ -129,7 +129,8 @@ def apply_quality(sc, quality, sb=None, threads=0, device="cpu"):
     cy.use_denoising = True
     cy.denoiser = "OPENIMAGEDENOISE"
     cy.denoising_input_passes = "RGB_ALBEDO_NORMAL"
-    cy.denoising_prefilter = q.get("prefilter", "FAST")
+    # CARVIZ_PREFILTER=FAST|ACCURATE overrides (tools/mac_render_all.sh sets it from tools/bench.py)
+    cy.denoising_prefilter = os.environ.get("CARVIZ_PREFILTER") or q.get("prefilter", "FAST")
     cy.max_bounces = 6
     cy.diffuse_bounces = 2
     cy.glossy_bounces = 3
