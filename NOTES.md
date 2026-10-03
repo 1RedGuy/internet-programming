@@ -67,6 +67,68 @@ restarted once mid-project and the queue simply continued.
 
 ## 4. Time spent — TODO
 
-## 5. Known limitations — TODO
+## 5. Known limitations
 
-## 6. What I would improve with more time — TODO
+**Physics / model** (details and justifications in FACTS.md, section "As-built model notes"):
+
+- The car is driven *kinematically*: road speed is a keyframed input; only the engine, clutch
+  and gearbox input side are integrated (Coulomb clutch, engine torque model). Engine torque
+  never feeds back into the car's speed (AB-01).
+- The synchroniser is a cosine speed blend between cone contact and the end of the blocking
+  hold, not an integrated cone-friction torque. It does index the gear so the dogs always meet
+  aligned, and the validator checks for clashes (AB-03).
+- No cyclic crank-speed ripple, fixed spark advance, single-mass flywheel, three-arc flat-tappet
+  cam without clearance ramps, chain at mean speed (AB-02, AB-04 to AB-07).
+- Spiral-bevel final drive without hypoid offset (AB-08). Rear suspension moves the wheel
+  purely vertically (links stretch up to 2.5 %). No engine rock, so the propshaft slip spline
+  never slides (AB-09, AB-12).
+- Touching parts are drawn with a 0.04-0.05 mm gap so collision checks stay clean (AB-11).
+  The tyre mesh is 2.1 % larger than the rolling radius used for motion (AB-14).
+- Dog engagement is on the short side (3 mm overlap), dogs have no back-taper, and there are no
+  physical interlock pins: the interlock is enforced logically by the validator (AB-10).
+
+**Presentation:**
+
+- Slow motion is everywhere except s08 and the end of s07: factors from 8x to 230x, chosen so no
+  toothed part strobes. The HUD always shows physical rpm/km/h plus the factor, but the *pace* of
+  events (e.g. a 0.27 s racing-style shift in s05) is real-time pace scaled down. s06 freezes time
+  for the exploded differential (PRS-13).
+- Cutaways, ghosted shells, the warm power-path glow and the gas colours are illustrative (PRS-06,
+  PRS-07). Some sections on spinning parts are world-fixed live booleans.
+- The body is a generic procedural 4-door saloon (with seats, dashboard, steering wheel and
+  pedals), not a particular car. Wiring, fuel system, the exhaust beyond the manifold, cooling
+  and the brake hydraulics are omitted; brakes are discs and calipers only.
+- Scene changes are fades through black; the camera is continuous *within* a scene only.
+- Labels/HUD are a 2D overlay composited after rendering (ray-cast occlusion dims labels behind
+  parts); they are not depth-sorted with motion blur.
+- **No voice-over audio** is included: the narration is delivered as `script.md` and as soft
+  subtitles (`narration.srt`, also muxed into `final.mp4`). The picture is timed to 140 wpm, so a
+  recorded or TTS read of the script drops straight in.
+
+**Rendering:**
+
+- 720p at 8 samples + OpenImageDenoise: fine detail is slightly soft, and dark glossy areas can
+  show faint denoiser blotches. The seed is fixed, so residual noise does not "boil" on static
+  areas but can look like a slight pattern sliding over moving parts.
+- Motion blur only where real-time motion would otherwise strobe (s08, the end of s07, the s02
+  flywheel). Elsewhere slow motion keeps per-frame motion below 0.35 tooth pitch.
+- Workbench previews show flat studio shading (no materials' roughness/transparency), so look
+  decisions were checked on low-sample Cycles draft frames.
+
+## 6. What I would improve with more time
+
+1. **Voice-over**: record or synthesise the narration and mix it with subtle mechanical sound
+   (idle, gear whine, clutch engagement) driven by the same Track (rpm -> pitch).
+2. **Render quality**: 1080p at 16-32 spp on a GPU or a small render farm. The renderer is already
+   sharded (`--shard i/n`), so distributing frames over several machines needs only shared storage.
+   Reuse frames when nothing in view moves (paused holds) to save render time.
+3. **Physics depth**: integrate synchroniser cone torque, a lumped driveline with propshaft and
+   halfshaft compliance (shunt/shuffle at take-off), tyre slip, and engine-torque feedback to road
+   speed; add the crank-speed ripple and a dual-mass flywheel variant.
+4. **Model detail**: hypoid offset with a matching pinion; tapered roller bearings shown in
+   section; real interlock pins and a reverse lockout in the shift tower; detents on the rails;
+   helical gear contact patterns; a proper exhaust and intake system.
+5. **Presentation**: depth-aware labels; a continuous camera between scenes instead of fades; a
+   picture-in-picture pedal/lever view during the shift; a 3D tachometer in the cabin.
+6. **Testing**: automated collision checks over every frame of every scene (today they run on
+   sampled frames and in the assembly tests) and a CI job that re-runs `test_kinematics.py`.
