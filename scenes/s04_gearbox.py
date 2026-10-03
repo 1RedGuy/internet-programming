@@ -583,9 +583,10 @@ def make_labels(G, C):
           offset=(0.06, -0.10), occlusion=False)
     L.add("output_shaft2", "Output shaft", out_anchor, wt("neutral", "locked"), bend("neutral") - 0.6,
           offset=(-0.05, -0.12), occlusion=False)
-    # synchro (exploded 1-2 synchroniser)
-    L.add("hub", "Hub", A["hub_12"], wt("synchro", "hub"), wt("synchro", "dog") - 0.4, offset=(0.05, -0.15),
-          occlusion=False)
+    # synchro (exploded 1-2 synchroniser); the exploding sleeve covers the hub until ~1.25 s
+    # into the explode, so the hub label waits for it (dot lands on the hub, not the sleeve)
+    L.add("hub", "Hub", A["hub_12"], max(wt("synchro", "hub"), EXPLODE[0] + 1.25), wt("synchro", "dog") - 0.4,
+          offset=(0.05, -0.15), occlusion=False)
     L.add("sleeve", "Sleeve", A["sleeve_12"], wt("synchro", "sleeve"), wt("synchro", "cone") + 0.4,
           offset=(-0.06, -0.10), occlusion=False)
     L.add("dogs", "Dog teeth", A["dogs_1"], wt("synchro", "dog"), bend("synchro") - 0.9, offset=(-0.05, -0.13),
@@ -601,8 +602,12 @@ def make_labels(G, C):
           occlusion=False)
     L.add("gear1_l", "1st gear", A["gear_1"], wt("lock", "gear") - 0.2, bend("lock") - 0.6, offset=(0.08, -0.04),
           occlusion=False, style="dim")
-    # linkage
-    L.add("fork", "Fork", A["fork_12"], wt("linkage", "Forks"), T_RAT - 1.0, offset=(-0.08, 0.05), occlusion=False)
+    # linkage; the fork dot sits on the camera-facing (-X) arm of the 1-2 fork's yoke (135 deg,
+    # r 47 mm, on the fork carrier so it follows the rail): the assembly anchor is on the +X web,
+    # hidden behind the 3-4 rail from this side
+    fk_ob, fk_off = A["fork_12"]
+    L.add("fork", "Fork", (fk_ob, (-0.0332, fk_off[1], 0.0332)), wt("linkage", "Forks"), T_RAT - 1.0,
+          offset=(-0.08, 0.05), occlusion=False)
     rail_a = (GP["rail_5R"], (GBX.RAIL_X["5R"] * 1e-3, -0.575, (GBX.RAIL_Z + GBX.RAIL_R) * 1e-3))
     L.add("rail", "Shift rail", rail_a, wt("linkage", "rails"), T_RAT - 1.0, offset=(-0.06, -0.08),
           occlusion=False)
@@ -619,7 +624,11 @@ def make_labels(G, C):
     # 4th
     e4 = T_5TH - 0.3
     L.add("dogs4", "Input gear dog teeth", A["dogs_4"], T_4TH + 0.5, e4, offset=(-0.07, -0.06), occlusion=False)
-    L.add("sl34", "Sleeve", A["sleeve_34"], T_4TH + 0.9, e4, offset=(0.06, -0.10), occlusion=False)
+    # sleeve dot on its camera-side front flank (135 deg, 9 mm ahead of centre): the top of the
+    # sleeve (the assembly anchor) is covered by the 3-4 fork's arm in this shot
+    sl_ob, _sl_off = A["sleeve_34"]
+    L.add("sl34", "Sleeve", (sl_ob, (-0.030, 0.009, 0.030)), T_4TH + 0.9, e4, offset=(0.06, -0.10),
+          occlusion=False)
     # 5th
     e5 = T_REV - 0.3
     L.add("cs5", "38T", (GP["ex_cs_5"], (-0.047, 0.0, 0.0)), T_5TH + 0.4, e5, offset=(0.07, 0.03), occlusion=False)
