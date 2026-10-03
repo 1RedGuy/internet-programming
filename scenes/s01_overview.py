@@ -127,15 +127,15 @@ SWEEP_AMP = 0.0                               # off: from inside the cabin the r
 SWEEP_SIGMA = 0.17
 
 
-# labels: (id, text, assembly, anchor, t_in (= word time), t_out, offset (dx, dy) of the plate)
+# labels: (id, text, assembly, anchor name | world point, t_in (= word time), t_out, plate offset (dx, dy))
 LABELS = [
-    ("engine", "Engine", "engine", "cam_cover", T_ENGINE, 20.2, (-0.10, -0.10)),
-    ("clutch", "Clutch", "clutch", "bellhousing", T_CLUTCH, 21.3, (0.09, -0.12)),
-    ("gearbox", "Gearbox", "gearbox", "case", T_GEARBOX, 21.9, (0.10, -0.06)),
-    ("prop", "Propeller shaft", "axle", "propshaft", T_PROP, 25.2, (0.08, 0.10)),
-    ("diff", "Differential", "axle", "diff_housing", T_DIFF, 28.9, (0.10, -0.12)),
-    ("shafts", "Driveshafts", "wheels", "driveshaft_left", T_SHAFTS, 28.9, (-0.11, -0.09)),
-    ("wheels", "Rear wheels", "wheels", "tire_RL", T_WHEELS, 28.9, (-0.12, 0.06)),
+    ("engine", "Engine", "engine", "cam_cover", T_ENGINE, 18.8, (-0.10, -0.10)),
+    ("clutch", "Clutch", "clutch", "bellhousing", T_CLUTCH, 20.3, (0.09, -0.12)),
+    ("gearbox", "Gearbox", "gearbox", "case", T_GEARBOX, 20.7, (0.10, -0.06)),
+    ("prop", "Propeller shaft", "axle", "propshaft", T_PROP, 22.0, (0.08, 0.10)),
+    ("diff", "Differential", "axle", "diff_housing", T_DIFF, 28.3, (-0.10, -0.12)),
+    ("shafts", "Driveshafts", "wheels", "driveshaft_left", T_SHAFTS, 28.3, (0.0, 0.13)),
+    ("wheels", "Rear wheels", "wheels", (-0.65, -2.62, 0.50), T_WHEELS, 28.3, (0.0, -0.15)),   # inner sidewall (seen from inside)
 ]
 
 
@@ -164,37 +164,41 @@ def orbit_eye(az_deg, r=ORBIT_R, z=ORBIT_Z, c=ORBIT_C):
     return (c[0] + r * math.sin(a), c[1] - r * math.cos(a), z)
 
 
-# inside: an inward spiral around the front-left door-window opening (crossing point WIN):
-# (t, azimuth about WIN, radius, eye height, look-at).  radius 0 = the camera is in the
-# window plane (the glass is hidden by then).
-WIN = (-0.73, -1.62, 1.14)
-SPIRAL = [
-    (8.0, 216.0, 6.55, 1.29, (0.0, -1.15, 0.60)),
-    (9.0, 226.0, 5.50, 1.27, (0.0, -1.10, 0.56)),
-    (10.0, 238.0, 4.15, 1.24, (0.0, -1.05, 0.52)),
-    (11.0, 250.0, 2.75, 1.20, (0.0, -1.00, 0.48)),
-    (11.8, 262.0, 1.40, 1.16, (0.0, -0.95, 0.46)),
-    (12.6, 270.0, 0.00, 1.14, (0.0, -0.85, 0.45)),
+# inside: the orbit flows into a push-in that comes round to the car's left side and passes
+# through the front-left door-window opening at WIN (the glass is hidden by then); the camera
+# keeps its eye on the engine/clutch, slowing to ~0.5 m/s at the window.
+WIN = (-0.73, -1.60, 1.14)
+APPROACH = [
+    (8.1, (-4.75, 3.85, 1.29), (0.0, -1.10, 0.58)),
+    (9.0, (-4.55, 2.60, 1.27), (0.0, -0.95, 0.55)),
+    (10.0, (-3.85, 1.15, 1.23), (0.0, -0.75, 0.53)),
+    (11.0, (-2.85, -0.05, 1.20), (0.0, -0.35, 0.53)),
+    (12.0, (-1.80, -0.92, 1.17), (0.0, -0.05, 0.54)),
+    (12.7, (-1.15, -1.33, 1.15), (0.0, 0.08, 0.55)),
+    (13.3, WIN, (0.0, 0.05, 0.55)),                        # through the window opening
+    (13.9, (-0.55, -1.62, 1.135), (0.0, -0.08, 0.54)),
 ]
-# inside the cabin: (t, eye, look-at)
+# inside the cabin, left of the tunnel (x ~ -0.5: >= 0.19 m from the side glass, >= 0.17 m
+# below the roof): (t, eye, look-at); the look-at glides along the drivetrain
 INSIDE = [
-    (13.3, (-0.52, -1.60, 1.135), (0.0, -0.55, 0.48)),
-    (14.2, (-0.40, -1.58, 1.13), (0.0, -0.35, 0.50)),
-    (15.8, (-0.37, -1.62, 1.14), (0.0, -0.18, 0.55)),      # engine (15.96)
-    (17.6, (-0.34, -1.72, 1.16), (0.0, -0.42, 0.48)),      # clutch (18.11)
-    (19.2, (-0.30, -1.85, 1.19), (0.0, -0.82, 0.42)),      # gearbox (18.96)
-    (20.7, (-0.25, -1.95, 1.22), (0.0, -1.55, 0.36)),      # propeller shaft (20.25)
-    (22.3, (-0.20, -2.02, 1.25), (0.0, -2.45, 0.33)),      # differential (21.96)
-    (24.2, (-0.17, -2.07, 1.26), (-0.02, -2.60, 0.33)),
-    (26.0, (-0.15, -2.10, 1.27), (-0.04, -2.62, 0.33)),    # driveshafts (25.82)
-    (27.6, (-0.15, -2.12, 1.27), (-0.04, -2.62, 0.33)),    # wheels (27.11)
+    (14.6, (-0.48, -1.62, 1.13), (0.0, -0.22, 0.53)),
+    (15.9, (-0.47, -1.66, 1.14), (0.0, -0.16, 0.55)),      # engine (15.96)
+    (17.6, (-0.48, -1.74, 1.15), (0.0, -0.42, 0.48)),      # clutch (18.11)
+    (19.0, (-0.49, -1.84, 1.16), (0.02, -0.80, 0.43)),     # gearbox (18.96)
+    (20.4, (-0.50, -1.96, 1.17), (0.04, -1.45, 0.37)),     # propeller shaft (20.25)
+    (21.9, (-0.45, -2.02, 1.20), (0.05, -2.30, 0.34)),     # differential (21.96)
+    (23.5, (-0.30, -2.08, 1.22), (0.0, -2.58, 0.33)),      # over the rear seat, centring
+    (25.6, (-0.15, -2.10, 1.24), (-0.04, -2.62, 0.33)),    # driveshafts (25.82)
+    (27.4, (-0.10, -2.11, 1.25), (-0.05, -2.62, 0.33)),    # wheels (27.11): both in view
 ]
-# follow: turn forward inside; leave through the (by then hidden) windscreen to the engine
+# follow: the look-at runs back along the drivetrain to the engine while the body fades;
+# once the shell is hidden (29.9 s) the camera leaves through the dash/windscreen
 FOLLOW = [
-    (29.0, (-0.25, -1.95, 1.24), (0.0, -0.90, 0.48)),
-    (30.0, (-0.38, -1.45, 1.16), (0.0, -0.25, 0.52)),
-    (31.0, (-0.62, -0.45, 1.12), (0.0, -0.08, 0.56)),
-    (31.96, (-0.88, 0.48, 1.03), (0.0, -0.06, 0.58)),
+    (28.2, (-0.18, -2.09, 1.24), (-0.02, -2.50, 0.34)),
+    (29.2, (-0.45, -1.92, 1.18), (0.03, -1.70, 0.37)),
+    (30.2, (-0.52, -1.45, 1.15), (0.0, -0.70, 0.47)),
+    (31.1, (-0.66, -1.00, 1.16), (0.0, -0.15, 0.55)),
+    (31.96, (-0.83, -0.65, 1.20), (0.0, -0.07, 0.56)),    # 3/4 rear-left, high: hand-off
 ]
 
 
@@ -206,15 +210,12 @@ def camera_keys():
         t = k * 1.0
         az = 204.0 + 2.0 * t
         keys.append((t, orbit_eye(az), ORBIT_C))
-    for t, az, r, z, tg in SPIRAL:
-        a = math.radians(az)
-        keys.append((t, (WIN[0] + r * math.sin(a), WIN[1] - r * math.cos(a), z), tg))
-    keys += INSIDE + FOLLOW
+    keys += APPROACH + INSIDE + FOLLOW
     return keys
 
 
-LENS_KEYS = [(0.0, 50.0), (8.5, 50.0), (12.4, 28.0), (14.2, 26.0), (19.5, 26.0), (22.0, 22.0),
-             (27.6, 22.0), (29.2, 24.0), (31.96, 36.0)]
+LENS_KEYS = [(0.0, 50.0), (8.5, 50.0), (12.8, 26.0), (19.0, 26.0), (21.9, 22.0), (24.5, 21.0),
+             (28.2, 21.0), (30.2, 24.0), (31.96, 32.0)]
 FSTOP_KEYS = [(0.0, 5.6), (8.0, 5.6), (13.0, 6.3), (31.96, 6.3)]
 
 
@@ -464,7 +465,8 @@ def build(quality: str) -> scenebase.SceneBuild:
     body_objs = [o for o in B.meshes()]
     L = Labels()
     for lid, text, asm, an, t_in, t_out, off in LABELS:
-        L.add(lid, text, C.sub[asm].anchors[an], t_in - 0.05, t_out, fade=0.35, offset=off,
+        anchor = an if isinstance(an, tuple) else C.sub[asm].anchors[an]   # tuple = world point
+        L.add(lid, text, anchor, t_in - 0.05, t_out, fade=0.35, offset=off,
               style="emph", occlusion=False, ignore=body_objs)
 
     # ---------------- HUD ----------------------------------------------------------
@@ -475,6 +477,8 @@ def build(quality: str) -> scenebase.SceneBuild:
     H.add("fade", BLACK[0], DUR + 1.0, fade=0.0, color="black",
           alpha=lambda i: float(ss((t[i] - BLACK[0]) / (BLACK[1] - BLACK[0]))))
 
-    sb = scenebase.SceneBuild(SCENE_ID, track, cam_ob, L, H, motion_blur=False, preview_hide=())
+    # camera motion blur: the fly-in (1.6 m/s) and the turns inside the cabin pan up to ~35 deg/s;
+    # nothing else moves (engine off), so it costs ~10 % render time
+    sb = scenebase.SceneBuild(SCENE_ID, track, cam_ob, L, H, motion_blur=True, shutter=0.5, preview_hide=())
     sb.extra.update(car=C, eye=eye, target=tgt)
     return sb

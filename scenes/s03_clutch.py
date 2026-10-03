@@ -86,7 +86,7 @@ SHUT_SLIP = 0.95         # < 1 so the camera cut never falls inside a shutter in
 # warm presentation glow (cv_glow; materials.CV_Presentation is strong on dark iron / friction)
 GLOW_PART = 0.03         # a part glows briefly when it is named
 GLOW_PATH = 0.022        # engaged: the power path
-GLOW_TORQUE = 0.018      # take-off: power path, scaled by the clutch torque actually passed
+GLOW_TORQUE = 0.012      # take-off: power path, scaled by the clutch torque actually passed
 
 # explode (parts beat): staggered assembly, front to back
 ASM_T0, ASM_DUR, ASM_STAGGER = 8.95, 1.25, 0.11
@@ -95,6 +95,7 @@ OFF_SHAFT = -0.47        # input shaft travels with the release bearing group
 SWEEP = (10.9, 12.5)     # section cutter sweeps from outside the parts to the axis plane
 HOUSING_IN = (10.1, 11.4)
 HYD_IN = (30.6, 31.5)    # pedal box, hydraulics, firewall fade in (camera clear of the line)
+HYD_GHOST = (52.6, 53.6) # ... and ghost to 0.12 for the face-on take-off close-up
 
 # release: one continuous press while the camera follows the chain
 PEDAL_RELEASE = [(30.5, 0.0, "step"), (31.6, 0.10, "cubic"), (33.6, 0.42, "cubic"), (35.6, 0.62, "cubic"),
@@ -257,10 +258,12 @@ POSES = [
     (50.4, (-0.20, -0.43, 0.46), -121.0, 0.86, 0.30, 38.0, 6.3, "cubic"),
     (51.5, (-0.20, -0.43, 0.46), -119.0, 0.85, 0.30, 38.0, 6.3, "cubic"),
     # ... and in on the section for the slip (disc hub, damper springs, facings)
-    (54.0, (0.0, -0.335, 0.41), -104.0, 0.37, 0.07, 45.0, 8.0, "cubic"),
-    (59.6, (0.0, -0.335, 0.41), -101.0, 0.36, 0.07, 45.0, 8.0, "cubic"),
+    # face-on to the cut plane: the transform motion blur of the sectioned parts moves the
+    # cut faces along the view axis only, so they stay crisp while the far halves blur
+    (54.0, (0.0, -0.322, 0.435), -92.0, 0.56, 0.0, 70.0, 8.0, "cubic"),
+    (59.6, (0.0, -0.322, 0.435), -91.0, 0.55, 0.0, 70.0, 8.0, "cubic"),
     # locks: ease back
-    (DUR, (0.0, -0.35, 0.40), -100.0, 0.52, 0.10, 45.0, 6.3, "cubic"),
+    (DUR, (0.0, -0.335, 0.42), -94.0, 0.70, 0.03, 60.0, 6.3, "cubic"),
 ]
 CUTS = [T_CUT]
 CAM_SMOOTH = 0.3
@@ -492,7 +495,9 @@ def build(quality: str) -> scenebase.SceneBuild:
         return 1.0 - _ease_window(t, t0, t0 + ASM_DUR)
     ex = {"flywheel": ex_part(0), "disc": ex_part(1), "pressure_plate": ex_part(2), "diaphragm_spring": ex_part(3),
           "cover": ex_part(4), "release_bearing": ex_part(5), "shaft": ex_part(5)}
-    housing = _ease_window(t, *HOUSING_IN)
+    # bellhousing: fades in after the assembly; ghosted (its slave-mount patch would sit in
+    # front of the subject) for the face-on take-off close-up
+    housing = _ease_window(t, *HOUSING_IN) * (1.0 - 0.75 * _ease_window(t, *HYD_GHOST))
     section_on = (t >= SWEEP[0] - 0.05).astype(float)
     hyd = _ease_window(t, *HYD_IN)
     pulse = np.where((t >= PULSE[0] - 0.3) & (t <= PULSE[1] + 0.4),
@@ -532,7 +537,9 @@ def build(quality: str) -> scenebase.SceneBuild:
 
     # hydraulics / pedal box / firewall: only for the release + take-off
     hyd_objs = [C.parts[k] for k in HYDRAULICS] + [C.parts[k] for k in C.meta["hydraulic_segments"]]
-    _fade(hyd_objs, fr, hyd)
+    # the slave hose and pedal box would cross the face-on take-off close-up: ghost them
+    hyd_close = 1.0 - 0.88 * _ease_window(t, *HYD_GHOST)
+    _fade(hyd_objs, fr, hyd * hyd_close)
     if quality == "preview":
         firewall.hide_render = True
     else:
