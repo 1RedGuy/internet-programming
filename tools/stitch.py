@@ -7,6 +7,7 @@ each scene video unless --final-only.
 
     python3 tools/stitch.py                  # quality 'final'
     python3 tools/stitch.py --quality draft --every 4   # quick full-length check
+    python3 tools/stitch.py --hq             # + video/final_hq.mp4 (CRF 18 master, not size-capped)
 
 Size: GitHub refuses files > 100 MB, so by default final.mp4 is encoded with a
 2-pass target bitrate that keeps it under ~95 MB; --crf N uses constant quality
@@ -39,6 +40,7 @@ def main():
     ap.add_argument("--crf", type=int, default=None)
     ap.add_argument("--max-mb", type=float, default=95.0)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--hq", action="store_true", help="also write video/final_hq.mp4 (CRF 18, no size cap)")
     a = ap.parse_args()
     items = frame_list(a.quality, a.every)
     missing = [i for i in items if not os.path.exists(i[2])]
@@ -59,25 +61,32 @@ def main():
     base = ["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst]
     # concat repeats the last file (so its duration is honoured): cap the frame count exactly
     vf = ["-vf", f"fps={S.FPS},format=yuv420p", "-frames:v", str(len(items) * a.every)]
-    tmp = out + ".tmp.mp4"
+    subs = ["-c:s", "mov_text", "-metadata:s:s:0", "language=eng"]
+
+    def crf_encode(path, crf):
+        tmp = path + ".tmp.mp4"
+        subprocess.run(base + ["-i", srt] + vf + ["-c:v", "libx264", "-preset", "slow", "-crf", str(crf),
+                                                  "-profile:v", "high"] + subs + ["-movflags", "+faststart", tmp],
+                       check=True)
+        os.replace(tmp, path)
+        print(f"wrote {path} ({os.path.getsize(path) / 1e6:.1f} MB, CRF {crf}, {len(items)} frames)")
+
+    if a.hq:   # full-quality master (not committed: > 100 MB)
+        crf_encode(os.path.join(vdir, "final_hq.mp4"), 18)
     if a.crf is not None:
-        cmd = base + ["-i", srt] + vf + ["-c:v", "libx264", "-preset", "slow", "-crf", str(a.crf),
-                                          "-profile:v", "high", "-c:s", "mov_text",
-                                          "-metadata:s:s:0", "language=eng", "-movflags", "+faststart", tmp]
-        subprocess.run(cmd, check=True)
-    else:
-        kbps = int(a.max_mb * 8 * 1024 / total * 0.97)
-        print(f"2-pass at {kbps} kb/s for {total:.1f} s")
+        crf_encode(out, a.crf)
+    else:      # 2-pass to a size GitHub accepts
+        kbps = int(a.max_mb * 8000 / total * 0.96)
+        print(f"2-pass at {kbps} kb/s for {total:.1f} s (<= {a.max_mb:.0f} MB)")
         log = os.path.join(ROOT, "out", "x264pass")
+        tmp = out + ".tmp.mp4"
         subprocess.run(base + vf + ["-c:v", "libx264", "-preset", "slow", "-b:v", f"{kbps}k", "-pass", "1",
                                     "-passlogfile", log, "-an", "-f", "mp4", os.devnull], check=True)
         subprocess.run(base + ["-i", srt] + vf + ["-c:v", "libx264", "-preset", "slow", "-b:v", f"{kbps}k",
-                                                  "-pass", "2", "-passlogfile", log, "-profile:v", "high",
-                                                  "-c:s", "mov_text", "-metadata:s:s:0", "language=eng",
-                                                  "-movflags", "+faststart", tmp], check=True)
-    os.replace(tmp, out)
-    size = os.path.getsize(out) / 1e6
-    print(f"wrote {out} ({size:.1f} MB, {len(items)} frames)")
+                                                  "-pass", "2", "-passlogfile", log, "-profile:v", "high"]
+                       + subs + ["-movflags", "+faststart", tmp], check=True)
+        os.replace(tmp, out)
+        print(f"wrote {out} ({os.path.getsize(out) / 1e6:.1f} MB, {len(items)} frames)")
 
 
 if __name__ == "__main__":

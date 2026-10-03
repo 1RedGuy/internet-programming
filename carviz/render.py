@@ -169,10 +169,27 @@ def write_meta(sb, sc, d, frames):
     print(f"[meta] labels/hud written in {time.time() - t0:.1f}s")
 
 
+def png_size(path):
+    """(width, height) from a PNG header, or None if missing/unreadable."""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(24)
+    except OSError:
+        return None
+    if len(head) < 24 or head[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+
+
 def render_frames(sc, d, frames, log_every=10):
     raw = os.path.join(d, "raw")
-    todo = [f for f in frames if not (os.path.exists(os.path.join(raw, f"{f:05d}.png"))
-                                      and os.path.getsize(os.path.join(raw, f"{f:05d}.png")) > 0)]
+    res = (sc.render.resolution_x, sc.render.resolution_y)
+    # an existing frame counts as done only at the current resolution (e.g. 720p leftovers
+    # from an earlier preset are re-rendered, never mixed into a 1080p sequence)
+    todo = [f for f in frames if png_size(os.path.join(raw, f"{f:05d}.png")) != res]
+    stale = sum(1 for f in frames if png_size(os.path.join(raw, f"{f:05d}.png")) not in (None, res))
+    if stale:
+        print(f"[render] {stale} existing frames are not {res[0]}x{res[1]}: re-rendering them", flush=True)
     print(f"[render] {len(frames) - len(todo)} of {len(frames)} frames exist, rendering {len(todo)}", flush=True)
     t_start = time.time()
     for k, f in enumerate(todo):
@@ -211,8 +228,12 @@ def overlay(d, frames, workers=2, overwrite=False):
         ov.compose_sequence(raw, comp, lp, hp, frames=todo, workers=workers, overwrite=True)
 
 
-def encode(scene_id, quality, d, frames, every=1, crf=18, suffix=""):
-    """H.264 MP4 from comp/ frames (contiguous or every-N subset)."""
+MAX_VIDEO_MB = 95.0   # GitHub refuses files > 100 MB: re-encode 2-pass to fit when CRF overshoots
+
+
+def encode(scene_id, quality, d, frames, every=1, crf=18, suffix="", max_mb=MAX_VIDEO_MB):
+    """H.264 MP4 from comp/ frames (contiguous or every-N subset).  Constant quality
+    (CRF); if the file exceeds max_mb, a 2-pass encode at the matching bitrate replaces it."""
     vdir = os.path.join(ROOT, "video")
     os.makedirs(vdir, exist_ok=True)
     comp = os.path.join(d, "comp")
@@ -228,10 +249,19 @@ def encode(scene_id, quality, d, frames, every=1, crf=18, suffix=""):
             fh.write(f"file '{os.path.join(comp, f'{f:05d}.png')}'\nduration {dur:.6f}\n")
         fh.write(f"file '{os.path.join(comp, f'{frames[-1]:05d}.png')}'\n")
     tmp = out + ".tmp.mp4"
-    cmd = ["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst,
-           "-vf", f"fps={S.FPS},format=yuv420p", "-frames:v", str(len(frames) * every), "-c:v", "libx264", "-preset", "slow", "-crf", str(crf),
-           "-profile:v", "high", "-movflags", "+faststart", tmp]
-    subprocess.run(cmd, check=True)
+    nfr = len(frames) * every
+    base = ["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst,
+            "-vf", f"fps={S.FPS},format=yuv420p", "-frames:v", str(nfr), "-c:v", "libx264", "-preset", "slow"]
+    tail = ["-profile:v", "high", "-movflags", "+faststart", tmp]
+    subprocess.run(base + ["-crf", str(crf)] + tail, check=True)
+    mb = os.path.getsize(tmp) / 1e6
+    if max_mb and mb > max_mb:
+        kbps = int(max_mb * 8000 / (nfr / S.FPS) * 0.96)
+        print(f"[encode] CRF {crf} gave {mb:.0f} MB > {max_mb:.0f} MB: 2-pass at {kbps} kb/s", flush=True)
+        log = os.path.join(d, "x264pass")
+        subprocess.run(base + ["-b:v", f"{kbps}k", "-pass", "1", "-passlogfile", log, "-an", "-f", "mp4",
+                               os.devnull], check=True)
+        subprocess.run(base + ["-b:v", f"{kbps}k", "-pass", "2", "-passlogfile", log] + tail, check=True)
     os.replace(tmp, out)
     print(f"[encode] {out}")
     return out
