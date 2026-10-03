@@ -58,6 +58,7 @@ def transverse_pivot(name, loc=(0, 0, 0), parent=None, col=None):
 
 def parent_keep(child, parent):
     """Parent without moving the child in world space."""
+    bpy.context.view_layer.update()      # a just-created parent has no evaluated matrix yet
     mw = child.matrix_world.copy()
     child.parent = parent
     child.matrix_parent_inverse = parent.matrix_world.inverted()
