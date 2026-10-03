@@ -926,9 +926,9 @@ def _slowmo_text(factor):
     if f < 9.95:
         s = f"{f:.1f}".rstrip("0").rstrip(".")
     elif f < 100:
-        s = str(int(round(f)))
+        s = str(int(f + 0.5))
     else:
-        s = str(int(round(f / 10.0) * 10))
+        s = str(int(f / 10.0 + 0.5) * 10)   # round half up (x125 -> x130, not banker's x120)
     return s
 
 

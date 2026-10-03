@@ -294,8 +294,11 @@ POSES = [
     # --- 5th: whole train from the left-rear
     (T_5TH, (0.0, -0.70, 0.34), -79.0, 1.10, 0.14, 50.0, 6.3),
     (T_REV - 0.01, (0.0, -0.70, 0.34), -83.0, 1.06, 0.14, 50.0, 6.3),
-    # --- reverse: +X side (the idler is on +X), housings removed
-    (T_REV, (0.02, -0.86, 0.34), 95.0, 0.86, 0.05, 50.0, 7.1),
+    # --- reverse: +X side (the idler is on +X), housings removed; close on the reverse train,
+    #     then back to include the output shaft + flange turning backwards
+    (T_REV, (0.02, -0.75, 0.32), 97.0, 0.64, 0.06, 50.0, 7.1),
+    (86.4, (0.02, -0.75, 0.32), 95.0, 0.63, 0.06, 50.0, 7.1),
+    (88.2, (0.02, -0.86, 0.34), 92.0, 0.86, 0.05, 50.0, 7.1),
     (DUR, (0.02, -0.86, 0.34), 90.0, 0.83, 0.05, 50.0, 7.1),
 ]
 KEY_OFFSET = 50.0           # key light azimuth relative to the camera (deg)

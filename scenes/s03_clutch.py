@@ -31,12 +31,9 @@ import math
 
 import bpy
 import numpy as np
-from mathutils import Vector
 
 from carviz import camera as CAM
 from carviz import kin, lighting, rig, scenebase, state, timeline
-from carviz import materials as MAT
-from carviz import meshutil as MU
 from carviz import spec as S
 from carviz.assemblies import body as BODY
 from carviz.assemblies import clutch as CL
@@ -528,12 +525,10 @@ def build(quality: str) -> scenebase.SceneBuild:
     sweep = _ease_window(t, *SWEEP)
     cut_x = -0.175 * (1.0 - sweep)
     rig.bake_channel(cutter, "location", 0, fr, cut_x)
-    fly_mods = []
     for k in ("flywheel", "ring_gear"):
         ob = E.parts[k]
         _add_section(ob, cutter)
         _bake_mod_toggle(ob, "s03_section", fr, section_on)
-        fly_mods.append(ob)
 
     # hydraulics / pedal box / firewall: only for the release + take-off
     hyd_objs = [C.parts[k] for k in HYDRAULICS] + [C.parts[k] for k in C.meta["hydraulic_segments"]]
@@ -593,7 +588,6 @@ def build(quality: str) -> scenebase.SceneBuild:
 
     # ---------------- validation ----------------------------------------
     th_e, th_in = track.theta_e, track.theta_in
-    slow = track.slowmo
 
     def ring_pts(i):
         ang = np.linspace(0, TAU, 48, endpoint=False)
@@ -624,7 +618,6 @@ def build(quality: str) -> scenebase.SceneBuild:
     def mask(vis, ang, pitch):
         return vis & ~blurred(ang, pitch)
 
-    allv = np.ones(n, bool)
     blur_on = shut >= 0.9           # long-shutter take-off frames (relaxed, brief section 3)
     gear_ang = track.gb("input_gear")
     alias = {

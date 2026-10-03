@@ -10,29 +10,30 @@ sits exactly at its Track pose).
 Picture (beats from carviz.timeline; every glow/label time is a narration word time):
   car     0-7    opaque car, 3/4 front-left, slow orbit at eye height (1.30 m, 50 mm);
                  fade up from black, title card 0.6-5.6 s.
-  inside  7-14   the orbit flows into an inward spiral toward the front-left door window
-                 (50 -> 26 mm) while the paint fades to an x-ray shell (exterior 1 -> 0.15
+  inside  7-14   the orbit flows into a push-in that comes round to the car's left side,
+                 toward the front-left door window (50 -> 26 mm), while the paint fades to an x-ray shell (exterior 1 -> 0.15
                  from 8 to 12 s, black trim and lamps to half that, mirrors to a quarter;
                  glass, the cabin (seats, dash, wheel, headliner, door cards, pedal boxes)
-                 and the floor/tunnel/firewall -> 0; feature lines fade in).  At 12.6 s the
+                 and the floor/tunnel/firewall -> 0; feature lines fade in).  At 13.3 s the
                  camera passes INTO the car through the front-left side-window opening (the
                  glass is gone by 10.8 s, so crossing that plane shows no veil pop) and ends
                  near the driver's head, looking forward/down at the engine and clutch
                  through the faded dash and firewall.
-  path    14-29  the camera travels rearward INSIDE the cabin (z 1.13 -> 1.27 m, at least
-                 0.13 m below the roof): forward/down at the engine, down the tunnel at the
-                 gearbox and propeller shaft, then over the rear seat down at the
-                 differential, driveshafts and rear wheels (26 -> 22 mm).  Each stage glows
+  path    14-29  the camera travels rearward INSIDE the cabin (z 1.13 -> 1.25 m, x -0.5 ->
+                 -0.1): forward/down at the engine, down the tunnel at the gearbox and
+                 propeller shaft, then over the rear seat down at the differential,
+                 driveshafts and both rear wheels (28 -> 21 mm).  Each stage glows
                  (warm pulse, then a dimmer steady glow) and gets its label at its spoken
                  word: Engine, Clutch, Gearbox, Propeller shaft, Differential, Driveshafts,
                  Rear wheels.
   follow  29-32  body and chassis fade to 0 over 29.0-30.1 s (only the engine + flywheel
                  stay, the hand-off to s02); the camera turns forward and, once the shell is
-                 gone (hidden from 29.9 s), flies out through the invisible dash/windscreen
-                 to a close 3/4 front-left view of the engine; the glow dies away and the
-                 picture fades to black over the last 0.4 s.
-  The camera never crosses a visible surface except the window opening, and keeps >= 0.13 m
-  from every visible surface while inside (checked numerically during development).
+                 gone (hidden from 29.9 s), flies forward and out through the invisible
+                 dash/windscreen to a close, high 3/4 rear-left view of the engine (flywheel
+                 side); the glow dies away and the picture fades to black over the last 0.4 s.
+  The camera never crosses a visible surface (the window opening is the only way in), and
+  keeps >= 0.14 m from every visible surface (window frame at the crossing; >= 0.16 m inside
+  the cabin) - checked numerically (BVH nearest-surface + segment ray casts) per frame.
 
 Power-path glow: each stage uses the assembly's meta['power_path'] / ['power_groups'] parts
 (Car.power_path()); because the engine, clutch, gearbox and differential internals are inside
@@ -118,7 +119,7 @@ GLOW_HOLD = 0.04
 GLOW_RISE = 0.30
 GLOW_DECAY = 1.6
 # per-material scale: emission over near-black rubber reads far stronger than over metal
-GLOW_SCALE = {"tire_rubber": 0.40, "rubber": 0.55, "rim_alloy": 0.8}
+GLOW_SCALE = {"tire_rubber": 0.30, "rubber": 0.55, "rim_alloy": 0.8}
 # after the last word: one ripple of light runs engine -> wheels (stage k peaks at
 # SWEEP_T0 + k * SWEEP_DT), the power path read as a whole before the dive
 SWEEP_T0 = 28.45
@@ -181,8 +182,8 @@ APPROACH = [
 # inside the cabin, left of the tunnel (x ~ -0.5: >= 0.19 m from the side glass, >= 0.17 m
 # below the roof): (t, eye, look-at); the look-at glides along the drivetrain
 INSIDE = [
-    (14.6, (-0.48, -1.62, 1.13), (0.0, -0.22, 0.53)),
-    (15.9, (-0.47, -1.66, 1.14), (0.0, -0.16, 0.55)),      # engine (15.96)
+    (14.6, (-0.48, -1.56, 1.13), (0.0, -0.22, 0.53)),
+    (15.9, (-0.47, -1.52, 1.14), (0.0, -0.14, 0.56)),      # engine (15.96)
     (17.6, (-0.48, -1.74, 1.15), (0.0, -0.42, 0.48)),      # clutch (18.11)
     (19.0, (-0.49, -1.84, 1.16), (0.02, -0.80, 0.43)),     # gearbox (18.96)
     (20.4, (-0.50, -1.96, 1.17), (0.04, -1.45, 0.37)),     # propeller shaft (20.25)
@@ -214,7 +215,7 @@ def camera_keys():
     return keys
 
 
-LENS_KEYS = [(0.0, 50.0), (8.5, 50.0), (12.8, 26.0), (19.0, 26.0), (21.9, 22.0), (24.5, 21.0),
+LENS_KEYS = [(0.0, 50.0), (8.5, 50.0), (12.8, 26.0), (14.6, 26.0), (16.2, 28.0), (17.6, 26.0), (21.9, 22.0), (24.5, 21.0),
              (28.2, 21.0), (30.2, 24.0), (31.96, 32.0)]
 FSTOP_KEYS = [(0.0, 5.6), (8.0, 5.6), (13.0, 6.3), (31.96, 6.3)]
 
