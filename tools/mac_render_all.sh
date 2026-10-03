@@ -86,7 +86,9 @@ T0=$(date +%s)
 # ---- check + stitch --------------------------------------------------------------------
 MISSING=""
 for s in s01 s02 s03 s04 s05 s06 s07 s08; do
-  [ -s "video/${s}_final.mp4" ] || MISSING="$MISSING $s"
+  RES=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0:s=x \
+        "video/${s}_final.mp4" 2>/dev/null || true)
+  [ "$RES" = "1920x1080" ] || MISSING="$MISSING $s"
 done
 if [ -n "$MISSING" ]; then
   echo "Scenes not finished:$MISSING - run tools/mac_render_all.sh again to resume (see out/render_finals logs)."
