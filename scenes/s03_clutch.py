@@ -690,7 +690,10 @@ def build(quality: str) -> scenebase.SceneBuild:
     H.add("fade", DUR - 0.6, DUR + 1.0, fade=0.0, color="black",
           alpha=lambda i: float(min(1.0, max(0.0, (t[i] - (DUR - 0.55)) / 0.5))))
     H.add("section_title", 0.4, 4.4, number=3, title="The clutch")
-    H.add("slowmo", 0.5, DUR, factor=lambda i: float(track.slowmo[i]))
+    # commanded rate at the frame time (track.slowmo holds the last sub-step's value, which is
+    # one frame late at the x56 -> x8 cut)
+    slow_now = P.slowmo(t)
+    H.add("slowmo", 0.5, DUR, factor=lambda i: float(slow_now[i]))
     t_hud = bstart("engaged")
     H.add("status", t_hud, DUR, text=lambda i: str(track.status[i]))
     H.add("gear", t_hud, DUR, value=lambda i: str(track.gear[i]))
