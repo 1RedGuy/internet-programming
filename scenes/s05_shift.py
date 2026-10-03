@@ -453,7 +453,10 @@ def build(quality: str) -> scenebase.SceneBuild:
     L.add("cone_s", "Cone", an["cone2"], wt("sync", "cone"), 22.9, offset=(-0.12, 0.08), occlusion=False)
     L.add("g2_s", "2nd gear", an["g2"], wt("sync", "second"), 22.9, offset=(-0.07, -0.08), ignore=(cutter,))
     L.add("cs", "Countershaft", an["cs"], wt("sync", "countershaft"), 28.9, offset=(0.08, 0.0), occlusion=False)
-    L.add("input", "Input shaft", an["input"], wt("sync", "input"), 28.9, offset=(0.05, 0.10), occlusion=False)
+    # the input gear enters frame only at ~26.3 s, through the top-left corner, and its anchor passes under
+    # the readouts panel until ~26.8 s: start the label once the plate is clear of the panel
+    L.add("input", "Input shaft", an["input"], max(wt("sync", "input"), 26.85), 28.9, offset=(0.05, 0.10),
+          occlusion=False)
     L.add("output", "Output shaft", an["output"], wt("sync", "output"), 31.6, offset=(0.04, 0.12),
           occlusion=False)
     L.add("blocker_e", "Blocker ring", an["blocker2"], wt("engage", "blocker"), 37.2, offset=(-0.12, -0.05),
@@ -481,14 +484,23 @@ def build(quality: str) -> scenebase.SceneBuild:
                 ["2nd gear", f"{fmt_rpm(rpm_g2[i])} rpm", hi2],
                 ["Output shaft", f"{fmt_rpm(rpm_out[i])} rpm", hio]]
     H.add("readouts", 0.8, DUR, rows=rows)
-    steps = [("clutch_in", 1, "Clutch in"), ("neutral", 2, "Out of first"), ("sync", 3, "Synchronise"),
+    steps = [("clutch_in", 1, "Clutch in"), ("neutral", 2, "Out of first"), ("sync", 3, "Synchronize"),
              ("engage", 4, "Engage second"), ("clutch_out", 5, "Clutch out")]
     for b, k, text in steps:
         H.add("step_card", bstart(b) + 0.1, bend(b) - 0.05 if b != "clutch_out" else DUR, fade=0.3,
               number=k, text=text, total=5)
     H.add("slowmo", 0.8, DUR, factor=lambda i: int(round(1.0 / track.slowmo[i])))
-    status = np.asarray(track.status)
-    H.add("status", 0.8, DUR, text=lambda i: "SYNCHRONIZING" if syncing[i] else str(status[i]))
+    status = np.asarray(track.status).copy()
+    # a status that lasts one frame reads as a flicker, not information (frame 200: SLIPPING for 42 ms
+    # between ENGAGED and DISENGAGED as the pedal goes down, capacity 2.7%): show the next state instead
+    for k in range(1, len(status) - 1):
+        if status[k] != status[k - 1] and status[k] != status[k + 1]:
+            status[k] = status[k + 1]
+    # while the cone works: SYNCHRONIZING; once the speeds match (narration "Four: speeds matched") and
+    # until the sleeve is through the blocker: SPEEDS MATCHED (green)
+    H.add("status", 0.8, DUR,
+          text=lambda i: ("SPEEDS MATCHED" if matched[i] else "SYNCHRONIZING") if syncing[i] else str(status[i]),
+          kind=lambda i: "ok" if (syncing[i] and matched[i]) else None)
     H.add("speed", 0.8, DUR, value_kmh=lambda i: round(float(track.v_kmh[i]), 2))
     H.add("gear", 0.8, DUR, value=lambda i: str(gear[i]))
     H.add("pedal", 0.8, DUR, value=lambda i: round(float(track.pedal[i]), 4))

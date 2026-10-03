@@ -499,7 +499,10 @@ def build(quality: str) -> scenebase.SceneBuild:
               style="dim", occlusion=False)
     L.add("piston", "Piston", (E.parts["piston2"], (-0.03, 0.0, 0.012)), t_pis, wt("crank", "crankshaft") - 0.3,
           offset=(-0.06, -0.10))
-    L.add("conrod", "Connecting rod", (E.parts["conrod4"], (0.0, 0.0, 0.42 * S.CONROD_LENGTH)), t_rod,
+    # 0.79 L up the shank, just below the piston skirt: the only part of rod 4 that stays in view for the
+    # whole label (from ~12 s throw 4's counterweight hides the lower shank; 0.81 L+ is behind the skirt
+    # at 8.3 s); it also keeps the plate well clear of the rpm dial
+    L.add("conrod", "Connecting rod", (E.parts["conrod4"], (0.0, 0.0, 0.79 * S.CONROD_LENGTH)), t_rod,
           bend("crank") - 0.2, offset=(0.08, -0.04), occlusion=False)
     L.add("crankshaft", "Crankshaft", E.anchors["crankshaft"], t_crank, bend("crank") - 0.2, offset=(-0.07, 0.08))
     # strokes (cylinder 1 cross-section, seen from the front: intake side on the right)
@@ -519,13 +522,17 @@ def build(quality: str) -> scenebase.SceneBuild:
     L.add("cam_ex", "Exhaust camshaft", E.anchors["cam_exhaust"], t_cams + 0.6, t_cs - 0.2, offset=(-0.09, -0.05),
           ignore=pieces("cam_exhaust__cyl1_kept", "cam_exhaust__cyl1_removed"))
     t_vend = VARIANT_STEPS[3][1] - 0.15
-    L.add("chain", "Timing chain", (E.root, (ENG.X_CAM + 0.045, E.meta["y"]["chain"], 0.5 * ENG.Z_CAM)), t_chain,
+    # on the chain's exhaust-side run (x 0.072-0.083 at this height), not outboard of its tensioner shoe
+    L.add("chain", "Timing chain", (E.root, (ENG.X_CAM + 0.0095, E.meta["y"]["chain"], 0.5 * ENG.Z_CAM)), t_chain,
           t_vend, offset=(-0.09, 0.0), occlusion=False)
-    L.add("crank_spr", "Crank sprocket 21T", (E.root, (-0.026, E.meta["y"]["chain"] + 0.004, 0.0)), t_cs, t_vend,
-          offset=(0.09, 0.0),
-          occlusion=False)
-    L.add("cam_spr", "Cam sprocket 42T", E.anchors["cam_sprocket"], t_half, t_vend, offset=(0.09, -0.04),
-          occlusion=False)
+    # from "half" (with the 42T label): while "crankshaft" is spoken the camera is still descending and the
+    # crank sprocket sits in the bottom-centre subtitle band (anchor > 0.82 H until ~55.6 s)
+    L.add("crank_spr", "Crank sprocket 21T", (E.root, (-0.026, E.meta["y"]["chain"] + 0.004, 0.0)), t_half + 0.35,
+          t_vend, offset=(0.09, 0.0), occlusion=False)
+    # on the sprocket web between the lightening holes (r <= 48.9 mm) and the chain wrap (the pitch circle,
+    # 63.7 mm, where E.anchors["cam_sprocket"] sits, is covered by the chain)
+    L.add("cam_spr", "Cam sprocket 42T", (E.root, (-ENG.X_CAM, E.meta["y"]["chain"], ENG.Z_CAM + 0.054)), t_half,
+          t_vend, offset=(0.09, -0.04), occlusion=False)
     # firing: cylinder numbers again
     for c in range(1, 5):
         L.add(f"fcyl{c}", str(c), (E.root, (0.0, S.Y_CYL[c - 1], ENG.Z_APEX + 0.02)), T_FIRING + 1.0,

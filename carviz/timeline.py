@@ -94,17 +94,21 @@ SCENES = [
              "'How a Manual Car Works' fades in and out. Car parked, engine off: drivetrain static."),
         Beat("inside", 7.0,
              "Let's look inside, at the parts that turn burning fuel into turning wheels.",
-             "Camera pushes in over the front wing. Body fades from opaque to a faint x-ray shell; the "
-             "camera passes through the bodywork and the whole drivetrain is revealed."),
+             "Push-in that comes round to the car's left side while the body fades from opaque to a faint "
+             "x-ray shell (glass, cabin and floor fade away); at 13.3 s the camera enters through the faded "
+             "front-left door-window opening and the whole drivetrain is revealed."),
         Beat("path", 15.0,
              "Power starts in the engine. It flows through the clutch and gearbox, along the propeller "
              "shaft to the differential at the rear axle, and out through two driveshafts to the wheels.",
-             "High 3/4 view travelling front to rear along the drivetrain. A warm glow sweeps the power "
-             "path, each part lighting and getting its label as it is named: Engine, Clutch, Gearbox, "
-             "Propeller shaft, Differential, Driveshafts, Rear wheels."),
+             "Camera travels rearward inside the cabin at head height, looking down at the engine, along "
+             "the tunnel at the gearbox and propeller shaft, then over the rear seat at the differential, "
+             "driveshafts and both rear wheels. Each part lights with a warm glow and gets its label as it "
+             "is named: Engine, Clutch, Gearbox, Propeller shaft, Differential, Driveshafts, Rear wheels."),
         Beat("follow", 3.0,
              "Let's follow it.",
-             "Camera dives toward the engine; body and chassis fade away; hand-off to the engine scene."),
+             "Wheels and suspension fade first, then the body and the rest of the chassis; the camera turns "
+             "forward along the drivetrain to the engine and flies out through the vanished dash to a high "
+             "3/4 rear-left view of it; fade to black; hand-off to the engine scene."),
     ]),
     Scene("s02", "The engine", summary="Inline-4, four-stroke cycle, valvetrain, firing order, flywheel.", beats=[
         Beat("inline4", 8.0,

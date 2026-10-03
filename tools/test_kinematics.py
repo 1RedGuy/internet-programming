@@ -162,6 +162,9 @@ def main():
     check(abs(T.rpm_gear_2[i] - T.rpm_out[i]) < 0.5, "2nd gear synchronised to the output shaft before the dogs meet")
     i = T.idx(22.0)
     check(T.syncing_12[i] > 0 and abs(T.blocker_12[i]) > 0, "blocker ring indexed (blocking) while speeds differ")
+    slip = T.rpm_gear_2[i] - T.rpm_out[i]
+    check(slip * T.blocker_12[i] > 0, f"blocker ring indexed the way 2nd gear slips relative to the hub "
+          f"(gear {slip:+.0f} rpm vs hub -> ring {math.degrees(T.blocker_12[i]):+.2f} deg, SYN-03)")
 
     if FAILS:
         print(f"\n{len(FAILS)} FAILURES")

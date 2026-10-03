@@ -12,7 +12,8 @@ Picture (beats from carviz.timeline; every glow/label time is a narration word t
                  fade up from black, title card 0.6-5.6 s.
   inside  7-14   the orbit flows into a push-in that comes round to the car's left side,
                  toward the front-left door window (50 -> 26 mm), while the paint fades to an x-ray shell (exterior 1 -> 0.15
-                 from 8 to 12 s, black trim and lamps to half that, mirrors to a quarter;
+                 from 8 to 12 s, black trim and lamps to half that until the camera is inside,
+                 then 0 over 13.4-14.0 s, mirrors to a quarter;
                  glass, the cabin (seats, dash, wheel, headliner, door cards, pedal boxes)
                  and the floor/tunnel/firewall -> 0; feature lines fade in).  At 13.3 s the
                  camera passes INTO the car through the front-left side-window opening (the
@@ -26,8 +27,10 @@ Picture (beats from carviz.timeline; every glow/label time is a narration word t
                  (warm pulse, then a dimmer steady glow) and gets its label at its spoken
                  word: Engine, Clutch, Gearbox, Propeller shaft, Differential, Driveshafts,
                  Rear wheels.
-  follow  29-32  body and chassis fade to 0 over 29.0-30.1 s (only the engine + flywheel
-                 stay, the hand-off to s02); the camera turns forward and, once the shell is
+  follow  29-32  body and chassis fade to 0 over 29.0-30.1 s, the wheels, suspension and
+                 driveshafts a little earlier (28.9-29.6 s) (only the engine + flywheel
+                 stay, the hand-off to s02); the camera turns forward, the look-at leading
+                 along the drivetrain so the engine is framed by ~30.0 s, and, once the shell is
                  gone (hidden from 29.9 s), flies forward and out through the invisible
                  dash/windscreen to a close, high 3/4 rear-left view of the engine (flywheel
                  side); the glow dies away and the picture fades to black over the last 0.4 s.
@@ -108,8 +111,10 @@ EDGES_FADE = (9.2, 12.4)                      # x-ray feature lines 0 -> EDGES
 EDGES = 0.55
 TRIM_REL = 0.5                                # trim + lamps ghost at X_RAY * TRIM_REL
 MIRROR_REL = 0.25                             # door mirrors ghost at X_RAY * MIRROR_REL
+TRIM_OUT = (13.4, 14.0)                       # trim + lamps -> 0 once the camera is inside
 # follow beat: everything but the engine fades away
 OUT_FADE = (29.0, 30.1)
+WHEELS_OUT = (28.9, 29.6)                     # wheels/suspension/driveshafts go first (cut ~29.48 s)
 GLOW_OUT = (29.2, 31.2)
 BLACK = (T_LAST - 0.4, T_LAST)                # fade to black ends exactly on the last frame
 
@@ -193,11 +198,13 @@ INSIDE = [
     (27.5, (-0.10, -2.11, 1.25), (-0.05, -2.62, 0.33)),    # wheels (27.11): both in view
 ]
 # follow: the look-at runs back along the drivetrain to the engine while the body fades;
-# once the shell is hidden (29.9 s) the camera leaves through the dash/windscreen
+# once the shell is hidden (29.9 s) the camera leaves through the dash/windscreen.  The
+# look-at leads the eye forward so the engine is in frame by ~30.0 s (not empty floor);
+# the 29.5 / 30.6 s targets are paired so the natural spline before 28.4 s is unchanged.
 FOLLOW = [
     (28.4, (-0.40, -2.08, 1.21), (0.02, -2.55, 0.34)),    # slide left, still on the axle
-    (29.5, (-0.47, -1.95, 1.17), (0.03, -1.80, 0.37)),    # look-at passes beside, not below
-    (30.6, (-0.52, -1.45, 1.15), (0.0, -0.65, 0.48)),
+    (29.5, (-0.47, -1.95, 1.17), (0.03, -1.70, 0.38)),    # look-at passes beside, not below
+    (30.6, (-0.52, -1.45, 1.15), (0.0, -0.35, 0.51)),
     (31.3, (-0.66, -1.00, 1.16), (0.0, -0.15, 0.55)),
     (31.96, (-0.83, -0.65, 1.20), (0.0, -0.07, 0.56)),    # 3/4 rear-left, high: hand-off
 ]
@@ -393,8 +400,11 @@ def build(quality: str) -> scenebase.SceneBuild:
     # would double the shell's veil from above: it leaves with the cabin
     rig.bake_fade([B.parts["cabin_trim"]], fr, cabin)
     # black plastic trim (grille / intake ducts, window surrounds) and the lamp internals
-    # (chrome bowls, reflectors) are many glossy layers: ghost them fainter than the paint
-    ext_trim = ramp(t, *EXT_FADE, 1.0, X_RAY * TRIM_REL) * ramp(t, *OUT_FADE, 1.0, 0.0)
+    # (chrome bowls, reflectors) are many glossy layers: ghost them fainter than the paint,
+    # and drop them once the camera is inside (seen from the cabin, the stacked cowl / wiper /
+    # headlamp ghosts made a dark mottled band along the top of the frame)
+    ext_trim = (ramp(t, *EXT_FADE, 1.0, X_RAY * TRIM_REL) * ramp(t, *OUT_FADE, 1.0, 0.0)
+                * ramp(t, *TRIM_OUT, 1.0, 0.0))
     rig.bake_fade([B.parts["trim"], B.parts["lights_front"], B.parts["lights_rear"]], fr, ext_trim)
     # the left door mirror sits between the travelling camera and the engine/gearbox (a large
     # out-of-focus ghost): mirrors ghost fainter still
@@ -403,13 +413,16 @@ def build(quality: str) -> scenebase.SceneBuild:
     # the clutch pedal box is in the footwell: it leaves with the body's pedals
     pedal_objs = visible_meshes(objs_of(CL, CL.meta["groups"]["pedal_box"]))
     rig.bake_fade(pedal_objs, fr, cabin)
-    # follow: chassis (everything but the engine) fades away for the hand-off to s02
+    # follow: chassis (everything but the engine) fades away for the hand-off to s02; the
+    # wheels assembly goes first: the front wheels sit next to the engine, which the camera
+    # frames before the chassis cut (29.9 s)
     keep = set(pedal_objs)
+    wheels_out = ramp(t, *WHEELS_OUT, 1.0, 0.0)
     # (hidden below 8 %: a 2-5 % ghost of the black suspension/tyres renders as dark speckle
     #  at low sample counts while the camera moves)
     for asm in (CL, G, A, W):
         objs = [o for o in visible_meshes(asm.meshes()) if o not in keep]
-        rig.bake_fade(objs, fr, chassis, threshold=0.08)
+        rig.bake_fade(objs, fr, wheels_out if asm is W else chassis, threshold=0.08)
 
     # ---------------- power-path glow ------------------------------------------
     stages = dict(C.power_path())        # label -> objects (assembly meta power paths)

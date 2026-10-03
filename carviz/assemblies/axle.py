@@ -980,8 +980,10 @@ def _flange_outline(grow=0.012, n=48):
     xs, zs = xs[keep], zs[keep]
     top = list(zip(xs, zs))
     bot = list(zip(xs[::-1], -zs[::-1]))
-    left = [(xs[0] - zs[0] * 0.55 * math.sin(a), zs[0] * math.cos(a)) for a in np.linspace(0.0, math.pi, 9)[1:-1]]
-    right = [(xs[-1] + zs[-1] * 0.55 * math.sin(a), -zs[-1] * math.cos(a)) for a in np.linspace(0.0, math.pi, 9)[1:-1]]
+    # rounded ends traced in outline order (top -> right end downwards, bottom -> left end upwards);
+    # the reverse order made a self-intersecting bow-tie that rendered as a black triangle
+    left = [(xs[0] - zs[0] * 0.55 * math.sin(a), -zs[0] * math.cos(a)) for a in np.linspace(0.0, math.pi, 9)[1:-1]]
+    right = [(xs[-1] + zs[-1] * 0.55 * math.sin(a), zs[-1] * math.cos(a)) for a in np.linspace(0.0, math.pi, 9)[1:-1]]
     return np.array(top + right + bot + left)
 
 

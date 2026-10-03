@@ -520,7 +520,8 @@ def _integrate(P: Program) -> Track:
                 st["w_in"] = w_new
                 rel = st["w_in"] * k_g - w_out
                 ramp = min(1.0, (i + 1 - plan["i0"]) / max(1.0, 0.15 * (plan["i_rel"] - plan["i0"])))
-                direction = -1.0 if rel > 0 else 1.0
+                # cone friction drags the ring the way the gear slips relative to the hub (SYN-03)
+                direction = 1.0 if rel > 0 else -1.0
                 if abs(rel * RPM) < 0.5:
                     direction = plan.get("dir", direction)
                 plan["dir"] = direction

@@ -519,7 +519,9 @@ def build(quality: str) -> scenebase.SceneBuild:
         ("prop", "Propeller shaft", A.anchors["propshaft"], (0.0, 0.11)),
         ("final", "Final drive", at(AP["housing"], (0.0, -2.47, 0.395)), (-0.02, -0.12)),
         ("diff", "Differential", A.anchors["diff_housing"], (0.06, 0.10)),
-        ("shafts", "Driveshafts", W.anchors["driveshaft_left"], (0.0, 0.14)),
+        # the left shaft's middle is behind the near rear tyre from this camera: point at its inner
+        # joint, visible just below the differential (plate where it was with the mid-shaft anchor)
+        ("shafts", "Driveshafts", W.anchors["inner_joint_left"], (0.0, 0.175)),
     ]
     # rays to the clutch / driveshaft anchors pass the pedal box / rear suspension: those parts
     # belong to the named system, so they do not count as occluders

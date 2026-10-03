@@ -31,11 +31,13 @@ to the car), removing the rear (-Y) half.  The cutter plane sweeps in from behin
 rollers stay whole, as on a real cutaway.  Section faces get the section_cut material.
 
 The RR coil-over (between a camera behind the car and the outer joint) is faded out while
-the joints are shown.  The plunge is shown at true scale (no magnification) with a live
-"Plunge x.x mm" readout next to the diff-to-hub distance (tulip centre on the diff to the
-Rzeppa centre on the hub, sqrt(L^2 + s^2): 478.0 -> 481.7 mm at +-60 mm; the shaft between the
-joint centres is rigid, so the spider slides out p = L - sqrt(L^2 - s^2), 3.78 mm); the joint
-angle (max 7.2 deg) is read out too.
+the joints are shown.  The outer joint sits in the shadow of the wheel and tyre, so a soft
+fill light rides with the camera for that close-up only (it fades in and out during the
+camera moves; without it the section faces read near-black).  The plunge is shown at true
+scale (no magnification) with a live "Plunge x.x mm" readout next to the diff-to-hub
+distance (tulip centre on the diff to the Rzeppa centre on the hub, sqrt(L^2 + s^2):
+478.0 -> 481.7 mm at +-60 mm; the shaft between the joint centres is rigid, so the spider
+slides out p = L - sqrt(L^2 - s^2), 3.78 mm); the joint angle (max 7.2 deg) is read out too.
 """
 from __future__ import annotations
 
@@ -247,6 +249,10 @@ GAUGE_IN = (28.3, 28.9)           # plunge gauge ticks fade in / out
 GAUGE_OUT = (33.1, 33.6)
 GAUGE_Z = 0.0605                  # tick centre above the tulip axis (tulip OD 97 mm)
 GAUGE_SIZE = (0.0012, 0.0012, 0.013)             # motion-blur shutter (frames): slow motion / real time
+FILL_IN = (10.4, 12.2)            # camera-mounted fill for the outer-joint close-up: on during the push-in ...
+FILL_OUT = (26.2, 28.0)           # ... off during the move to the plunge shot
+FILL_IRR = 3.0                    # W/m^2 at the joint (lighting.py: ~3 = normal exposure)
+FILL_D = 0.38                     # m, camera to the Rzeppa centre in the close-up
 
 
 def _sweep(t, opn, cls):
@@ -414,6 +420,19 @@ def build(quality: str) -> scenebase.SceneBuild:
         CP.key(t[i], eye=tuple(eye[i]), target=tuple(tgt[i]), lens=float(lens[i]), fstop=float(fstop[i]),
                mode="linear")
     cam = CP.bake(fr, FPS)
+
+    # soft fill riding with the camera (a little right of and above the lens), outer-joint shot only
+    ld = bpy.data.lights.new("s07_fill", "AREA")
+    ld.shape = "DISK"
+    ld.size = 0.30
+    ld.spread = math.radians(120.0)
+    fill = bpy.data.objects.new("s07_fill", ld)
+    studio["collection"].objects.link(fill)
+    fill.parent = cam
+    fill.location = (0.05, 0.10, 0.0)
+    fill.visible_camera = False
+    e_fill = FILL_IRR * math.pi * FILL_D ** 2 / lighting.spread_gain(120.0)
+    rig.bake_channel(ld, "energy", -1, fr, e_fill * (_ss(*FILL_IN, t) - _ss(*FILL_OUT, t)))
 
     # render-time economy: hide engine / clutch / gearbox / body / front corners while
     # they are well outside the (enlarged) frustum.  Camera relative to the car frame:

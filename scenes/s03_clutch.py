@@ -19,12 +19,15 @@ Drivetrain state (carviz.state; everything below is read from the Track)
               (shutter 0.75 -> s*p = 1.04).
   46.5        hard camera cut; slow motion steps to x8 (shutter 0.4).  1st gear is
               selected: the synchroniser stops disc + input shaft in ~0.1 s (car stationary).
-  49  - 63.5  take-off (rear-left 3/4 view, bellhousing ghosted, witness marks on the cover
-              and the input-gear cone): the pedal comes up to the bite, the clutch then
-              passes exactly the torque the prescribed take-off needs (pedal = inverse
-              capacity of the required torque), the engine is held at ~1160 rpm, the disc
-              speeds up, slip crosses zero and the clutch locks at 60.62 s (81 % of the beat,
-              1168 rpm, 9.4 km/h, pedal 41 %); bite -> lock = 1.15 s real; then x8 -> x10.
+  49  - 63.5  take-off (rear-left 3/4 view, bellhousing ghosted, hydraulics / pedal box faded
+              out, witness marks on the cover and the input-gear cone; the shutter opens
+              0.4 -> 1.1 frames at 53.4-54.2 s so the cover's 18 rivet heads and the 26T
+              gear smear into bands instead of strobing): the pedal comes up to the bite,
+              the clutch then passes exactly the torque the prescribed take-off needs
+              (pedal = inverse capacity of the required torque), the engine is held at
+              ~1160 rpm, the disc speeds up, slip crosses zero and the clutch locks at
+              60.62 s (81 % of the beat, 1168 rpm, 9.4 km/h, pedal 41 %); bite -> lock =
+              1.15 s real; then x8 -> x10.
 """
 from __future__ import annotations
 
@@ -81,7 +84,11 @@ F_END, F_END_RAMP = 10.0, (60.9, 62.0)
 T_RAMP = (27.6, 29.3)    # x230 -> x56, camera on the hub (ring gear out of frame)
 T_CUT = 46.5             # hard cut; x56 -> x8
 SHUT_REL = 0.75          # ring gear 1.39 teeth/frame at x56 -> s*p = 1.04
-SHUT_SLIP = 0.4          # take-off: features blurred but countable (witness marks, cover pockets)
+SHUT_SLIP = 0.4          # after the cut: features blurred but countable (witness marks, cover pockets)
+# take-off view (opens as the swing settles): the cover's 18 bright rivet heads move 1.7-1.9
+# spacings/frame, so 1.1 smears them ~2 spacings (a uniform band, no backward crawl at 1080p);
+# the 26T input gear and its dogs are smeared >= 1 pitch from ~400 rpm (55.5 s)
+SHUT_TAKEOFF, T_SHUT_UP = 1.1, (53.4, 54.2)
 
 # warm presentation glow (cv_glow; materials.CV_Presentation is strong on dark iron / friction)
 GLOW_PART = 0.03         # a part glows briefly when it is named
@@ -94,7 +101,7 @@ OFF_SHAFT = -0.47        # input shaft travels with the release bearing group
 SWEEP = (10.9, 12.5)     # section cutter sweeps from outside the parts to the axis plane
 HOUSING_IN = (10.1, 11.4)
 HYD_IN = (30.6, 31.5)    # pedal box, hydraulics, firewall fade in (camera clear of the line)
-HYD_GHOST = (51.8, 52.5) # ... and ghost to 0.12 for the take-off (the camera swings behind them)
+HYD_GHOST = (51.8, 52.5) # ... and fade out for the take-off (the camera swings behind them)
 UNSECTION = (49.0, 51.0) # the section cutter sweeps back out while the camera is wide (pedal)
 MARK_IN = (51.0, 51.8)   # witness marks (marker paint) on the cover and the input gear fade in
 MARK_GLOW = 0.35         # ... slightly emissive so they stay readable through the motion blur
@@ -138,7 +145,8 @@ def slowmo_curve():
 
 def shutter_curve(t):
     c = _curve([(0.0, 0.0, "step"), (T_RAMP[0] + 0.4, 0.0, "linear"), (T_RAMP[1], SHUT_REL, "ease"),
-                (T_CUT - 1e-3, SHUT_REL, "linear"), (T_CUT, SHUT_SLIP, "step")])
+                (T_CUT - 1e-3, SHUT_REL, "linear"), (T_CUT, SHUT_SLIP, "step"),
+                (T_SHUT_UP[0], SHUT_SLIP, "linear"), (T_SHUT_UP[1], SHUT_TAKEOFF, "ease")])
     return c(t)
 
 
@@ -583,13 +591,14 @@ def build(quality: str) -> scenebase.SceneBuild:
 
     # hydraulics / pedal box / firewall: only for the release + take-off
     hyd_objs = [C.parts[k] for k in HYDRAULICS] + [C.parts[k] for k in C.meta["hydraulic_segments"]]
-    # the slave hose and pedal box would cross the face-on take-off close-up: ghost them
-    hyd_close = 1.0 - 0.88 * _ease_window(t, *HYD_GHOST)
+    # the slave hose and pedal box would cross the take-off view: fade them out (hidden from
+    # ~52.45 s; a faint ghost rendered as a smoke-like wisp at the fork end at 1080p)
+    hyd_close = 1.0 - _ease_window(t, *HYD_GHOST)
     _fade(hyd_objs, fr, hyd * hyd_close)
     if quality == "preview":
         firewall.hide_render = True
     else:
-        _fade([firewall], fr, 0.22 * hyd * (1.0 - 0.6 * _ease_window(t, *HYD_GHOST)))
+        _fade([firewall], fr, 0.22 * hyd * hyd_close)
 
     # ---------------- glow -------------------------------------------------
     gl = {}
@@ -666,7 +675,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     def mask(vis, ang, pitch):
         return vis & ~blurred(ang, pitch)
 
-    # take-off frames (after the cut, shutter 0.4): motion blur on -> relaxed (brief, sec. 3);
+    # take-off frames (after the cut, shutter 0.4 -> 1.1): motion blur on -> relaxed (brief, sec. 3);
     # the witness marks (one feature each) are checked strictly everywhere
     blur_on = (shut >= 0.35) & (t >= T_CUT)
     gear_ang = track.gb("input_gear")

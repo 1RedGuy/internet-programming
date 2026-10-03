@@ -33,8 +33,12 @@ Presentation
   * Axle housing: whole until 6.8 s, then the 'half' cut (removed half fades out); the kept
     half fades out for the exploded view and back in after it.  Case halves ghosted
     (cv_opacity 0.15) from 32 s so the spiders show inside.  Rear corners hidden while the
-    differential is exploded / in the straight close-up, back for the turn.  Body: faint
-    x-ray shell (0.08) + feature lines, only for the wide turn shot (hidden in previews).
+    differential is exploded / in the straight close-up, back for the turn.  Body: x-ray
+    feature lines only, only for the wide turn shot (not built in previews); the faint 0.08
+    shell was dropped because at 8 spp it denoised to speckle and a grey 'smoke' slab
+    beside the outer tyre.
+  * Explode: the ring gear stays bolted to the left (flange) case half (the axle table's
+    x_ring offset would slide it outboard through the flange).
   * Turn: blue guide lines on the floor = the rear-wheel contact paths of the whole turn
     (extended to 90 deg of heading): the outer path is visibly longer.
   * Aliasing is validated for pinion/ring/ring bolts/side gears/spiders/U-joints/bearing
@@ -584,6 +588,9 @@ def build(quality: str) -> scenebase.SceneBuild:
     ex = curve(t, [(0.0, 0.0, "step"), (EXPLODE[0], 0.0, "linear"), (EXPLODE[1], 1.0, "ease"),
                    (EXPLODE[2], 1.0, "linear"), (EXPLODE[3], 0.0, "ease")])
     var = ["none" if x < 6.8 else "half" for x in t]
+    # the ring sits inboard of the case flange it is bolted to: keep it on its flange (the axle
+    # table's x_ring would slide it outboard through the flange)
+    A.explode.pop("x_ring", None)
     A.drive(track, {"variant": var, "explode": ex, "removed": 1.0})
     W.drive(track, {})
     if G is not None:
@@ -617,8 +624,9 @@ def build(quality: str) -> scenebase.SceneBuild:
                          (38.4, 0.0, "linear"), (40.0, 1.0, "ease")])
     for ob in W.meshes():
         bake_vis(ob, fr, wheel_op)
-    # x-ray body for the turn (faint shell + feature lines)
-    XRAY = 0.08
+    # x-ray body for the turn: feature lines only (a faint 0.08 shell denoised to speckle and a
+    # grey 'smoke' slab beside the outer tyre at 8 spp; at 0 the exterior group is hidden)
+    XRAY = 0.0
     body_in = curve(t, [(0.0, 0.0, "step"), (38.8, 0.0, "linear"), (40.8, 1.0, "ease"),
                         (46.8, 1.0, "linear"), (48.2, 0.0, "ease")])
     if B is not None:
@@ -735,7 +743,9 @@ def build(quality: str) -> scenebase.SceneBuild:
         ch, sh = math.cos(h), math.sin(h)
         return (track.car_x[i] + ch * p[0] - sh * p[1], track.car_y[i] + sh * p[0] + ch * p[1], p[2])
     L.add("prop", "Propeller shaft", prop_anchor, t_prop, 6.1, offset=(0.06, -0.12), occlusion=False)
-    L.add("ujoint", "Universal joint", AN["ujoint_front"], 0.7, 1.9, offset=(-0.06, -0.13), style="dim")
+    # (the anchor is the cross centre: the turning yoke ears would blink the occluded style on/off)
+    L.add("ujoint", "Universal joint", AN["ujoint_front"], 0.7, 1.9, offset=(-0.06, -0.13), style="dim",
+          occlusion=False)
     L.add("rear_axle", "Rear axle", AN["diff_housing"], wt("prop", "rear"), 6.4, offset=(0.07, -0.10),
           occlusion=False)
     L.add("pinion", "Pinion 10T", AN["pinion"], wt("ringpinion", "pinion"), 19.6, offset=(0.08, -0.08),
@@ -749,14 +759,16 @@ def build(quality: str) -> scenebase.SceneBuild:
     L.add("spiders", "Spider gears", AN["spider_gear"], wt("diffparts", "spider"), 30.4, offset=(0.08, -0.06))
     L.add("sides", "Side gears", AN["side_gear_right"], wt("diffparts", "side"), 30.4, offset=(0.07, 0.07))
     L.add("stub", "Driveshaft stub", AN["stub_right"], wt("diffparts", "driveshaft"), 31.4, offset=(0.05, 0.10))
+    # cluster centre: it lies inside the cross-pin, so an occlusion ray would always flag it (dim,
+    # dashed) although the spiders are in plain view through the ghosted case
     centre = (A.parts["diff_pivot"], (0.0, 0.0, 0.0))
     L.add("spiders_s", "Spider gears", centre, wt("straight", "spider"), 38.2, offset=(-0.10, -0.12),
-          ignore=ghost)
+          occlusion=False)
     L.add("outer", "Outer wheel", W.anchors["tire_RR"], wt("turn", "outer"), 47.4, offset=(0.06, -0.08),
           ignore=body_objs)
     L.add("inner", "Inner wheel", W.anchors["tire_RL"], wt("turn", "inner"), 47.4, offset=(-0.06, -0.08),
           ignore=body_objs)
-    L.add("spiders_t", "Spider gears", centre, 48.6, 53.6, offset=(-0.10, -0.12), ignore=ghost + body_objs)
+    L.add("spiders_t", "Spider gears", centre, 48.6, 53.6, offset=(-0.10, -0.12), occlusion=False)
     L.add("case_t", "Differential case", AN["diff_case"], wt("turn", "case"), DUR - 0.5, offset=(0.09, -0.08),
           ignore=ghost + body_objs)
 

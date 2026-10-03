@@ -112,7 +112,8 @@ DETAIL = {
     # points per half tooth: root arc, fillet, involute, tip round, tip land
     "low": dict(root=1, fillet=3, inv=5, tip=1, land=1, seg=48, helix_step=6.0 * DEG),
     "medium": dict(root=2, fillet=4, inv=7, tip=2, land=1, seg=64, helix_step=4.0 * DEG),
-    "high": dict(root=2, fillet=5, inv=10, tip=2, land=2, seg=96, helix_step=2.5 * DEG),
+    # helix_step 1.25 deg (was 2.5): the twisted flank quads showed 'crumpled foil' highlights in 1080p close-ups
+    "high": dict(root=2, fillet=5, inv=10, tip=2, land=2, seg=96, helix_step=1.25 * DEG),
 }
 
 
