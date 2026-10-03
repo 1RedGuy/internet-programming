@@ -88,11 +88,14 @@ Simplifications a car engineer should know before reviewing the film. None of th
   (`section_cut`). Moving parts stay whole, except where the cut lies in a plane their motion preserves (the engine's
   'cyl1' planes y = const), where the cut turns with the part like a motorised training cutaway (gearbox synchro
   quarter sections, the CV joints' own-frame cuts), or where a live boolean holds a fixed section on a spinning part
-  (clutch 'section_rotating', s07's joint sections).
+  (s03's clutch 'section_rotating' plus the flywheel and ring gear, s05's quarter section of the 1-2 synchroniser,
+  s07's joint sections; PRS-15).
 - **AB-16, slow motion.** Every angle integrates ω × slowmo × dt, and the HUD always shows the physical rpm and km/h
   and the slow-motion factor. The factors actually used are in PRS-13. Keyframed suspension motion is in video
-  time, so at 12 × in s07 the 5 s bounce is 2.4 Hz of real time (a rough-road input, not the 1-1.5 Hz body mode);
-  positions are unaffected.
+  time. s07's body heave (all four wheel centres ±60 mm relative to the body, tyres on the road) has a **9 s
+  video period, 0.11 Hz of video time**; at the 12 × in force that is 0.75 s, **1.33 Hz of real time**, inside the
+  1-1.5 Hz body-bounce mode of a car. The tripod plunge (CVJ-06) cycles at twice that: 2.67 Hz real, 0.22 Hz video.
+  Positions are unaffected by the time base.
 
 ## 1. Vehicle layout (VEH)
 
@@ -123,8 +126,9 @@ Simplifications a car engineer should know before reviewing the film. None of th
 - **VEH-06**: The gearbox output flange (Y -1.120, Z 0.360) is 55 mm higher than the pinion flange (Y -2.400,
   Z 0.305). The flanges are 1.281 m apart; the Hooke-joint centres, 44 mm inside each flange, are 1.193 m apart.
   *Why:* spec Y_GEARBOX_REAR, Y_PINION_FLANGE, Z_PINION = WHEEL_CENTER_Z; axle assembly JOFF = 0.044. See PRP-02.
-- **VEH-07**: The differential is fixed to the body (independent rear suspension). Only the wheel hubs move (±60 mm
-  in s07), so each driveshaft needs a joint at both ends.
+- **VEH-07**: The differential is fixed to the body (independent rear suspension). Only the wheel hubs move
+  relative to it (±60 mm in s07, where the body heaves over wheels that stay on the road, AB-16), so each driveshaft
+  needs a joint at both ends.
   *Why:* spec Y_DIFF/Z_DIFF are fixed, and SUSPENSION_TRAVEL = 0.060.
 
 ## 2. Engine (ENG)
@@ -233,7 +237,7 @@ Simplifications a car engineer should know before reviewing the film. None of th
   CAM_CENTRE_SPACING), so the two cam sprockets clear by 2.70 mm. That is the smallest spacing at which they clear
   and the loop closes on a whole, even number of links, **126** (1200.15 mm), with a 6 mm tensioner push.
 - **VLV-05**: Lobes of successive cylinders in the firing order are 90 cam° apart (180 crank°/2). **(context)**
-- **VLV-06** (new): **Cam profile.** A flat tappet can only follow a convex cam, so the lift law comes from cam
+- **VLV-06**: **Cam profile.** A flat tappet can only follow a convex cam, so the lift law comes from cam
   geometry (`kin.cam_geometry`, `kin.cam_support`, `kin.valve_lift`): a classic three-arc cam with base circle radius
   R_b = 18 mm, nose radius r_n = 5 mm and flank arcs of radius r_f = 114.4 mm (intake) / 96.8 mm (exhaust), tangent
   to both. Lift = h(β) - R_b, where h is the cam's support function (distance from cam axis to the bucket face) and
@@ -246,7 +250,7 @@ Simplifications a car engineer should know before reviewing the film. None of th
     (AB-05).
 
   The engine assembly's lobes are exactly this cam, so the bucket rides on the lobe at every angle.
-- **VLV-07** (new): **Chain travel.** A roller chain advances exactly z·p per sprocket turn (`kin.chain_travel`):
+- **VLV-07**: **Chain travel.** A roller chain advances exactly z·p per sprocket turn (`kin.chain_travel`):
   21 × 9.525 = 200.0 mm per crank turn, i.e. 2.83 m/s at idle and 22.7 m/s at 6800 rpm. Using the pitch-circle arc
   π·PD instead would overstate the travel by 0.37% (0.75 mm per crank turn) and let the rollers creep off the teeth.
   The rollers therefore run on R_eff = z·p/2π. The 126-link loop passes a given crank tooth every 6 crank turns.
@@ -342,11 +346,23 @@ Simplifications a car engineer should know before reviewing the film. None of th
      exceeds the transmitted torque.
 
   *Model:* the clutch locks when the slip speed crosses zero and stays locked while the torque needed to hold both
-  sides together is within capacity; the validator flags an engine below 450 rpm as a stall.
+  sides together is within capacity; the validator flags an engine below 450 rpm as a stall. Locking therefore
+  usually happens with the pedal still partly down (CLU-13).
 - **CLU-12**: The hydraulic release is self-adjusting. A light preload spring in the slave keeps the release bearing
   in constant contact with the diaphragm finger tips, pedal up or down (HYD-05). The bearing's rotating race (the one
   touching the fingers) therefore always turns with the cover at engine speed (clutch option race_spin 'always').
   The other race, held by the fork and carrier, does not rotate.
+- **CLU-13**: **HUD clutch status** (`state.py`, `Track.status`), shown in s03, s04 ("CLUTCH …"), s05 (which shows
+  SYNCHRONIZING while the cone works) and s08:
+  - **DISENGAGED** whenever capacity < 2% (p > 0.477), even if engine and disc speeds still differ or the car has
+    already started to creep. In the s03 take-off the car starts to roll at 51.42 s but the status reads DISENGAGED
+    until 51.92 s (0.06 s real).
+  - **ENGAGED** means the clutch is locked (engine speed = disc speed). That can happen with the pedal still partly
+    down, because capacity already exceeds the torque needed: s03 locks at p = 0.41 (25% capacity, 89 N·m; the
+    clutch passed up to 95 N·m while slipping and holds 70 N·m once locked); s08 locks at p = 0.42 / 0.44 / 0.45
+    in 1st / 2nd / 3rd. The pedal then comes up the rest of the way with nothing slipping.
+  - **SLIPPING** otherwise (capacity ≥ 2% and the speeds differ).
+  - **ENGINE OFF** when the engine is stopped (s01; the status is not shown there).
 
 ## 7. Hydraulic release (HYD)
 
@@ -546,9 +562,10 @@ Simplifications a car engineer should know before reviewing the film. None of th
   Free 2nd gear turns at 3000/2.075 = **1446 rpm**, 585 rpm faster than its shaft.
 - **SFT-02**: Step 1, clutch in: no engine torque reaches the gear train. The driver closes the throttle, and the
   engine slows on its own friction and pumping losses: `state.py` uses -35 N·m on 0.18 kg·m², about 1860 rpm/s. In
-  the planned very fast 0.29 s shift (PRS-03) the engine drops only about 530 rpm on its own, to about 2470 rpm, and
-  the clutch-out slip (SFT-08) pulls it the rest of the way to 1787. In a normal-paced shift it would fall to about
-  1900-2250 rpm by itself.
+  s05's very fast 0.27 s shift (PRS-03) the engine drops only about 400 rpm on its own, to about 2600 rpm at
+  clutch-out, and the clutch-out slip (SFT-08) pulls it the rest of the way to 1778 rpm. In a normal-paced shift it
+  would fall to about 1900-2250 rpm by itself (s08 holds it at 1950 / 2150 rpm with the throttle while the clutch is
+  in, PRS-13).
 - **SFT-03**: The clutch must be in for two reasons:
   - Dog teeth under load are held by friction and will not slide out of 1st.
   - The synchro can only re-speed the small input-side inertia (SYN-08). With the clutch engaged, it would also have
@@ -566,11 +583,15 @@ Simplifications a car engineer should know before reviewing the film. None of th
   - every other free gear too. Free 1st gear ends up at 513 rpm, now slower than its 861 rpm shaft.
 
   The end values assume constant road speed. If the program lets the car coast down, they fall slightly (SFT-07).
+  As built in s05 (coasting): 2nd gear 1420 → 858 rpm and input shaft 2947 → 1782 rpm between cone contact (19.5 s)
+  and the end of the blocking hold (30.85 s), 76 ms of real time.
 - **SFT-06**: The new engine speed is n₂ = n₁ × i₂/i₁ = 3000 × 2.075/3.484 = **1787 rpm** at the same road speed.
   Other upshifts from 3000 rpm land at 2011 rpm (2→3), 2157 rpm (3→4) and 2444 rpm (4→5).
 - **SFT-07**: Road speed is effectively constant during the shift. Coasting deceleration is about 0.13 m/s²
-  (illustrative: rolling resistance 0.012 g, CdA 0.66 m², 1400 kg). Over 0.29 s that loses 0.14 km/h, so the engine
-  would land at 1777 rpm instead of 1787 (-0.6%).
+  (illustrative: rolling resistance 0.012 g, CdA 0.66 m², 1400 kg). As built, s05 coasts at this rate while no
+  power flows (8.4-47.3 s of video, 0.26 s real): 24.15 → 24.03 km/h, so the engine locks at **1778 rpm** instead
+  of 1787 (-0.5%). s08 instead holds road speed through each 2.2-2.6 s clutch-in so the engine locks at exactly
+  1787 / 2011 rpm; a real coast over those times would land about 80 / 55 rpm lower (about 1710 / 1960 rpm).
 - **SFT-08**: Step 5, clutch out: if the engine is still above 1787 rpm, the clutch slips briefly. Its friction
   torque (CLU-10) pulls the engine down to disc speed, and then the clutch locks. A "taller" gear means the engine
   turns 2.075/3.484 = 0.596 × as fast for the same road speed, and wheel torque drops by the same factor.
@@ -646,10 +667,12 @@ Simplifications a car engineer should know before reviewing the film. None of th
   4.26 m radius and the outer wheel a 5.74 m radius (no tyre slip). Outer/inner = **1.347** (inner/outer = 0.742).
   Over a 90° turn, for example, that is 6.69 m against 9.02 m. The inner wheel turns at **0.852 ×** case speed and
   the outer at **1.148 ×**.
-- **DIF-07**: Worked example; all values scale linearly with speed. s06 drives straight at 15 km/h in 1st and turns
-  at 10 km/h:
+- **DIF-07**: Worked example; all values scale linearly with speed. s06 (as built) drives at 15 km/h in 1st for the
+  whole scene: straight, then held at 15 km/h while the curvature eases into the R = 5 m left turn (41.0-44.6 s), so
+  the case stays at exactly 130.5 rpm while the outer wheel speeds up to 149.8 rpm and the inner slows to 111.1 rpm.
+  The 10 km/h column is for comparison only:
 
-  | Quantity | 15 km/h, R = 5 m | 10 km/h, R = 5 m (s06 as built) |
+  | Quantity | 15 km/h, R = 5 m (s06 as built) | 10 km/h, R = 5 m |
   |---|---|---|
   | Case | 130.5 rpm | 87.0 rpm |
   | Inner wheel | 111.1 rpm | 74.1 rpm |
@@ -761,23 +784,37 @@ Simplifications a car engineer should know before reviewing the film. None of th
 
 - **PRS-01**: In slow motion, every angle integrates ω × slowmo(t) × dt. HUD rpm and km/h always show the physical
   values, and the badge shows the factor.
-- **PRS-02**: s02 (as built) shows the 850 rpm idle at **230 ×** whenever the 132T starter ring can be in shot
-  (inline4, crank, cycle, flywheel) and at **198.3 ×** for the four 7.0 s stroke beats, so each shows exactly 180° of
-  crank (π/(7.0 s × 89.0 rad/s)). The valvetrain beat runs at 230.3 ×, solved so cylinder 1 reaches its firing TDC
-  1.5 s into the firing beat. The firing beat is in PRS-11. The flywheel is faded out from 17.4 s to 75.0 s.
-- **PRS-03**: s05 (planned) shows 3000 rpm at 150 ×, which turns the crank 5° per frame. If 150 × holds through steps
-  1-5 (43 s of video), the real shift takes **0.29 s**: clutch in 37 ms, out of 1st 37 ms, sync 93 ms, engage 57 ms
-  and clutch out 63 ms. That is a **very fast, racing-style shift**. A 93 ms sync must decelerate 0.012 kg·m² by
-  about 1160 rpm: 15.7 N·m at the input, 32.6 N·m at 2nd gear's cone, which needs about 1.4 kN of sleeve force
-  (μ 0.1, r_c 26 mm, α 6.5°), about 220 N at the knob. A normal shift takes about 0.5-1 s. Matching that would
-  need about 30-70 × in steps 1-3 and 5, and at those factors most of the gear train strobes (PRS-04). The film
-  therefore keeps 150 ×, shows the shift as a fast one, and step 5 shows a clear slip from about 2470 down to
-  1787 rpm (SFT-02, SFT-08).
+- **PRS-02**: s02 shows the 850 rpm idle at **230 ×** in inline4, crank, cycle and flywheel (the 132T starter
+  ring at 0.34 teeth/frame) and at **198.3 ×** for the four 7.0 s stroke beats, so each shows exactly 180° of crank
+  (π/(7.0 s × 89.0 rad/s)). The valvetrain beat runs at 230.3 ×, solved so cylinder 1 reaches its firing TDC 1.5 s
+  into the firing beat. The firing beat is in PRS-11. The flywheel and its ring gear stay **visible for the whole
+  scene**. The ring is de-strobed by **per-object Cycles motion blur**: only the flywheel and ring-gear objects
+  have motion blur (everything else, the camera included, is unblurred), and the scene shutter is keyed per frame
+  from the ring's tooth pitches per frame p: shutter = 1/p while p ≥ 0.5, so the smear is exactly **one tooth
+  pitch** (a uniform band, nothing to step backwards), blending to a 1-frame shutter below p = 0.4 (the smear joins
+  consecutive positions, so the motion reads forward). As built: 1.0 frame at 198.3-230 × (p = 0.34-0.39), 1.09
+  frames at 85 × (p = 0.92, smear 1.00 pitch), up to 2.0 frames in the slow-motion ramps into and out of the firing
+  beat (61.3-74.2 s), where p passes 0.5. The aliasing check keeps only frames where the ring is in frame and its
+  blur does not hide strobing (smear < 0.95 pitch and p > 0.5): none, by construction.
+- **PRS-03**: s05 shows 3000 rpm at a constant **150 ×** (the crank turns 5° per frame), with no motion blur and
+  no flywheel in shot (gearbox only). From the pedal starting down (7.35 s) to the clutch locking in 2nd (47.4 s),
+  the real shift takes **0.27 s**. Within it: pedal down 13 ms (7.35-9.3 s), out of 1st 15 ms (13.55-15.85 s),
+  synchronising 76 ms (cone contact 19.5 s to the end of the hold 30.85 s), through the blocker and seated 47 ms
+  (36.2 / 37.9 s), and clutch out 46 ms from the pedal starting up (40.55 s; fully up 8 ms later) to the lock. The
+  remaining time is the pauses between the steps, paced to the narration. That is a **very fast,
+  racing-style shift**. A 76 ms sync must decelerate 0.012 kg·m² by about 1165 rpm (2947 → 1782 rpm at the input):
+  a mean 19.4 N·m at the input (30 N·m at the peak of the cosine blend), 40 N·m at 2nd gear's cone, which needs
+  about 1.75 kN of sleeve force (μ 0.1, r_c 26 mm, α 6.5°), about 270 N at the knob. A normal shift takes about
+  0.5-1 s. Matching that would need about 30-70 × in steps 1-3 and 5, and at those factors most of the gear train
+  strobes (PRS-04). The film therefore keeps 150 ×, shows the shift as a fast one, and step 5 shows a clear slip
+  from about 2600 down to 1778 rpm (SFT-02, SFT-07, SFT-08). The throttle closes as the pedal goes down (target
+  800 rpm, 7.45-7.85 s) and reopens at clutch-out (target 1850 rpm, 40.6-41.4 s).
 - **PRS-04**: To avoid wagon-wheel strobing, `Track.validate(aliasing=...)` requires a part with N-fold symmetry to
   turn at most 0.35 of a pitch per frame: **slowmo ≥ rpm × N / 504**. Meshing gears share one tooth-pass frequency,
   so both members of a pair need the same factor. Motion blur only hides strobing once the smear s·p ≥ about 1
   pitch (shutter s frames, p pitches per frame); between 0.35 and about 2 pitches per frame visible toothed parts
-  must be avoided. Hidden or fully smeared parts can be masked out of the check.
+  must be avoided. Hidden or fully smeared parts can be masked out of the check. s02 also accepts p ≤ 0.5 under a
+  full 1-frame shutter, where the smear joins consecutive positions and the motion reads forward (PRS-02).
 
   **s05: 1st gear, 3000 rpm (output 861 rpm), at 150 ×**, worst first:
 
@@ -802,26 +839,33 @@ Simplifications a car engineer should know before reviewing the film. None of th
 
   | Scene and condition | Part | Teeth | Speed | Minimum slowmo |
   |---|---|---|---|---|
-  | s02, s03: 850 rpm idle | Flywheel ring gear | 132 | 850 rpm | **223 ×** (as built 230 ×: 0.34 pitch/frame) |
+  | s02, s03: 850 rpm idle | Flywheel ring gear | 132 | 850 rpm | **223 ×** (as built 230 ×: 0.34 pitch/frame; s02 also motion-blurs it, PRS-02) |
   | s02 | Timing sprockets and chain | 21 / 42 | 850 / 425 rpm | 35 × |
-  | s03: idle | Disc hub / input splines | 23 | 850 rpm | 39 × |
-  | s03: idle | Diaphragm fingers | 18 | 850 rpm | 30 × |
+  | s03: idle | Disc hub / input splines | 23 | 850 rpm | 39 × (as built 56 × in the release: 0.24) |
+  | s03: idle | Diaphragm fingers | 18 | 850 rpm | 30 × (as built 56 ×: 0.19) |
+  | s03: idle | Input gear's 4th-gear dogs | 32 | 850 rpm | 54 × (as built 56 ×: 0.34) |
+  | s03 release, 56 × | Flywheel ring gear | 132 | 850 rpm | not met (1.39 teeth/frame): out of view or behind the flywheel, otherwise smeared ≥ 1 pitch by a 0.75-frame shutter |
+  | s03 take-off, 8 × then 10 × | Cover pockets / windows / straps | 3 | ≤ 1342 / ≤ 1438 rpm | 8.0 × / 8.6 × (as built 8 × / 10 ×) |
+  | s03 take-off | Fingers, bolts, rivets, splines, damper springs, 26T gear and its dogs | 6-32 | up to 1438 rpm | not met (up to 3.4 pitch/frame): relaxed under a 0.4-frame shutter (O6) |
   | s04: neutral, idle | 5th gear dog ring | 32 | 1043 rpm | **66 ×** (as built 72 ×) |
   | s04: neutral, idle | Input gear's 4th-gear dogs | 32 | 850 rpm | 54 × |
   | s04: neutral, idle | 5th pair 23T / 38T | 23 / 38 | 1043 / 631 rpm | 48 × |
   | s04 ratios: 1500 rpm in 1st/4th/5th | 5th gear dog ring | 32 | 1841 rpm | 117 × (as built 130 ×) |
   | s04 reverse: 950 rpm, -7.8 km/h | 5th gear dog ring | 32 | 1166 rpm | 74 × (as built 80 ×) |
   | s06: 15 km/h straight | Tyre tread | 64 | 130.5 rpm | **16.6 ×** (as built 20 ×) |
-  | s06: 15 km/h | Ring gear 41T / pinion 10T | 41 / 10 | 130.5 / 535 rpm | 10.6 × (0.71 × v in km/h) |
-  | s06: 10 km/h, R = 5 m | Outer tyre tread | 64 | 99.8 rpm | 12.7 × (as built 14 ×) |
-  | s06: 10 km/h | Ring gear / pinion | 41 / 10 | 87 / 357 rpm | 7.1 × (as built 8 ×, tyres out of frame) |
+  | s06: 15 km/h, R = 5 m | Outer tyre tread | 64 | 149.8 rpm | **19.0 ×** (as built 20 ×: 0.33 pitch/frame) |
+  | s06: 15 km/h | Ring gear 41T / pinion 10T | 41 / 10 | 130.5 / 535 rpm | 10.6 × (0.71 × v in km/h; as built 20 ×, then 12 × in the spider close-up with the tyres out of frame) |
   | s07: 10 km/h | Tyre tread | 64 | 87.0 rpm | 11.0 × (as built 12 ×) |
 
-  In s05 at 150 ×, keep the flywheel ring gear out of shot, and keep the headset (155 ×), 5th pair (168 ×), input-gear
-  dogs (191 ×) and 5th dog ring (234 ×) out of frame or fully motion-blurred.
+  As built, s05 (150 ×, no motion blur) shows no flywheel and keeps the headset (155 ×), 5th pair (168 ×), input-gear
+  dogs (191 ×) and 5th dog ring (234 ×) out of frame until the synchroniser has slowed the input side to 1782 rpm,
+  below all four limits (at 150 × they need input speeds ≤ 2908, 2678, 2362 and 1925 rpm); the validator gets
+  per-frame frustum masks for them (no occlusion credit). s08 runs in real time with motion blur on every frame
+  (PRS-05).
 - **PRS-05**: In real-time shots (the end of s07, and s08) the wheels turn 52.5° per frame at 24 km/h and 88° per
   frame at 40.5 km/h. Spokes strobe exactly as they would on a real 24 fps camera; Cycles motion blur makes this look
-  natural.
+  natural. As built: s07 keys the shutter from 0.25 frame in slow motion to 0.5 frame over the ramp to real time
+  (35.3-36.5 s); s08 uses 0.5 frame (a 180° shutter) throughout.
 - **PRS-06**: Cutaways (with red section faces, AB-15), the x-ray or fading bodywork, exploded views, labels and the
   warm power-path glow are presentation only. They never change any part's motion.
 - **PRS-07**: The gas colours (blue intake, orange combustion, grey-brown exhaust) are illustrative. A petrol flame is
@@ -832,35 +876,98 @@ Simplifications a car engineer should know before reviewing the film. None of th
 - **PRS-09**: The tyre is modelled at a 0.3115 m radius while the motion uses r = 0.305 m, so the tread surface moves
   2.1% faster than the ground. This is invisible at normal viewing distance, and the 6.5 mm "squash" hides the
   contact.
-- **PRS-10**: The hydraulic pulse along the line, the stroke strip, the firing ticker, the step cards and the
-  "PAUSED" freeze in s06 are visual aids.
+- **PRS-10**: The hydraulic pulse along the line, the stroke strip, the firing ticker, the step cards, the
+  "PAUSED" freeze in s06 (PRS-14) and the witness marks in s03 (PRS-19) are visual aids.
 - **PRS-11**: s02 "firing" beat (12.5 s), as built at **85 ×**: 180° of crank every 3.0 s, so cylinder 1 fires at
-  63.0 s and cylinders 3, 4 and 2 at 66.0, 69.0 and 72.0 s; the beat covers 722°. The flywheel is hidden (at 85 × the
-  132T ring would move 0.92 teeth per frame). The timing sprockets (35 ×) and the fingers are fine.
-- **PRS-12**: s03 (planned) plays out close to real time in "release" and "slip". At the 223 × the ring gear needs,
-  the 19 s release beat is 85 ms of real time (the free disc would lose only 4% of its speed) and a 15 s pull-away
-  would take 67 ms (28 m/s² to reach 6.8 km/h, impossible). A realistic pull-away slips for about 1-1.5 s, so
-  "release" and "slip" need about 10-15 ×, with the ring gear out of frame and the fingers, splines and damper
-  springs hidden or fully motion-blurred. "engaged" can stay at ≥ 223 × with the ring gear in frame.
-- **PRS-13** (new): **Slow-motion factors per scene.** "Built" means read from the scene module.
+  63.0 s and cylinders 3, 4 and 2 at 66.0, 69.0 and 72.0 s; the beat covers 722°. The flywheel stays in view: its
+  132T ring moves 0.92 teeth per frame and is motion-blurred with a 1.09-frame shutter into a uniform band (exactly
+  one tooth pitch of smear, PRS-02). The timing sprockets (35 ×) and the flywheel's 6 bolt holes are fine.
+- **PRS-12**: s03 runs slow enough for the ring gear while it is in shot, then close to real time for the
+  take-off (PRS-13):
+  - 0-27.6 s (parts, splines, engaged) at **230 ×**: the 132T ring at 0.34 teeth/frame.
+  - 27.6-29.3 s, with the camera on the input shaft (the ring out of view or behind the flywheel; the visibility
+    test includes that occlusion), the factor eases to **56 ×** and holds to the cut. Fingers 0.19, hub splines
+    0.24, facing rivets 0.25, 26T input gear 0.27 and its dog ring 0.34 pitch/frame; the ring (1.39 teeth/frame) is
+    smeared ≥ 1 pitch by a 0.75-frame shutter whenever it is visible. The release is one continuous press,
+    30.5-44.6 s = **0.25 s real**; capacity falls below 2% at 34.1 s (CLU-13) and the free disc coasts on oil drag
+    from 850 to 762 rpm by the cut (CLU-08).
+  - **Hard cut at 46.5 s to 8 ×** (shutter 0.4 frame): 1st gear is selected (46.75-48.6 s) and the synchroniser
+    stops the disc and input shaft in about 0.1 s real, car stationary (CLU-09).
+  - Take-off: the pedal leaves the floor at 49.0 s and reaches the bite (p = 0.49) at 51.4 s. From there the pedal
+    is solved as the inverse of `kin.clutch_capacity` at the torque a prescribed take-off needs (illustrative
+    1450 kg effective mass, 160 N rolling resistance, 92% driveline efficiency): up to about 95 N·m at the clutch,
+    peak acceleration **2.7 m/s²**. With the throttle target at 1385 rpm the engine rises to about 1340 rpm and
+    sags to about 1150 rpm as the clutch takes up. The clutch **locks at 60.62 s at 1168 rpm and 9.4 km/h** (pedal
+    0.41, CLU-13), **1.15 s of real time after the bite**. A realistic pull-away slips for about 1-1.5 s.
+  - After the lock the factor eases to **10 ×** (60.9-62.0 s), the pedal comes fully up and the engine pulls to
+    **1438 rpm, 11.6 km/h** at the end of the scene.
+- **PRS-13**: **Slow-motion factors per scene**, all as built (read from the scene modules):
 
-  | Scene | Beats | Factor | Status | Reason |
-  |---|---|---|---|---|
-  | s02 | inline4, crank, cycle, flywheel | 230 × | built | 132T ring gear in shot (≥ 223 ×) |
-  | s02 | intake, compression, power, exhaust | 198.3 × | built | 180° per 7.0 s beat |
-  | s02 | valvetrain | 230.3 × | built | solved: cyl 1 at firing TDC at 63.0 s |
-  | s02 | firing | 85 × | built | four firings 3.0 s apart (PRS-11) |
-  | s03 | parts, splines, engaged / release, slip | ~200 × / ~10-15 × | planned | PRS-12 |
-  | s04 | shafts, neutral, synchro, lock, linkage | 72 × | built | 5th dogs at idle ≥ 66 × |
-  | s04 | ratios (1500 rpm; 1st 12.1, 4th 42.1, 5th 51.6 km/h) | 130 × | built | 5th dogs at 1841 rpm ≥ 117 × |
-  | s04 | reverse (950 rpm, -7.8 km/h) | 80 × | built | 5th dogs at 1166 rpm ≥ 74 × |
-  | s05 | all | 150 × | planned | PRS-03 |
-  | s06 | prop, ringpinion, straight | 20 × at 15 km/h | built | tread ≥ 16.6 × |
-  | s06 | diffparts | 0 (time frozen) | built | exploded diff holds still, cross-pin vertical |
-  | s06 | turn | 14 × (tyres in frame), then 8 × (spider close-up), 10 km/h | built | tread ≥ 12.7 ×; ring/pinion ≥ 7.1 × |
-  | s07 | why, rzeppa, plunge | 12 × at 10 km/h | built | tread ≥ 11.0 × |
-  | s07 | moves | 12 × → real time (35.3-38.6 s) | built | car pulls away 10 → 20 km/h |
-  | s08 | all | real time | planned | |
+  | Scene | Beats (video time) | Factor | Reason / notes |
+  |---|---|---|---|
+  | s01 | all | none (engine off, parked) | nothing turns |
+  | s02 | inline4, crank, cycle, flywheel | 230 × | 132T ring gear in shot (≥ 223 ×); also motion-blurred (PRS-02) |
+  | s02 | intake, compression, power, exhaust | 198.3 × | 180° per 7.0 s beat |
+  | s02 | valvetrain | 230.3 × | solved: cyl 1 at firing TDC at 63.0 s |
+  | s02 | firing | 85 × | four firings 3.0 s apart; ring motion-blurred (PRS-11) |
+  | s03 | parts, splines, engaged (0-27.6 s) | 230 × | ring gear in shot (≥ 223 ×) |
+  | s03 | end of engaged, release (ease 27.6-29.3 s, to the cut at 46.5 s) | 56 × | pedal press 0.25 s real; disc coasts 850 → 762 rpm (PRS-12) |
+  | s03 | end of release, slip (hard cut at 46.5 s) | 8 ×, easing to 10 × after the lock (60.9-62.0 s) | synchro stops the disc in ~0.1 s; bite → lock 1.15 s real, lock 60.62 s at 1168 rpm, 9.4 km/h; peak 2.7 m/s²; end 1438 rpm, 11.6 km/h; shutter 0.4 frame |
+  | s04 | shafts, neutral, synchro, lock, linkage | 72 × | 5th dogs at idle ≥ 66 ×; the lock-beat synchro event (cone contact to end of hold, 1.7 s) is about 24 ms real |
+  | s04 | ratios (hard cuts; 1500 rpm; 1st 12.1, 4th 42.1, 5th 51.6 km/h) | 130 × | 5th dogs at 1841 rpm ≥ 117 × |
+  | s04 | reverse (950 rpm, -7.8 km/h) | 80 × | 5th dogs at 1166 rpm ≥ 74 × |
+  | s05 | all | 150 × constant, no motion blur | shift 0.27 s real; synchronising 76 ms; lock at 47.4 s at 1778 rpm, road speed coasting 24.15 → 24.03 km/h at 0.13 m/s² (PRS-03, SFT-07) |
+  | s06 | prop, ringpinion, straight; turn while the tyres are in frame | 20 × at 15 km/h | tread ≥ 16.6 × straight, outer tread ≥ 19.0 × in the turn |
+  | s06 | diffparts | 0: eases to a freeze 20.55-21.55 s, frozen to 31.45 s, back to 20 × by 32.45 s | exploded diff holds still, cross-pin vertical (PRS-14) |
+  | s06 | turn, spider close-up (ease 48.9-50.0 s) | 12 × | ring/pinion ≥ 10.6 ×, tyres out of frame; 15 km/h held through the R = 5 m left turn: inner 111.1, outer 149.8, case 130.5 rpm (DIF-07) |
+  | s07 | why, rzeppa, plunge | 12 × at 10 km/h | tread ≥ 11.05 ×; body heave ±60 mm at 1.33 Hz real (AB-16); plunge gauge at true scale (CVJ-06) |
+  | s07 | moves | 12 × → real time (35.3-38.6 s, log-linear) | car pulls away 10 → 20 km/h (38.2-41.5 s); shutter 0.25 → 0.5 frame (PRS-05) |
+  | s08 | all | real time (1 ×), Cycles motion blur shutter 0.5 frame | take-off slips from 4.79 s and locks at 6.25 s (8.6 km/h, 1073 rpm); 3000 rpm in 1st at 10.0 s; road speed held through each 2.2-2.6 s clutch-in so the engine locks at exactly 1787 rpm (12.6 s) and 2011 rpm (19.1 s), where a real coast would land about 80 / 55 rpm lower (SFT-07); cruise in 3rd at 49.1 km/h, 2436 rpm |
+- **PRS-14**: **Time freeze in s06.** For the exploded differential (diffparts) the slow-motion factor eases to zero
+  (20.55-21.55 s), time stands still with a "PAUSED" badge until 31.45 s and resumes at 20 × by 32.45 s. The
+  initial wheel phase is solved so the freeze lands with the cross-pin exactly vertical: the pin and spiders explode
+  straight up and down, the case halves, side gears and stubs sideways along the axle. No part moves relative to
+  another while time is frozen; only the explode carriers and the camera move.
+- **PRS-15**: **World-fixed live section planes on rotating parts.** A real cutaway part carries its cut round with
+  it; these shots instead hold the section plane fixed (in the world or in the car) while the part turns inside it,
+  using live Manifold booleans evaluated per frame, so the cut always faces the camera:
+  - s03: the clutch's 'section_rotating' half section, plus the same cut on the flywheel and ring gear; the cutter
+    sweeps in from outside the parts to the axis plane (10.9-12.5 s) and back out (49.0-51.0 s), so the take-off
+    shows the clutch whole.
+  - s05: a static quarter-section box (x < 0, above the axis, between 3rd gear and the web) through the 1-2 hub,
+    sleeve, struts, both blocker rings, both cones and dog rings and the fork. Cut faces use shades of section red
+    per part (sleeve red, hub darker, blocker rings orange, cones and dog rings maroon). The lower half stays whole,
+    so the blocker teeth (output speed) and 2nd gear's dog teeth (gear speed) run side by side.
+  - s07: planes fixed in the car on the outer joint's bell, boot and clamps (the cutter rides with the RR corner)
+    and on the inner joint's tulip, boot and clamps, removing the rear half; each plane sweeps open and closed.
+    Balls, cage, inner race, spider and rollers stay whole.
+- **PRS-16**: **Ghosted shells.** Bodywork and housings are faded so the parts inside show; nothing changes their
+  motion (PRS-06):
+  - s01: the paint fades to an x-ray shell (exterior 0.15, trim and lamps half that, mirrors a quarter) with feature
+    lines; glass, cabin trim and floor/tunnel/firewall fade to 0; everything but the engine and flywheel fades out
+    at the end (29.0-30.1 s).
+  - s03: for the take-off (51.8-52.5 s) the half bellhousing ghosts to 10%, the hydraulics and pedal box to 12% and
+    the firewall patch to about 9% (the camera swings behind them).
+  - s04: the -X half of the case, web and tail housing fades away in the first beat.
+  - s06: the axle housing is cut in half at 6.8 s; the kept half fades out for the exploded view; the case halves
+    are ghosted to 0.15 from 32 s; a faint x-ray body (0.08) with feature lines appears only for the wide turn shot.
+  - s07: the body is hidden for the close-ups and fades back in for "moves"; the RR coil-over fades out while the
+    joints are shown.
+  - s08: x-ray body (exterior 0.12, glass 0.05, interior 0.06, underbody 0.05, feature lines 0.55); the housings
+    stay opaque and the parts inside them, which can never be seen, are hidden from the render.
+- **PRS-17**: **s04 reverse shot.** The idler sits on the +X side, behind the countershaft and reverse gears as seen
+  from the cut (-X) side, so the reverse shot looks from +X with the kept half of the gearbox housings (case, web,
+  tail housing) removed, not ghosted, from the cut at the start of the reverse beat to the end of the scene.
+- **PRS-18**: **s01 camera path through the body.** The camera never crosses a visible surface. It enters the cabin
+  at 13.3 s through the front-left door-window opening (the glass is hidden by 10.8 s and the shell is already an
+  x-ray), travels rearward inside the cabin (≥ 0.15 m from every visible surface, ≥ 0.14 m at the window frame),
+  and leaves forward through the dash and windscreen only after the body has faded out (29.0-30.1 s; hidden from
+  29.9 s), ending on the engine for the hand-off to s02.
+- **PRS-19**: **s03 witness marks.** Two marker-paint daubs, orange with the presentation glow, fade in at
+  51.0-51.8 s for the take-off: one on the back of the clutch cover (engine side) and one on the rear face of the
+  input gear's cone (gearbox side). They rotate with their parts, so under the take-off's motion blur the viewer
+  can still see one side turning at engine speed and the other starting from rest and catching up. They are a
+  visual aid; one feature per turn, so they are checked strictly for strobing.
 
 ---
 
@@ -892,9 +999,9 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 | s03.engaged.1 | With the pedal up, the spring clamps the disc between the pressure plate and flywheel, so the input shaft turns with the engine. | CLU-04, GBX-12 (N5 applied) |
 | s03.release.1 | Press the pedal, and fluid flows from the master cylinder to the slave cylinder. | HYD-01, HYD-02, HYD-05, HYD-06 |
 | s03.release.2 | It pushes the release fork and bearing against the spring's fingers. | HYD-03, HYD-05, CLU-05, CLU-12 |
-| s03.release.3 | The spring flexes, the pressure plate pulls back, and the disc is free. | CLU-05, CLU-06, CLU-08, CLU-09 (V7) |
-| s03.slip.1 | To pull away, the pedal comes up slowly. | CLU-06, CLU-11 |
-| s03.slip.2 | The disc slips between the flywheel and pressure plate, speeding up as it passes on torque, until it matches the engine and locks. | CLU-04, CLU-10, CLU-11 (N6 applied) |
+| s03.release.3 | The spring flexes, the pressure plate pulls back, and the disc is free. | CLU-05, CLU-06, CLU-08, CLU-09, CLU-13, PRS-12 (V7) |
+| s03.slip.1 | To pull away, the pedal comes up slowly. | CLU-06, CLU-11, PRS-12 |
+| s03.slip.2 | The disc slips between the flywheel and pressure plate, speeding up as it passes on torque, until it matches the engine and locks. | CLU-04, CLU-10, CLU-11, CLU-13, PRS-12 (N6 applied) |
 | s04.shafts.1 | The gearbox has three shafts. | GBX-01, VEH-04 |
 | s04.shafts.2 | The input shaft, driven by the clutch, turns the countershaft below. | GBX-07, GBX-01 |
 | s04.shafts.3 | The output shaft runs out the back, in line with the input. | GBX-01, VEH-04 |
@@ -911,7 +1018,7 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 | s04.ratios.2 | Fourth locks input to output: one to one. | GBX-10 |
 | s04.ratios.3 | Fifth is an overdrive. | GBX-11 |
 | s04.reverse.1 | Reverse adds an idler gear between the shafts, so the output turns backwards. | REV-01, REV-02, GBX-14 |
-| s05.intro.1 | Here's a shift from first to second at three thousand rpm, slowed right down. | SFT-01, PRS-03 |
+| s05.intro.1 | Here's a shift from first to second at three thousand rpm, slowed right down. | SFT-01, PRS-03, PRS-13 |
 | s05.clutch_in.1 | One: clutch in. | SFT-02 |
 | s05.clutch_in.2 | The engine is disconnected. | SFT-02, SFT-03 |
 | s05.neutral.1 | Two: the sleeve slides out of first, into neutral. | SFT-04, SEL-04 |
@@ -919,7 +1026,7 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 | s05.sync.2 | Friction slows it, along with the countershaft, input shaft and clutch disc, until it matches the output shaft's speed. | SFT-05, SYN-08 |
 | s05.engage.1 | Four: speeds matched, the blocker ring lets the sleeve through, onto second gear's dog teeth. | SYN-02, SYN-05, SYN-06 |
 | s05.clutch_out.1 | Five: clutch out. | SFT-08 |
-| s05.clutch_out.2 | The engine is reconnected at about eighteen hundred rpm: same road speed, taller gear. | SFT-06, SFT-07, SFT-08 (N11) |
+| s05.clutch_out.2 | The engine is reconnected at about eighteen hundred rpm: same road speed, taller gear. | SFT-06, SFT-07, SFT-08, PRS-03 (N11) |
 | s06.prop.1 | The propeller shaft carries the drive back to the rear axle. | PRP-01, PRP-02, PRP-03, PRP-04 |
 | s06.ringpinion.1 | There, a small pinion drives a large ring gear: ten teeth against forty-one, a final drive ratio of 4.1 to 1, turning the drive through a right angle. | FD-01, FD-02, FD-03, FD-04 |
 | s06.diffparts.1 | The ring gear is bolted to the differential case. | DIF-01 |
@@ -927,16 +1034,16 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 | s06.straight.1 | Going straight, the spider gears don't spin on their pin. | DIF-03 |
 | s06.straight.2 | Everything turns as one, and both wheels match. | DIF-02, DIF-03 |
 | s06.turn.1 | In a turn, the outer wheel travels further than the inner one. | DIF-06 |
-| s06.turn.2 | The spider gears now spin on their pin, letting one side speed up as the other slows. | DIF-03, DIF-07, DIF-08 (V10) |
+| s06.turn.2 | The spider gears now spin on their pin, letting one side speed up as the other slows. | DIF-03, DIF-07, DIF-08 (V10 resolved) |
 | s06.turn.3 | The case turns at the average of the two. | DIF-02, DIF-07 |
-| s07.why.1 | Each driveshaft has a constant-velocity joint at each end, because the wheel moves up and down while the differential stays put. | CVJ-01, CVJ-02, VEH-07 (N13) |
+| s07.why.1 | Each driveshaft has a constant-velocity joint at each end, because the wheel moves up and down while the differential stays put. | CVJ-01, CVJ-02, VEH-07, AB-16 (N13) |
 | s07.rzeppa.1 | In the outer joint, six balls run in grooves between inner and outer races. | CVJ-03 |
 | s07.rzeppa.2 | A cage holds them in the plane that splits the angle, so the wheel turns at exactly the shaft's speed. | CVJ-03, CVJ-04 (N14) |
 | s07.plunge.1 | The inner joint can also slide, as the wheel's distance from the differential changes. | CVJ-05, CVJ-06 (N3 applied; N3a) |
 | s07.moves.1 | Finally, the wheel turns, the tire grips the road, and the car moves. | RD-01, RD-04 |
 | s08.together.1 | Let's put it all together. | VEH-02 |
-| s08.first.1 | Clutch up in first, and the engine pulls to three thousand rpm. | CLU-11, RD-02 |
-| s08.second.1 | Clutch in, second gear, clutch out: the revs drop, and the car keeps accelerating. | SFT-06, SFT-07, RD-02, RD-03 (N15) |
+| s08.first.1 | Clutch up in first, and the engine pulls to three thousand rpm. | CLU-11, CLU-13, RD-02, PRS-13 |
+| s08.second.1 | Clutch in, second gear, clutch out: the revs drop, and the car keeps accelerating. | SFT-06, SFT-07, RD-02, RD-03, PRS-13 (N15) |
 | s08.third.1 | Then third. | SFT-06 |
 | s08.summary.1 | Engine, clutch, gearbox, propeller shaft, final drive, differential, and driveshafts: one chain of gears and shafts, turning fuel into motion. | VEH-02, PRP-01, FD-01, DIF-01, CVJ-01 (N4 applied) |
 
@@ -949,7 +1056,7 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 |---|---|---|---|---|
 | N1 | s02.compression | "both valves close" | "the intake valves close" ("close" is spoken 1.96 s in; IVC is at 1.94 s at 198.3 ×) | CYC-04 |
 | N2 | s04.ratios | small gear drives large gear, "so" 3.5 turns | headset reduction named ("the input gear turns the countershaft more slowly") | GBX-08 |
-| N3 | s07.plunge | "as the shaft's length changes" | "as the distance between the joints changes" (see N3a) | CVJ-06 |
+| N3 | s07.plunge | "as the shaft's length changes" | "as the wheel's distance from the differential changes" (N3a) | CVJ-06 |
 | N4 | s08.summary | propeller shaft missing | propeller shaft listed | VEH-02 |
 | N5 | s03.engaged | "the gearbox turns with the engine" | "so the input shaft turns with the engine" (gearbox in neutral) | GBX-12 |
 | N6 | s03.slip | "slips against the flywheel" | "slips between the flywheel and pressure plate" | CLU-04 |
@@ -966,7 +1073,9 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
    clamping members (FLY-02).
 4. **N10, s06.diffparts.2**: "one splined to each driveshaft". As built the side gear is splined to an output stub
    that carries the inner-joint housing (DIF-01); the storyboard shows "driveshaft stubs", so this is consistent.
-5. **N11, s05.clutch_out.2**: "about eighteen hundred rpm" matches 1787 rpm (SFT-06).
+5. **N11, s05.clutch_out.2**: "about eighteen hundred rpm" matches 1787 rpm (SFT-06); as built s05 locks at
+   1778 rpm because the car coasts 0.12 km/h during the 0.27 s shift (SFT-07, PRS-03). "Same road speed" holds to
+   0.5%.
 6. **N12, s05.sync.1**: "the blocker ring's cone presses on second gear" is correct: the blocker's internal cone
    presses on 2nd gear's cone.
 7. **N13, s07.why.1**: the "because" explains why the shaft needs a joint at each end, not why those joints must be
@@ -976,17 +1085,18 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
 8. **N14, s07.rzeppa.2**: "A cage holds them in the plane that splits the angle". The offset tracks steer the balls
    into the bisecting plane; the cage keeps them together in it (CVJ-03). Acceptable for narration; the model shows
    the true offset-track geometry.
-9. **N15, s08.second.1**: "the car keeps accelerating". While the clutch is in, the car coasts (about -0.13 m/s²,
-   SFT-07); it accelerates again after the shift. Fine as a summary of the beat.
+9. **N15, s08.second.1**: "the car keeps accelerating". A real car coasts while the clutch is in (about
+   -0.13 m/s², SFT-07). As built, s08 holds road speed through each clutch-in (acceleration 0, PRS-13) and the car
+   accelerates again after the lock (about 1.1-1.2 m/s² in 1st and 2nd). It never slows on screen, so the line
+   is fine as a summary of the beat.
 
 **Storyboard (visual notes), not narration**
 
 - **V1, s04.ratios HUD**: now reads "5th (0.81:1)". Fixed.
 - **V2, s02 factors**: the inline4 note still says "~200x"; as built the scene runs 230 × / 198.3 × / 85 × (PRS-02,
   PRS-13) and the badge shows the true factor. Fine.
-- **V3, s05 "SLOW x150"**: still applies when s05 is built. 150 × is fine for the 1-2 synchro, 1st/2nd/3rd gears and
-  their dog rings. The headset (155 ×), 5th pair (168 ×), input-gear dogs or 3-4 area (191 ×) and 5th dog ring
-  (234 ×) must be out of frame or blurred, and the flywheel ring out of shot (PRS-04).
+- **V3, s05 "SLOW x150"**: as built (150 × constant). The headset, 5th pair, input-gear dogs and 5th dog ring stay
+  out of frame until the synchroniser has slowed the input side, and no flywheel is in shot (PRS-04).
 - **V4, s08**: "rpm drops to ~1790 … (40 km/h at 3000)" and "~2010" are correct (1787 rpm, 40.5 km/h, 2011 rpm).
 - **V5, s02 valve timing**: the compression note now reads "Intake valves close ~50 deg after BDC (~1.9 s in)".
   Fixed. With the as-built cam at 198.3 × (1° = 0.0389 s): intake beat, exhaust valves 0.30 mm open at the start and
@@ -994,17 +1104,18 @@ Every sentence of the current `carviz/timeline.py`. The key is scene.beat.senten
   spark at 6.42 s; power beat, exhaust valves start to open 5.06 s in; exhaust beat, intake valves start to open at
   6.61 s.
 - **V6, s04.ratios glow**: the note now says "headset + selected pair (4th: dogs, sleeve, hub only)". Fixed.
-- **V7, s03 plan**: "Disc slows (no longer driven)" and "car starts to roll" need about 10-15 × in "release" and
-  "slip" (PRS-12). Still open until s03 is built.
-- **V8, s02 firing**: fixed; as built at 85 × with the flywheel hidden, all four firings show (PRS-11).
+- **V7, s03**: resolved. The release runs at 56 × (the disc visibly slows, 850 → 762 rpm, with the pedal press
+  taking 0.25 s real) and the take-off at 8 × (bite → lock 1.15 s real) after a hard cut (PRS-12). The HUD reads
+  DISENGAGED → SLIPPING (51.92 s) → ENGAGED (60.62 s) and the car rolls from 51.4 s (CLU-13).
+- **V8, s02 firing**: fixed; as built at 85 × all four firings show, and the flywheel stays in view with its ring
+  gear motion-blurred into a band (PRS-02, PRS-11).
 - **V9, s07 plunge**: fixed; the note says the rollers slide outboard on both bump and droop, and s07 shows the
   plunge at true scale with a readout.
-- **V10 (new), s06 turn**: the scene eases the speed from 15 to 10 km/h as the turn begins (to allow 8 × for the
-  spider close-up), so in absolute terms both wheels slow: the outer wheel goes from 130.5 to 99.8 rpm while the
-  narration says "letting one side speed up as the other slows". The sentence is true relative to the case (87.0 rpm,
-  shown on the same HUD), and the HUD highlights the rows in the right order. Optional: hold 15 km/h until after
-  "slows" (outer 149.8, inner 111.1 rpm; the spider close-up then needs ≥ 10.6 ×), or label the HUD rows relative to
-  the case.
+- **V10, s06 turn**: resolved. s06 now holds 15 km/h through the turn (DIF-07), so in absolute terms the outer
+  wheel speeds up (130.5 → 149.8 rpm) and the inner slows (130.5 → 111.1 rpm) while the case stays at 130.5 rpm,
+  exactly as narrated. The spider close-up runs at 12 × (≥ 10.6 ×).
+- **V11, s05 clutch_out**: the storyboard's "engine rpm settles at ~1790" reads 1778 rpm as built (coasting,
+  SFT-07). Within the "~"; no change needed.
 
 ## 22. Notes for builders and the orchestrator
 
@@ -1021,9 +1132,32 @@ Resolved in the as-built model:
 
 Still open:
 
-- **O6, aliasing**: s02, s04, s06 and s07 validate their visible toothed parts (PRS-04, PRS-13). s03, s05 and s08
-  must do the same when built. The 132T flywheel ring is the strictest part (≥ 223 × at idle in any shot
-  that shows it).
+- **O6, aliasing**: every scene's `build()` runs `Track.validate(aliasing=...)` with no violations (PRS-04,
+  PRS-13). The 132T flywheel ring is the strictest part (≥ 223 × at idle in any shot that shows it, unless blurred).
+  What each scene relaxes, and why:
+  - s01: nothing turns (engine off, parked).
+  - s02: the ring gear is checked only in frames where it is in frame and its per-object motion blur does not hide
+    strobing (none, by construction, PRS-02); this accepts 0.37-0.39 pitch/frame in the 198.3 × stroke beats under
+    the 1-frame shutter. Sprockets, chain and flywheel bolt holes are checked in every frame.
+  - s03: everything is checked strictly at 230 ×. At 56 × the ring gear is checked only where it is visible (frustum
+    and occlusion by the flywheel) and not smeared ≥ 1 pitch by the 0.75-frame shutter. After the cut (8 × / 10 ×,
+    0.4-frame shutter) the fingers (18), cover/flywheel bolts (6), crank bolts (8), facing rivets (24), hub splines
+    (23), damper springs (6), 26T input gear and its dog ring (32) are relaxed, as the brief allows for
+    motion-blurred frames: they move 0.6-3.4 pitch/frame. The cover's 3-fold pockets, windows and straps (≤ 0.35)
+    and both witness marks stay checked everywhere. Open: the 6 cover bolts (0.70 pitch/frame) and 8 crank bolts
+    (0.93) are smeared only 0.28 / 0.37 pitch, inside PRS-04's 0.35-2 band, so if they are visible in the take-off
+    shot they may read as turning backwards; the witness mark on the cover shows the true direction.
+  - s04: everything is checked strictly; only the frame pair across each hard cut is skipped, and the needle
+    cages only while the synchro is exploded.
+  - s05: no motion blur; every gear and dog ring is checked, with the headset, 4th-gear dogs, 5th pair and 5th dog
+    ring masked to the frames in which they are inside the camera frustum (they are kept out of frame until the
+    synchroniser has slowed the input side).
+  - s06: the tyre tread (64) and brake-disc vents (36) are checked only while a rear tyre is inside the frustum;
+    everything else always.
+  - s07: everything is checked strictly until the ramp to real time (35.25 s), then relaxed under motion blur
+    (shutter 0.25 → 0.5 frame).
+  - s08: real time with motion blur on every frame (shutter 0.5): all masks are empty, and the per-frame steps are
+    only printed for the record (PRS-05).
 - **O7, tyre radius**: the 2.1% tread-speed mismatch remains (PRS-09). It can be ignored, or tread rotation scaled
   by 0.305/0.3115.
 - **O8, propshaft whirl**: a slip yoke is now shown, but the one-piece shaft would whirl at about 7,650 rpm (about
@@ -1031,7 +1165,7 @@ Still open:
 - **O9, clutch naming**: spec CLUTCH_BITE_LO (0.22) and CLUTCH_BITE_HI (0.50) bound the engagement (slip) zone. In
   driver terms the bite point is the **0.50** end (CLU-06); the overlay's pedal-bar band shows the whole zone, which
   is fine. A label that says "bite" should point at 0.50.
-- **O10 (new), unused end-to-end spec ratios**: spec still defines RELEASE_FORK_RATIO (1.80), DIAPHRAGM_LEVER_RATIO
+- **O10, unused end-to-end spec ratios**: spec still defines RELEASE_FORK_RATIO (1.80), DIAPHRAGM_LEVER_RATIO
   (5.0), MASTER_STROKE (23.33 mm) and SLAVE_STROKE (16.19 mm). They ignore the free play and nothing in the model
   uses them. HUDs and labels must use 1.655, 4.24, 21.5 mm and 14.9 mm.
 
