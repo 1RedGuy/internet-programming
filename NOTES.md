@@ -39,7 +39,31 @@ Decision: the film is 7:31.5 = **10,836 frames**. At 1080p even 16 spp would tak
 brief) with adaptive sampling + OIDN (albedo+normal, FAST prefilter) and the sample count
 chosen from a benchmark of real frames (section 3).
 
-## 3. Final render settings  — TODO (filled after benchmarking real frames)
+## 3. Final render settings (chosen from benchmarks of real frames)
+
+| Setting | Value | Why |
+|---|---|---|
+| Engine | Cycles, CPU, 4 threads per machine (2 processes x 2 threads) | |
+| Resolution / fps | **1280x720, 24 fps** (10,836 frames, 7:31.5) | 1080p = 2.25x the cost (would be ~80 h) |
+| Samples | **8 max**, adaptive (threshold 0.05, min 4) | A/B on real frames: 8 ~= 12 after denoising even on the x-ray worst case; 16 ~= 32 |
+| Denoiser | OpenImageDenoise, albedo+normal, prefilter FAST | ACCURATE prefilter cost +3 s/frame for no visible gain |
+| Light tree | **off** | with ~6 area lights + HDRI it cost **38 %** of render time (measured: 42.8 -> 26.6 CPU-s at 4 spp) |
+| Bounces | max 6, diffuse 2, glossy 3, transmission 4, transparent 12 | lowering them saved < 10 % on these scenes |
+| Seed | fixed (not animated) | avoids frame-to-frame noise "boiling" on static areas |
+| Motion blur | s08 recap (shutter 0.5), s07 end (keyed), s02 flywheel only (keyed shutter = 1 tooth pitch) | real-time spinning parts; anti-strobing |
+| Parallelism | `--shard i/2`: two processes with 2 threads each overlap per-frame serial overhead | ~10 % faster than one 4-thread process |
+
+Measured on the idle machine (one 4-thread process, 1280x720), heaviest scene (s08: whole car,
+x-ray shell, motion blur): **4 spp 10.0 s, 8 spp 17.2 s, 12 spp 24.7 s** per frame
+(~1.8 s per sample + ~2.8 s fixed: scene sync, denoise, PNG). Engine/gearbox close-ups cost
+roughly 60 % of that. CPU-time profiling (load-independent) on an engine frame: fixed ~2.7
+CPU-s + 3.6 CPU-s per sample + ~5 CPU-s denoise; shader (noise/bump, presentation group) and
+bounce reductions each saved < 10-20 %, the light tree 38 %.
+
+Estimated total for the finals at these settings: **~36 h** of rendering on this 4-core
+machine (vs ~50 h at 12 spp and ~65 h at 16 spp). Rendering is resumable per frame
+(`tools/render_finals.py`, `tools/render_daemon.sh`), which mattered: the container was
+restarted once mid-project and the queue simply continued.
 
 ## 4. Time spent — TODO
 

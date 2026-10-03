@@ -29,7 +29,7 @@ from . import timeline
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Final-quality Cycles settings (chosen from the benchmark; see NOTES.md)
-FINAL_SAMPLES = 12          # A/B on real 720p frames: 8 slightly soft, 16 ~= 32 after OIDN; 12 = budget compromise (NOTES.md)
+FINAL_SAMPLES = 8           # A/B on real 720p frames: 8 ~= 12 after OIDN (x-ray worst case), 16 ~= 32; budget ~36 h (NOTES.md)
 FINAL_ADAPTIVE_THRESHOLD = 0.05
 
 QUALITY = {
