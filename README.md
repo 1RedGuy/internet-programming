@@ -6,7 +6,8 @@ script and subtitles timed to the picture.
 
 | Deliverable | File |
 |---|---|
-| Final film (H.264, 1280x720, 24 fps, soft subtitles) | `video/final.mp4` |
+| Final film (H.264, 1920x1080, 24 fps, soft subtitles, ≤ 95 MB) | `video/final.mp4` |
+| Full-quality master (CRF 18; too big for GitHub, produced next to it) | `video/final_hq.mp4` |
 | Individual scenes | `video/s01_final.mp4` … `video/s08_final.mp4` |
 | Narration script (timestamped, 140 wpm) | `script.md` |
 | Subtitles (same timing) | `narration.srt` |
@@ -30,7 +31,7 @@ Workbench previews need `EGL_PLATFORM=surfaceless` (tools/render.py sets it).
 ```bash
 python3 tools/render.py s04                       # Workbench preview (640x360, every 2nd frame)
 python3 tools/render.py s04 --quality draft --every 4    # Cycles 640x360, 8 spp
-python3 tools/render.py s04 --quality final       # Cycles 1280x720 final  -> video/s04_final.mp4
+python3 tools/render.py s04 --quality final       # Cycles 1920x1080 final -> video/s04_final.mp4
 python3 tools/render.py s04 --quality final --range 1-300   # part of a scene
 python3 tools/render.py s04 --quality draft --frames 1,240,600   # spot stills
 python3 tools/contact_sheet.py s04 --quality final --step 2      # review sheet
@@ -49,14 +50,21 @@ python3 tools/render_finals.py s01 s02 --shards 2 --threads 2 --nice 10
 python3 tools/stitch.py                # video/final.mp4 (+ soft subtitles from narration.srt)
 ```
 
-### Rendering on a GPU (e.g. Apple Silicon)
+### Rendering the finals on a Mac (Apple Silicon GPU) — how `video/` was produced
 
 ```bash
-python3.11 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt   # + ffmpeg (brew install ffmpeg)
-python tools/render.py s04 --quality final --frames 1200,1201 --device metal          # speed check (2nd frame)
-caffeinate -is python tools/render_finals.py s02 s04 --device metal --shards 2 --threads 0 --nice 0
+brew install python@3.11 ffmpeg
+git clone -b claude/manual-car-explainer https://github.com/1redguy/internet-programming.git
+cd internet-programming
+python3.11 -m venv .venv && .venv/bin/pip install -r requirements.txt
+tools/mac_render_all.sh --push      # all 8 scenes at 1080p on Metal, stitch, commit + push the videos
 ```
-`--device` takes `cpu` (default), `metal`, `optix`, `cuda`, `hip` or `oneapi`. Render each scene
+The script checks the environment, keeps the Mac awake (`caffeinate`), renders each scene as two
+shard processes on the GPU (`tools/render_finals.py --device metal`), writes `video/sNN_final.mp4`,
+then `video/final.mp4` (2-pass, ≤ 95 MB) and `video/final_hq.mp4` (CRF 18). It is resumable: run
+it again after an interruption. Progress: `tail -f out/render_<scene>_final_shard0.log`.
+One scene only: `CARVIZ_SCENES="s03" tools/mac_render_all.sh`. Any other GPU:
+`python3 tools/render.py s04 --quality final --device optix|cuda|hip|oneapi`. Render each scene
 completely on one device (CPU and GPU noise patterns differ slightly).
 
 Rendering is **resumable**: frames are written atomically to `out/<scene>/<quality>/raw/`

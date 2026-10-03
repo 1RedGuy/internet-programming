@@ -34,9 +34,13 @@ FINAL_ADAPTIVE_THRESHOLD = 0.05
 
 QUALITY = {
     "preview": dict(engine="BLENDER_WORKBENCH", res=S.RES_PREVIEW),
-    "draft": dict(engine="CYCLES", res=S.RES_PREVIEW, samples=8, threshold=0.05),
-    "final": dict(engine="CYCLES", res=S.RES_FINAL, samples=FINAL_SAMPLES, threshold=FINAL_ADAPTIVE_THRESHOLD),
-    "hq": dict(engine="CYCLES", res=S.RES_FINAL, samples=64, threshold=0.02),
+    "draft": dict(engine="CYCLES", res=S.RES_PREVIEW, samples=8, threshold=0.05, prefilter="FAST"),
+    # ACCURATE prefilter: semi-transparent (x-ray/ghosted) shells make the albedo/normal guide passes
+    # noisy at 8 spp and FAST keeps that noise as white speckles; ACCURATE removes them (A/B on s08
+    # f577 at 1080p) for ~+15 % on the CPU and a small cost with OIDN on the GPU
+    "final": dict(engine="CYCLES", res=S.RES_FINAL, samples=FINAL_SAMPLES, threshold=FINAL_ADAPTIVE_THRESHOLD,
+                  prefilter="ACCURATE"),
+    "hq": dict(engine="CYCLES", res=S.RES_FINAL, samples=64, threshold=0.02, prefilter="ACCURATE"),
 }
 
 
@@ -125,7 +129,7 @@ def apply_quality(sc, quality, sb=None, threads=0, device="cpu"):
     cy.use_denoising = True
     cy.denoiser = "OPENIMAGEDENOISE"
     cy.denoising_input_passes = "RGB_ALBEDO_NORMAL"
-    cy.denoising_prefilter = "FAST"
+    cy.denoising_prefilter = q.get("prefilter", "FAST")
     cy.max_bounces = 6
     cy.diffuse_bounces = 2
     cy.glossy_bounces = 3

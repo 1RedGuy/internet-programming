@@ -41,29 +41,39 @@ chosen from a benchmark of real frames (section 3).
 
 ## 3. Final render settings (chosen from benchmarks of real frames)
 
+**What changed and why.** The finals were first planned and started on the 4-core cloud CPU
+at 1280x720 (estimated ~36 h; s08 was completed that way in 4.65 h). A benchmark on the
+owner's **MacBook Pro M3 Pro (18-core GPU, 18 GB)** then measured **0.8 s per 720p frame** with
+Cycles on the Metal GPU (hardware ray tracing) against ~12-17 s on the cloud CPU, about 15x
+faster. That made the brief's preferred **1920x1080** affordable, so the cloud renders were
+stopped and the whole film is rendered at 1080p on the Mac (`tools/mac_render_all.sh`).
+
 | Setting | Value | Why |
 |---|---|---|
-| Engine | Cycles, CPU, 4 threads per machine (2 processes x 2 threads) | |
-| Resolution / fps | **1280x720, 24 fps** (10,836 frames, 7:31.5) | 1080p = 2.25x the cost (would be ~80 h) |
+| Engine / device | Cycles on the **Apple M3 Pro GPU (Metal)**, 2 shard processes (`--shards 2`) | ~15x the 4-core cloud CPU; 2 processes overlap per-frame CPU work (scene sync, PNG) with GPU path tracing |
+| Resolution / fps | **1920x1080, 24 fps** (10,836 frames, 7:31.5) | the brief's preferred resolution, affordable on the GPU |
 | Samples | **8 max**, adaptive (threshold 0.05, min 4) | A/B on real frames: 8 ~= 12 after denoising even on the x-ray worst case; 16 ~= 32 |
-| Denoiser | OpenImageDenoise, albedo+normal, prefilter FAST | ACCURATE prefilter cost +3 s/frame for no visible gain |
-| Light tree | **off** | with ~6 area lights + HDRI it cost **38 %** of render time (measured: 42.8 -> 26.6 CPU-s at 4 spp) |
+| Denoiser | OpenImageDenoise (on the GPU where supported), albedo+normal, **prefilter ACCURATE** (drafts: FAST) | semi-transparent x-ray/ghosted shells make the albedo/normal guide passes noisy at 8 spp; with FAST the denoiser keeps that as white speckles (very visible at 1080p), ACCURATE removes them (A/B on s08 frame 577; 16 spp with FAST did not). On the 720p CPU plan FAST had been chosen to save ~3 s/frame |
+| Light tree | **off** | with ~6 area lights + HDRI it cost **38 %** of render time (CPU measurement: 42.8 -> 26.6 CPU-s at 4 spp) |
 | Bounces | max 6, diffuse 2, glossy 3, transmission 4, transparent 12 | lowering them saved < 10 % on these scenes |
 | Seed | fixed (not animated) | avoids frame-to-frame noise "boiling" on static areas |
-| Motion blur | s08 recap (shutter 0.5), s07 end (keyed), s02 flywheel only (keyed shutter = 1 tooth pitch) | real-time spinning parts; anti-strobing |
-| Parallelism | `--shard i/2`: two processes with 2 threads each overlap per-frame serial overhead | ~10 % faster than one 4-thread process |
+| Motion blur | s08 recap (shutter 0.5), s07 end (keyed), s02 flywheel only (keyed shutter = 1 tooth pitch), s03 take-off (0.4) | real-time spinning parts; anti-strobing |
+| Encoding | scene videos H.264 CRF 18 (2-pass to <= 95 MB if larger); `final.mp4` 2-pass <= 95 MB with soft subtitles; `final_hq.mp4` CRF 18 master | GitHub refuses files > 100 MB |
 
-Measured on the idle machine (one 4-thread process, 1280x720), heaviest scene (s08: whole car,
-x-ray shell, motion blur): **4 spp 10.0 s, 8 spp 17.2 s, 12 spp 24.7 s** per frame
-(~1.8 s per sample + ~2.8 s fixed: scene sync, denoise, PNG). Engine/gearbox close-ups cost
-roughly 60 % of that. CPU-time profiling (load-independent) on an engine frame: fixed ~2.7
-CPU-s + 3.6 CPU-s per sample + ~5 CPU-s denoise; shader (noise/bump, presentation group) and
-bounce reductions each saved < 10-20 %, the light tree 38 %.
+**Cloud CPU measurements** (idle 4-core Xeon, one 4-thread process, 1280x720), heaviest scene
+(s08: whole car, x-ray shell, motion blur): **4 spp 10.0 s, 8 spp 17.2 s, 12 spp 24.7 s** per
+frame (~1.8 s per sample + ~2.8 s fixed: scene sync, denoise, PNG). Engine/gearbox close-ups
+cost roughly 60-75 % of that (s07 ran at 13.3 s/frame). CPU-time profiling (load-independent) on
+an engine frame: fixed ~2.7 CPU-s + 3.6 CPU-s per sample + ~5 CPU-s denoise; shader
+(noise/bump, presentation group) and bounce reductions each saved < 10-20 %, the light tree
+38 %. At 1080p the same CPU needed 25-138 s per frame (one test frame per scene, measured while
+other work shared the machine), i.e. ~2-2.5x the 720p cost.
 
-Estimated total for the finals at these settings: **~36 h** of rendering on this 4-core
-machine (vs ~50 h at 12 spp and ~65 h at 16 spp). Rendering is resumable per frame
-(`tools/render_finals.py`, `tools/render_daemon.sh`), which mattered: the container was
-restarted once mid-project and the queue simply continued.
+**Estimated totals:** cloud CPU, 720p: ~36 h (1080p: ~80 h). Mac M3 Pro GPU, 1080p: roughly
+5-8 h for the whole film (0.8 s per 720p frame measured; 1080p ~2x per frame; whole-car shots
+cost more than gearbox shots). Rendering is resumable per frame and re-renders any frame
+whose resolution does not match, which mattered: the cloud container was restarted once
+mid-project and the queue simply continued.
 
 ## 4. Time spent — TODO
 
