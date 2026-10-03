@@ -87,7 +87,7 @@ cloud container; times from the session log and git history.
 | Wave 2: assemblies (engine, body, axle, clutch + hydraulics, wheels/CV joints, gearbox) + FACTS sync | 14:32-16:45 | 2.2 h |
 | Wave 3: eight scenes, each with >= 2 preview -> inspect -> fix passes, Cycles draft reviews, real-frame render benchmarks | 16:45-10-03 02:36 | 9.9 h |
 | Cloud CPU finals at 720p (s08 completed in 4.65 h, s07 partly) - superseded by the 1080p GPU render | 10-03 00:37-06:47 | 6.2 h of CPU |
-| 1080p conversion, denoiser A/B, last review-and-fix pass over all scenes, Mac render tooling | 10-03 06:47-~12:00 | ~5 h |
+| 1080p conversion, denoiser A/B, last review-and-fix pass over all scenes (2 workflows, 16 review/verify agents: 21 scene fixes + 3 shared fixes), 1080p verification frames of every scene, Mac render tooling | 10-03 06:47-09:45 | 3 h |
 | Final 1080p render on the MacBook Pro M3 Pro GPU | overnight | estimate 6-8 h; the measured time is written to `video/render_info.txt` by `tools/mac_render_all.sh` |
 
 Roughly a day of elapsed development time before the final render; most of it went into
