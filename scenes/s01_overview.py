@@ -10,19 +10,29 @@ sits exactly at its Track pose).
 Picture (beats from carviz.timeline; every glow/label time is a narration word time):
   car     0-7    opaque car, 3/4 front-left, slow orbit at eye height (1.30 m, 50 mm);
                  fade up from black, title card 0.6-5.6 s.
-  inside  7-14   the orbit flows into a push-in over the front-left wing (50 -> 30 mm); the
-                 paint fades to an x-ray shell (exterior 1 -> 0.15 from 8 to 12 s, black trim
-                 and lamps to half that, glass and the cabin (seats, dash, headliner, door
-                 cards, pedals) -> 0, floor/tunnel/firewall -> 0 so the drivetrain under them
-                 reads; feature lines fade in).  The camera ends high above-left of the engine
-                 bay with the whole drivetrain revealed through the faint shell.
-  path    14-29  high 3/4 from the left travelling front -> rear along the drivetrain; each
-                 stage glows (warm pulse, then a dimmer steady glow) and gets its label at
-                 its spoken word: Engine, Clutch, Gearbox, Propeller shaft, Differential,
-                 Driveshafts, Rear wheels.
-  follow  29-32  the camera rises and dives to a 3/4 front-left view of the engine; body and
-                 chassis fade to 0 (only the engine stays, the hand-off to s02), the glow dies
-                 away and the picture fades to black over the last 0.4 s.
+  inside  7-14   the orbit flows into an inward spiral toward the front-left door window
+                 (50 -> 26 mm) while the paint fades to an x-ray shell (exterior 1 -> 0.15
+                 from 8 to 12 s, black trim and lamps to half that, mirrors to a quarter;
+                 glass, the cabin (seats, dash, wheel, headliner, door cards, pedal boxes)
+                 and the floor/tunnel/firewall -> 0; feature lines fade in).  At 12.6 s the
+                 camera passes INTO the car through the front-left side-window opening (the
+                 glass is gone by 10.8 s, so crossing that plane shows no veil pop) and ends
+                 near the driver's head, looking forward/down at the engine and clutch
+                 through the faded dash and firewall.
+  path    14-29  the camera travels rearward INSIDE the cabin (z 1.13 -> 1.27 m, at least
+                 0.13 m below the roof): forward/down at the engine, down the tunnel at the
+                 gearbox and propeller shaft, then over the rear seat down at the
+                 differential, driveshafts and rear wheels (26 -> 22 mm).  Each stage glows
+                 (warm pulse, then a dimmer steady glow) and gets its label at its spoken
+                 word: Engine, Clutch, Gearbox, Propeller shaft, Differential, Driveshafts,
+                 Rear wheels.
+  follow  29-32  body and chassis fade to 0 over 29.0-30.1 s (only the engine + flywheel
+                 stay, the hand-off to s02); the camera turns forward and, once the shell is
+                 gone (hidden from 29.9 s), flies out through the invisible dash/windscreen
+                 to a close 3/4 front-left view of the engine; the glow dies away and the
+                 picture fades to black over the last 0.4 s.
+  The camera never crosses a visible surface except the window opening, and keeps >= 0.13 m
+  from every visible surface while inside (checked numerically during development).
 
 Power-path glow: each stage uses the assembly's meta['power_path'] / ['power_groups'] parts
 (Car.power_path()); because the engine, clutch, gearbox and differential internals are inside
@@ -98,8 +108,8 @@ EDGES = 0.55
 TRIM_REL = 0.5                                # trim + lamps ghost at X_RAY * TRIM_REL
 MIRROR_REL = 0.25                             # door mirrors ghost at X_RAY * MIRROR_REL
 # follow beat: everything but the engine fades away
-OUT_FADE = (29.35, 30.9)
-GLOW_OUT = (29.3, 31.3)
+OUT_FADE = (29.0, 30.1)
+GLOW_OUT = (29.2, 31.2)
 BLACK = (T_LAST - 0.4, T_LAST)                # fade to black ends exactly on the last frame
 
 # glow (materials: emission 2 x cv_glow, base dimmed 0.7 x cv_glow; steep on dark metal)
@@ -113,7 +123,7 @@ GLOW_SCALE = {"tire_rubber": 0.40, "rubber": 0.55, "rim_alloy": 0.8}
 # SWEEP_T0 + k * SWEEP_DT), the power path read as a whole before the dive
 SWEEP_T0 = 28.45
 SWEEP_DT = 0.14
-SWEEP_AMP = 0.035
+SWEEP_AMP = 0.0                               # off: from inside the cabin the ripple is not visible end to end
 SWEEP_SIGMA = 0.17
 
 
@@ -154,23 +164,37 @@ def orbit_eye(az_deg, r=ORBIT_R, z=ORBIT_Z, c=ORBIT_C):
     return (c[0] + r * math.sin(a), c[1] - r * math.cos(a), z)
 
 
-def arc_eye(tgt, az_deg, dist, elev_deg):
-    """Eye at azimuth/elevation/distance from a target (camera.py azimuth convention)."""
-    a, e = math.radians(az_deg), math.radians(elev_deg)
-    h = dist * math.cos(e)
-    return (tgt[0] + h * math.sin(a), tgt[1] - h * math.cos(a), tgt[2] + dist * math.sin(e))
-
-
-# path beat: (t, target, azimuth, distance, elevation) - an arcing track along the drivetrain
-PATH = [
-    (15.7, (0.0, -0.22, 0.52), 236.0, 2.75, 44.0),     # engine (15.96)
-    (17.4, (0.0, -0.42, 0.48), 244.0, 2.80, 43.0),
-    (18.9, (0.0, -0.72, 0.44), 252.0, 2.85, 42.0),     # clutch (18.11), gearbox (18.96)
-    (20.5, (0.0, -1.28, 0.40), 262.0, 2.90, 40.0),     # propeller shaft (20.25)
-    (22.2, (-0.10, -1.98, 0.37), 274.0, 2.95, 41.0),   # differential (21.96)
-    (24.2, (-0.20, -2.42, 0.36), 285.0, 3.00, 42.0),
-    (26.0, (-0.28, -2.58, 0.36), 293.0, 3.05, 43.0),   # driveshafts (25.82)
-    (27.9, (-0.30, -2.62, 0.36), 300.0, 3.15, 45.0),   # wheels (27.11)
+# inside: an inward spiral around the front-left door-window opening (crossing point WIN):
+# (t, azimuth about WIN, radius, eye height, look-at).  radius 0 = the camera is in the
+# window plane (the glass is hidden by then).
+WIN = (-0.73, -1.62, 1.14)
+SPIRAL = [
+    (8.0, 216.0, 6.55, 1.29, (0.0, -1.15, 0.60)),
+    (9.0, 226.0, 5.50, 1.27, (0.0, -1.10, 0.56)),
+    (10.0, 238.0, 4.15, 1.24, (0.0, -1.05, 0.52)),
+    (11.0, 250.0, 2.75, 1.20, (0.0, -1.00, 0.48)),
+    (11.8, 262.0, 1.40, 1.16, (0.0, -0.95, 0.46)),
+    (12.6, 270.0, 0.00, 1.14, (0.0, -0.85, 0.45)),
+]
+# inside the cabin: (t, eye, look-at)
+INSIDE = [
+    (13.3, (-0.52, -1.60, 1.135), (0.0, -0.55, 0.48)),
+    (14.2, (-0.40, -1.58, 1.13), (0.0, -0.35, 0.50)),
+    (15.8, (-0.37, -1.62, 1.14), (0.0, -0.18, 0.55)),      # engine (15.96)
+    (17.6, (-0.34, -1.72, 1.16), (0.0, -0.42, 0.48)),      # clutch (18.11)
+    (19.2, (-0.30, -1.85, 1.19), (0.0, -0.82, 0.42)),      # gearbox (18.96)
+    (20.7, (-0.25, -1.95, 1.22), (0.0, -1.55, 0.36)),      # propeller shaft (20.25)
+    (22.3, (-0.20, -2.02, 1.25), (0.0, -2.45, 0.33)),      # differential (21.96)
+    (24.2, (-0.17, -2.07, 1.26), (-0.02, -2.60, 0.33)),
+    (26.0, (-0.15, -2.10, 1.27), (-0.04, -2.62, 0.33)),    # driveshafts (25.82)
+    (27.6, (-0.15, -2.12, 1.27), (-0.04, -2.62, 0.33)),    # wheels (27.11)
+]
+# follow: turn forward inside; leave through the (by then hidden) windscreen to the engine
+FOLLOW = [
+    (29.0, (-0.25, -1.95, 1.24), (0.0, -0.90, 0.48)),
+    (30.0, (-0.38, -1.45, 1.16), (0.0, -0.25, 0.52)),
+    (31.0, (-0.62, -0.45, 1.12), (0.0, -0.08, 0.56)),
+    (31.96, (-0.88, 0.48, 1.03), (0.0, -0.06, 0.58)),
 ]
 
 
@@ -182,28 +206,15 @@ def camera_keys():
         t = k * 1.0
         az = 204.0 + 2.0 * t
         keys.append((t, orbit_eye(az), ORBIT_C))
-    # inside: push in over the front-left wing, rising; whole drivetrain revealed at 14 s
-    keys += [
-        (9.0, (-4.30, 3.50, 1.38), (0.0, -1.05, 0.53)),
-        (10.5, (-3.70, 2.70, 1.52), (0.0, -0.88, 0.50)),
-        (12.0, (-2.95, 1.95, 1.75), (0.0, -0.82, 0.47)),
-        (13.2, (-2.35, 1.45, 1.98), (0.0, -0.88, 0.44)),
-        (14.2, (-2.05, 1.15, 2.10), (0.0, -0.92, 0.42)),
-    ]
-    # path: high 3/4 from the left, travelling front -> rear along the drivetrain
-    for t, tg, az, d, el in PATH:
-        keys.append((t, arc_eye(tg, az, d, el), tg))
-    # follow: rise and swing forward, then dive to a 3/4 front-left view of the engine
-    keys += [
-        (29.4, (-2.95, -2.20, 2.62), (0.0, -1.35, 0.42)),
-        (30.7, (-2.25, -0.25, 1.92), (0.0, -0.38, 0.50)),
-        (31.96, (-1.05, 0.72, 1.12), (0.0, -0.06, 0.58)),
-    ]
+    for t, az, r, z, tg in SPIRAL:
+        a = math.radians(az)
+        keys.append((t, (WIN[0] + r * math.sin(a), WIN[1] - r * math.cos(a), z), tg))
+    keys += INSIDE + FOLLOW
     return keys
 
 
-LENS_KEYS = [(0.0, 50.0), (9.0, 50.0), (13.6, 30.0), (14.4, 30.0), (15.7, 35.0), (27.6, 35.0),
-             (29.4, 30.0), (31.96, 40.0)]
+LENS_KEYS = [(0.0, 50.0), (8.5, 50.0), (12.4, 28.0), (14.2, 26.0), (19.5, 26.0), (22.0, 22.0),
+             (27.6, 22.0), (29.2, 24.0), (31.96, 36.0)]
 FSTOP_KEYS = [(0.0, 5.6), (8.0, 5.6), (13.0, 6.3), (31.96, 6.3)]
 
 
