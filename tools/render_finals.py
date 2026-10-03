@@ -28,6 +28,7 @@ def main():
     ap.add_argument("--threads", type=int, default=2)
     ap.add_argument("--nice", type=int, default=10)
     ap.add_argument("--quality", default="final")
+    ap.add_argument("--device", default="cpu", help="cpu | metal (Apple Silicon) | optix | cuda | hip | oneapi")
     a = ap.parse_args()
     env = dict(os.environ, EGL_PLATFORM="surfaceless")
     for sc in a.scenes:
@@ -36,7 +37,8 @@ def main():
         procs = []
         for i in range(a.shards):
             cmd = ["nice", "-n", str(a.nice), sys.executable, os.path.join(ROOT, "tools/render.py"), sc,
-                   "--quality", a.quality, "--shard", f"{i}/{a.shards}", "--threads", str(a.threads)]
+                   "--quality", a.quality, "--shard", f"{i}/{a.shards}", "--threads", str(a.threads),
+                   "--device", a.device]
             if i > 0:
                 cmd.append("--no-meta")
                 time.sleep(20)  # let shard 0 write the label/HUD metadata first

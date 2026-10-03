@@ -49,6 +49,16 @@ python3 tools/render_finals.py s01 s02 --shards 2 --threads 2 --nice 10
 python3 tools/stitch.py                # video/final.mp4 (+ soft subtitles from narration.srt)
 ```
 
+### Rendering on a GPU (e.g. Apple Silicon)
+
+```bash
+python3.11 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt   # + ffmpeg (brew install ffmpeg)
+python tools/render.py s04 --quality final --frames 1200,1201 --device metal          # speed check (2nd frame)
+caffeinate -is python tools/render_finals.py s02 s04 --device metal --shards 2 --threads 0 --nice 0
+```
+`--device` takes `cpu` (default), `metal`, `optix`, `cuda`, `hip` or `oneapi`. Render each scene
+completely on one device (CPU and GPU noise patterns differ slightly).
+
 Rendering is **resumable**: frames are written atomically to `out/<scene>/<quality>/raw/`
 and existing frames are skipped, so re-running a command after a crash continues where it
 stopped. Labels/HUD are composited afterwards (`comp/`) from `labels.json`/`hud.json`, which

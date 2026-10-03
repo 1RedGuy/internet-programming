@@ -7,6 +7,7 @@ Examples
     python3 tools/render.py s02 --quality final      # Cycles 1280x720 (long!)
     python3 tools/render.py s02 --quality draft --frames 1,120,480   # spot stills
     python3 tools/render.py s02 --quality final --range 1-500         # part of a scene
+    python3 tools/render.py s02 --quality final --device metal        # GPU (Apple Silicon)
 
 Re-running the same command skips frames that already exist.  Use
 --force-meta after changing labels/HUD (cheap) and delete out/<scene>/<quality>/raw
@@ -38,6 +39,8 @@ def main():
     ap.add_argument("--suffix", default="")
     ap.add_argument("--shard", default=None, help="i/n: render every n-th frame starting at i (no overlay/encode)")
     ap.add_argument("--no-meta", action="store_true", help="do not recompute labels/hud json")
+    ap.add_argument("--device", default="cpu", choices=["cpu", "metal", "optix", "cuda", "hip", "oneapi"],
+                    help="Cycles device: cpu, or a GPU backend (metal = Apple Silicon)")
     a = ap.parse_args()
     from carviz import render
     fr = tuple(int(x) for x in a.range.split("-")) if a.range else None
@@ -45,7 +48,8 @@ def main():
     render.run(a.scene, a.quality, every=a.every, frange=fr, frames=frames, force_meta=a.force_meta,
                no_render=a.no_render, no_overlay=a.no_overlay, no_encode=a.no_encode, save_blend=a.save_blend,
                threads=a.threads, workers=a.workers, crf=a.crf, suffix=a.suffix,
-               shard=tuple(int(x) for x in a.shard.split("/")) if a.shard else None, no_meta=a.no_meta)
+               shard=tuple(int(x) for x in a.shard.split("/")) if a.shard else None, no_meta=a.no_meta,
+               device=a.device)
 
 
 if __name__ == "__main__":

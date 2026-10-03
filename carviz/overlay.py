@@ -1343,7 +1343,9 @@ def _mp_context():
     the children only run Pillow code.  CARVIZ_MP_START overrides."""
     method = os.environ.get("CARVIZ_MP_START")
     if not method:
-        method = "fork" if "fork" in mp.get_all_start_methods() else "spawn"
+        # macOS: fork() after bpy has loaded the Objective-C/Metal frameworks can crash -> spawn
+        # (callers are guarded by `if __name__ == "__main__"`; _job is a module-level function)
+        method = "fork" if ("fork" in mp.get_all_start_methods() and sys.platform != "darwin") else "spawn"
     return mp.get_context(method)
 
 

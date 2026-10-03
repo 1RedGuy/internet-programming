@@ -55,7 +55,31 @@ def out_dir(scene_id, quality):
     return d
 
 
-def apply_quality(sc, quality, sb=None, threads=0):
+GPU_KINDS = ("metal", "optix", "cuda", "hip", "oneapi")
+
+
+def enable_gpu(kind):
+    """Select a Cycles GPU backend ('metal' on Apple Silicon, 'optix'/'cuda' on NVIDIA, ...)
+    and enable only devices of that type.  Exits with the device list if none is found."""
+    kind = kind.upper()
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    try:
+        prefs.compute_device_type = kind
+    except TypeError:
+        raise SystemExit(f"[device] {kind} is not available in this Blender build/platform")
+    try:
+        prefs.refresh_devices()
+    except AttributeError:
+        prefs.get_devices()
+    found = [d for d in prefs.devices if d.type == kind]
+    if not found:
+        raise SystemExit(f"[device] no {kind} device; found {[(d.name, d.type) for d in prefs.devices]}")
+    for d in prefs.devices:
+        d.use = d.type == kind
+    print(f"[device] Cycles on {kind}: {[d.name for d in found]}", flush=True)
+
+
+def apply_quality(sc, quality, sb=None, threads=0, device="cpu"):
     q = QUALITY[quality]
     r = sc.render
     r.resolution_x, r.resolution_y = q["res"]
@@ -87,7 +111,13 @@ def apply_quality(sc, quality, sb=None, threads=0):
         r.use_motion_blur = False
         return
     cy = sc.cycles
-    cy.device = "CPU"
+    if device and device.lower() != "cpu":
+        enable_gpu(device)
+        cy.device = "GPU"
+        if hasattr(cy, "denoising_use_gpu"):
+            cy.denoising_use_gpu = True
+    else:
+        cy.device = "CPU"
     cy.samples = q["samples"]
     cy.use_adaptive_sampling = True
     cy.adaptive_threshold = q["threshold"]
@@ -209,7 +239,7 @@ def encode(scene_id, quality, d, frames, every=1, crf=18, suffix=""):
 
 def run(scene_id, quality="preview", every=None, frange=None, frames=None, force_meta=False, no_render=False,
         no_overlay=False, no_encode=False, save_blend=False, threads=0, workers=2, crf=None, suffix="",
-        shard=None, no_meta=False):
+        shard=None, no_meta=False, device="cpu"):
     """shard=(i, n): render only every n-th frame of the list starting at i (run n processes
     with fewer threads each to overlap per-frame serial overhead); sharded runs skip
     overlay/encode — finish with a --no-render run."""
@@ -219,7 +249,7 @@ def run(scene_id, quality="preview", every=None, frange=None, frames=None, force
     mod = scene_module(scene_id)
     sb = mod.build(quality)
     sc = bpy.context.scene
-    apply_quality(sc, quality, sb, threads=threads)
+    apply_quality(sc, quality, sb, threads=threads, device=device if not no_render else "cpu")
     d = out_dir(scene_id, quality)
     fl = frame_list(scene_id, every, frange, frames)
     if shard is not None:
