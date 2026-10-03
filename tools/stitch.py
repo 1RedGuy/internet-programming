@@ -72,7 +72,7 @@ def main():
         print(f"wrote {path} ({os.path.getsize(path) / 1e6:.1f} MB, CRF {crf}, {len(items)} frames)")
 
     if a.hq:   # full-quality master (not committed: > 100 MB)
-        crf_encode(os.path.join(vdir, "final_hq.mp4"), 18)
+        crf_encode(os.path.join(vdir, "final_hq.mp4" if a.quality == "final" else f"final_{a.quality}_hq.mp4"), 18)
     if a.crf is not None:
         crf_encode(out, a.crf)
     else:      # 2-pass to a size GitHub accepts

@@ -51,7 +51,7 @@ PY
 command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg missing: brew install ffmpeg"; exit 1; }
 
 # ---- up to date? ---------------------------------------------------------------------
-if git fetch -q origin 2>/dev/null; then
+if GIT_TERMINAL_PROMPT=0 git fetch -q origin 2>/dev/null; then
   BR=$(git rev-parse --abbrev-ref HEAD)
   if [ -n "$(git rev-list HEAD..origin/"$BR" 2>/dev/null)" ]; then
     echo "WARNING: origin/$BR has newer commits - run 'git pull' first (Ctrl-C now to abort)."
@@ -114,7 +114,7 @@ done
 if [ "$PUSH" = 1 ]; then
   git add video/s0?_final.mp4 video/final.mp4 video/render_info.txt
   git commit -m "Final 1080p videos (Cycles on Apple M-series GPU via Metal): s01-s08 and final.mp4" || true
-  git pull --rebase origin "$(git rev-parse --abbrev-ref HEAD)" && git push origin HEAD \
+  GIT_TERMINAL_PROMPT=0 git pull --rebase origin "$(git rev-parse --abbrev-ref HEAD)" && GIT_TERMINAL_PROMPT=0 git push origin HEAD \
     || echo "Push failed - run: git pull --rebase && git push"
 else
   echo "To publish: git add video/s0?_final.mp4 video/final.mp4 video/render_info.txt && git commit -m 'Final 1080p videos' && git pull --rebase && git push"
