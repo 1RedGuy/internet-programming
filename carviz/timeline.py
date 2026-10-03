@@ -235,7 +235,7 @@ SCENES = [
         Beat("clutch_out", 9.5,
              "Five: clutch out. The engine is reconnected at about eighteen hundred rpm: same road speed, "
              "taller gear.",
-             "Step card 5. Pedal up, brief slip, engine rpm settles at ~1790. HUD ENGAGED."),
+             "Step card 5. Pedal up, brief slip, engine rpm settles at ~1780. HUD ENGAGED."),
     ]),
     Scene("s06", "Final drive and differential", summary="Propshaft, ring and pinion, open diff straight and in a turn.", beats=[
         Beat("prop", 6.5,

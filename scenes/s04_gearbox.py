@@ -26,7 +26,7 @@ Drivetrain program (state.Program; video time):
   linkage           clutch still pressed: 1 -> N -> across to 5-R -> 5 -> N -> across
                     -> 1 (rails, forks, sleeves follow the lever).
   ratios            hard cuts (P.cut) to driving shots at 1500 rpm, clutch engaged:
-                    1st (12.1 km/h), 4th (42.0 km/h), 5th (51.6 km/h); x130 (the 32 dog
+                    1st (12.1 km/h), 4th (42.1 km/h), 5th (51.6 km/h); x130 (the 32 dog
                     teeth of 5th gear at 1841 rpm need >= x117).
   reverse           cut: reverse engaged, reversing at 950 rpm (-7.8 km/h), x80 (5th
                     gear's dogs at 1166 rpm need >= x74).

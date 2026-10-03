@@ -17,13 +17,14 @@ Drivetrain state (carviz.state; everything below is read from the Track)
               0.25), hub splines (23: 0.24), input gear (26T: 0.27) and its dog ring (32:
               0.34) below 0.35; the ring gear (1.39 teeth/frame) is motion-blurred
               (shutter 0.75 -> s*p = 1.04).
-  46.5        hard camera cut; slow motion steps to x8 (shutter 0.95).  1st gear is
+  46.5        hard camera cut; slow motion steps to x8 (shutter 0.4).  1st gear is
               selected: the synchroniser stops disc + input shaft in ~0.1 s (car stationary).
-  49  - 63.5  take-off: the pedal comes up to the bite, the clutch then passes exactly the
-              torque the prescribed take-off needs (pedal = inverse capacity of the required
-              torque), the engine is held at ~1190 rpm, the disc speeds up, slip crosses
-              zero and the clutch locks at 60.9 s (83 % of the beat, 1210 rpm, 9.7 km/h);
-              bite -> lock = 1.19 s real.
+  49  - 63.5  take-off (rear-left 3/4 view, bellhousing ghosted, witness marks on the cover
+              and the input-gear cone): the pedal comes up to the bite, the clutch then
+              passes exactly the torque the prescribed take-off needs (pedal = inverse
+              capacity of the required torque), the engine is held at ~1160 rpm, the disc
+              speeds up, slip crosses zero and the clutch locks at 60.62 s (81 % of the beat,
+              1168 rpm, 9.4 km/h, pedal 41 %); bite -> lock = 1.15 s real; then x8 -> x10.
 """
 from __future__ import annotations
 
@@ -665,7 +666,7 @@ def build(quality: str) -> scenebase.SceneBuild:
     def mask(vis, ang, pitch):
         return vis & ~blurred(ang, pitch)
 
-    # take-off frames (after the cut, shutter 0.5): motion blur on -> relaxed (brief, sec. 3);
+    # take-off frames (after the cut, shutter 0.4): motion blur on -> relaxed (brief, sec. 3);
     # the witness marks (one feature each) are checked strictly everywhere
     blur_on = (shut >= 0.35) & (t >= T_CUT)
     gear_ang = track.gb("input_gear")

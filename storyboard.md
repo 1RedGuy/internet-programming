@@ -150,7 +150,7 @@ _1st to 2nd at 3000 rpm, slowed 150x._
 
 **5:09.5–5:19.0** [40.5–50.0 s] `s05.clutch_out`  
 *Narration:* “Five: clutch out. The engine is reconnected at about eighteen hundred rpm: same road speed, taller gear.”  
-*Picture:* Step card 5. Pedal up, brief slip, engine rpm settles at ~1790. HUD ENGAGED.
+*Picture:* Step card 5. Pedal up, brief slip, engine rpm settles at ~1780. HUD ENGAGED.
 
 ## 6. Final drive and differential — 5:19.0–6:18.0 (59.0 s, 1416 frames)
 
