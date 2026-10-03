@@ -94,19 +94,29 @@ if [ -n "$MISSING" ]; then
 fi
 "$PY" tools/stitch.py --hq
 
+MIN=$(( ($(date +%s) - T0) / 60 ))
 echo
-echo "=== $(date '+%F %T') done in $(( ($(date +%s) - T0) / 60 )) min"
+echo "=== $(date '+%F %T') done in $MIN min"
+{
+  echo "Final render: $(date '+%F %T'), $MIN min for render + encode + stitch"
+  echo "Machine: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m), device $DEVICE, 2 shard processes"
+  echo "Settings: $("$PY" -c 'import sys; sys.path.insert(0, "."); from carviz import spec as S, render as R; print(f"{S.RES_FINAL[0]}x{S.RES_FINAL[1]} @ {S.FPS} fps, {R.FINAL_SAMPLES} spp adaptive {R.FINAL_ADAPTIVE_THRESHOLD}")' 2>/dev/null), denoiser prefilter $CARVIZ_PREFILTER"
+  [ -n "${BENCH:-}" ] && echo "Benchmark (s08 f577): $BENCH"
+  echo "Commit: $(git rev-parse --short HEAD)"
+  grep -h "overlay+encode exit" "$LOG" 2>/dev/null | tail -8 || true
+} > video/render_info.txt
+cat video/render_info.txt
 for f in video/s0?_final.mp4 video/final.mp4 video/final_hq.mp4; do
   printf "%-24s %8s  %s\n" "$f" "$(du -h "$f" | cut -f1)" \
     "$(ffprobe -v error -show_entries stream=width,height,nb_frames -select_streams v:0 -of csv=p=0 "$f")"
 done
 
 if [ "$PUSH" = 1 ]; then
-  git add video/s0?_final.mp4 video/final.mp4
+  git add video/s0?_final.mp4 video/final.mp4 video/render_info.txt
   git commit -m "Final 1080p videos (Cycles on Apple M-series GPU via Metal): s01-s08 and final.mp4" || true
   git pull --rebase origin "$(git rev-parse --abbrev-ref HEAD)" && git push origin HEAD \
     || echo "Push failed - run: git pull --rebase && git push"
 else
-  echo "To publish: git add video/s0?_final.mp4 video/final.mp4 && git commit -m 'Final 1080p videos' && git pull --rebase && git push"
+  echo "To publish: git add video/s0?_final.mp4 video/final.mp4 video/render_info.txt && git commit -m 'Final 1080p videos' && git pull --rebase && git push"
 fi
 echo "video/final_hq.mp4 is the full-quality master (too big for GitHub; share it directly)."

@@ -75,7 +75,25 @@ cost more than gearbox shots). Rendering is resumable per frame and re-renders a
 whose resolution does not match, which mattered: the cloud container was restarted once
 mid-project and the queue simply continued.
 
-## 4. Time spent — TODO
+## 4. Time spent
+
+Elapsed (UTC), one orchestrator plus parallel subagents (up to ~6 at a time) on a 4-core
+cloud container; times from the session log and git history.
+
+| Phase | When | Elapsed |
+|---|---|---|
+| Environment (bpy wheel, EGL), proxy benchmarks, core modules: spec, timeline/narration, kinematics, drivetrain-state integrator, render pipeline | 10-02 11:58-13:15 | 1.3 h |
+| Wave 1: involute gear library, PBR materials + studio lighting, overlay/HUD compositor, FACTS.md | 13:15-14:32 | 1.3 h |
+| Wave 2: assemblies (engine, body, axle, clutch + hydraulics, wheels/CV joints, gearbox) + FACTS sync | 14:32-16:45 | 2.2 h |
+| Wave 3: eight scenes, each with >= 2 preview -> inspect -> fix passes, Cycles draft reviews, real-frame render benchmarks | 16:45-10-03 02:36 | 9.9 h |
+| Cloud CPU finals at 720p (s08 completed in 4.65 h, s07 partly) - superseded by the 1080p GPU render | 10-03 00:37-06:47 | 6.2 h of CPU |
+| 1080p conversion, denoiser A/B, last review-and-fix pass over all scenes, Mac render tooling | 10-03 06:47-~12:00 | ~5 h |
+| Final 1080p render on the MacBook Pro M3 Pro GPU | overnight | estimate 6-8 h; the measured time is written to `video/render_info.txt` by `tools/mac_render_all.sh` |
+
+Roughly a day of elapsed development time before the final render; most of it went into
+the models and the scene review loops (every scene was re-rendered and inspected several
+times), and about a quarter into making the motion provably right (state integrator,
+kinematics tests, validators).
 
 ## 5. Known limitations
 
