@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
 from django.utils import timezone
 
 
@@ -91,6 +93,10 @@ class Player(models.Model):
     def __str__(self):
         return f"{self.user} ({self.color})"
 
+    def get_capital(self):
+        # returns None if the player has no capital yet
+        return Capital.objects.filter(player=self).first()
+
     def clean(self):
         # checks only for new players joining a game
         if self.pk is None and self.game_id is not None:
@@ -168,3 +174,83 @@ class Round(models.Model):
         self.completed_at = timezone.now()
         self.full_clean()
         self.save()
+
+
+class Territory(models.Model):
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name="territories")
+    name = models.CharField(max_length=50)
+    slug = models.SlugField(max_length=50)
+    neighbors = models.ManyToManyField("self", blank=True)
+    owner = models.ForeignKey(
+        Player,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="territories",
+    )
+    score = models.IntegerField(default=0)
+
+    class Meta:
+        verbose_name_plural = "territories"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["game", "name"],
+                name="unique_territory_name_per_game",
+            ),
+            models.UniqueConstraint(
+                fields=["game", "slug"],
+                name="unique_territory_slug_per_game",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(score__gte=0),
+                name="territory_score_gte_0",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.game})"
+
+    def clean(self):
+        if self.owner_id is not None and self.owner.game_id != self.game_id:
+            raise ValidationError({"owner": "The owner must be a player from the same game."})
+
+
+@receiver(m2m_changed, sender=Territory.neighbors.through)
+def check_neighbors(sender, instance, action, pk_set, **kwargs):
+    if action != "pre_add":
+        return
+
+    if instance.pk in pk_set:
+        raise ValidationError("A territory cannot be a neighbor of itself.")
+    if Territory.objects.filter(pk__in=pk_set).exclude(game_id=instance.game_id).exists():
+        raise ValidationError("Neighbors must be territories from the same game.")
+
+
+class Capital(models.Model):
+    territory = models.OneToOneField(Territory, on_delete=models.CASCADE, related_name="capital")
+    player = models.OneToOneField(Player, on_delete=models.CASCADE, related_name="capital")
+    health = models.IntegerField(default=3)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(health__gte=0, health__lte=3),
+                name="capital_health_between_0_and_3",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.territory.name} - {self.player}"
+
+    @property
+    def game(self):
+        return self.territory.game
+
+    def clean(self):
+        if self.territory_id is None or self.player_id is None:
+            return
+
+        if self.territory.game_id != self.player.game_id:
+            raise ValidationError("The territory and the player must be from the same game.")
+        if self.territory.owner_id != self.player_id:
+            raise ValidationError("The capital territory must be owned by the player.")
