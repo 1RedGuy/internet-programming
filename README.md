@@ -52,3 +52,43 @@ The app runs on `http://localhost:5173`. Requests to `/api` are sent to the Djan
 | POST | `/api/auth/logout/` | Logged in |
 | GET | `/api/auth/me/` | Logged in |
 | PATCH | `/api/auth/me/` | Logged in |
+
+## Game map
+
+The project uses one map with 12 territories. It is defined in `backend/games/game_map.py`.
+Every game gets its own territory records with the same names and neighbors, so the owner,
+score and capitals are different for every game.
+
+```text
+Скали ----- Дунавия ----- Житно поле ---- Калиакра
+  |           |     \        |               |
+Средец ---- Левента ----- Мадара -------- Пеликания
+  |    \      |              |       /       |
+Пирина ---- Езера ------- Балкания ------ Царево
+```
+
+| Territory | Slug | Neighbors |
+|---|---|---|
+| Скали | `skali` | Дунавия, Средец |
+| Дунавия | `dunaviya` | Скали, Житно поле, Левента, Мадара |
+| Житно поле | `zhitno-pole` | Дунавия, Калиакра, Мадара |
+| Калиакра | `kaliakra` | Житно поле, Пеликания |
+| Средец | `sredets` | Скали, Левента, Пирина, Езера |
+| Левента | `leventa` | Дунавия, Средец, Мадара, Езера |
+| Мадара | `madara` | Дунавия, Житно поле, Левента, Пеликания, Балкания |
+| Пеликания | `pelikania` | Калиакра, Мадара, Балкания, Царево |
+| Пирина | `pirina` | Средец, Езера |
+| Езера | `ezera` | Средец, Левента, Пирина, Балкания |
+| Балкания | `balkania` | Мадара, Пеликания, Езера, Царево |
+| Царево | `tsarevo` | Пеликания, Балкания |
+
+Map rules (checked by `validate_map`):
+
+- between 9 and 21 territories, divisible by 3
+- neighbors are symmetric, without self references and duplicates
+- every territory has at least 2 neighbors
+- all territories are connected
+- there are at least 3 territories that are not neighbors of each other (for the capitals)
+
+Creating the territories and choosing the capitals for a game is done in M05 (game initialization).
+Creating a `Game` does not create a map.
