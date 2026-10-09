@@ -80,6 +80,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        # every transaction takes the write lock at the start (see README)
+        "OPTIONS": {"transaction_mode": "IMMEDIATE"},
     }
 }
 

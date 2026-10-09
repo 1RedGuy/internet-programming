@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from games.models import Game
+from games.services import initialize_game
 
 from .utils import create_game, create_user
 
@@ -18,7 +19,7 @@ class GameTests(TestCase):
     def test_start_game_with_three_players(self):
         game = create_game(players=3)
 
-        game.start()
+        initialize_game(game)
 
         game.refresh_from_db()
         self.assertEqual(game.status, "active")
@@ -28,7 +29,7 @@ class GameTests(TestCase):
         game = create_game(players=2)
 
         with self.assertRaises(ValidationError):
-            game.start()
+            initialize_game(game)
 
         game.refresh_from_db()
         self.assertEqual(game.status, "waiting")
@@ -37,7 +38,7 @@ class GameTests(TestCase):
         game = create_game(status="active")
 
         with self.assertRaises(ValidationError):
-            game.start()
+            initialize_game(game)
 
     def test_complete_game(self):
         game = create_game(status="active")

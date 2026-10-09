@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 from django.utils import timezone
@@ -28,20 +28,24 @@ class Game(models.Model):
     def is_completed(self):
         return self.status == "completed"
 
+    # the game is locked while players join or leave, so the players
+    # can't change while the game is being initialized (games/services.py)
     def add_player(self, user, color):
-        player = Player(game=self, user=user, color=color)
-        player.full_clean()
-        player.save()
+        with transaction.atomic():
+            game = Game.objects.select_for_update().get(pk=self.pk)
+            player = Player(game=game, user=user, color=color)
+            player.full_clean()
+            player.save()
         return player
 
-    def start(self):
-        if self.status != "waiting":
-            raise ValidationError("Only a waiting game can be started.")
-        if self.players.count() != 3:
-            raise ValidationError("A game needs exactly 3 players to start.")
-
-        self.status = "active"
-        self.save()
+    def remove_player(self, player):
+        with transaction.atomic():
+            game = Game.objects.select_for_update().get(pk=self.pk)
+            if game.status != "waiting":
+                raise ValidationError("Players can leave only a waiting game.")
+            if player.game_id != game.pk:
+                raise ValidationError("The player is not in this game.")
+            player.delete()
 
     def complete(self):
         if self.status != "active":
