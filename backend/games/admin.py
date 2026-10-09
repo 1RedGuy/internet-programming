@@ -1,16 +1,30 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 
 from .models import Capital, Game, Player, Round, Territory
+from .services import initialize_game
 
 
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
     list_display = ["id", "created_at", "status", "player_count"]
     list_filter = ["status"]
+    # the status is changed only by the game logic (for example initialize_game)
+    readonly_fields = ["status"]
+    actions = ["initialize_games"]
 
     @admin.display(description="Players")
     def player_count(self, obj):
         return obj.players.count()
+
+    @admin.action(description="Initialize selected games")
+    def initialize_games(self, request, queryset):
+        for game in queryset:
+            try:
+                initialize_game(game)
+                self.message_user(request, f"{game} was initialized.")
+            except ValidationError as error:
+                self.message_user(request, f"{game}: {' '.join(error.messages)}", messages.ERROR)
 
 
 @admin.register(Player)
