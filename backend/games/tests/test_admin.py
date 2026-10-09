@@ -68,3 +68,33 @@ class MapAdminTests(TestCase):
         self.client.post(url, {"health": 1})
         self.capital.refresh_from_db()
         self.assertEqual(self.capital.health, 1)
+
+
+class GameAdminTests(TestCase):
+    def setUp(self):
+        admin = User.objects.create_superuser(username="admin", email="admin@example.com", password="admin-pass")
+        self.client.force_login(admin)
+
+    def test_initialize_action(self):
+        game = create_game()
+        not_ready_game = create_game(players=2)
+
+        self.client.post(
+            "/admin/games/game/",
+            {"action": "initialize_games", "_selected_action": [game.pk, not_ready_game.pk]},
+        )
+
+        game.refresh_from_db()
+        not_ready_game.refresh_from_db()
+        self.assertEqual(game.status, "active")
+        self.assertEqual(game.territories.count(), 12)
+        self.assertEqual(not_ready_game.status, "waiting")
+        self.assertEqual(not_ready_game.territories.count(), 0)
+
+    def test_status_cannot_be_changed_in_admin(self):
+        game = create_game()
+
+        self.client.post(f"/admin/games/game/{game.pk}/change/", {"status": "active"})
+
+        game.refresh_from_db()
+        self.assertEqual(game.status, "waiting")
