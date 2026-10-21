@@ -258,3 +258,35 @@ class Capital(models.Model):
             raise ValidationError("The territory and the player must be from the same game.")
         if self.territory.owner_id != self.player_id:
             raise ValidationError("The capital territory must be owned by the player.")
+
+
+class WaitingQueue(models.Model):
+    STATUS_CHOICES = [
+        ("waiting", "Waiting"),
+        ("left", "Left"),
+        ("matched", "Matched"),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="waiting_entries")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="waiting")
+    game = models.ForeignKey(
+        Game,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="waiting_entries",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(status="waiting"),
+                name="one_waiting_entry_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} ({self.status})"
