@@ -1,0 +1,10 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"",
+	"description":	{
+		"":	"Builds the complete Reaction Arcade enclosure (BASE, TOP_PANEL, DIFFUSER, FIT_TEST, reference parts) from user parameters."
+	},
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
