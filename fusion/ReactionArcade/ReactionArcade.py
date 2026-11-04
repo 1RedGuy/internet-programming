@@ -21,18 +21,22 @@ Parts (one component each, all occurrences at the origin, assembled in place)
 
 Print orientation (also repeated at each builder):
   BASE      : floor (Z=0 face) on the bed. No supports. 0.5 mm bed chamfer.
-  TOP_PANEL : visible top face DOWN on the bed (smooth face). No supports.
+  TOP_PANEL : visible top face DOWN on the bed (smooth face). No supports: the
+              diffuser seat ledge is a 45 deg cone with a 1.1 mm land, the M3
+              counterbores have a 0.25 mm sacrificial bridge layer (push the
+              screw through / drill 3 mm once).
   DIFFUSER  : visible top face down on the bed.
   FIT_TEST  : plate bottom on the bed (seat/button hole on the bed side like the
               panel; pillar stub and USB wall printed upright like the base).
 
 Parameters
-  Every key dimension is a Fusion User Parameter (Modify > Change Parameters).
-  Feature depths/thicknesses/fillets/chamfers reference the parameters by name
-  and update live. Layout positions are computed from the same parameters when
-  the script runs: to apply layout changes, edit the parameters and run the
-  script again with that design active - it rebuilds a new design from the
-  current parameter values (or from the PARAMS table below for a fresh start).
+  Every key dimension is a Fusion User Parameter (Modify > Change Parameters)
+  and every sketch, plane and feature is computed from those parameters when
+  the script runs. Only self-contained finishing values are also linked live
+  (top_fillet, bed_chamfer, usb_chamfer, foot_depth, title_depth, clip_w).
+  For any other change: edit the parameters, keep that design active and run
+  the script again - it rebuilds a fresh, consistent design from the current
+  values (a design without these parameters uses the PARAMS table below).
 
 Coordinates
   Model: mm, Z up, floor bottom at Z=0, X = width (+X = player's right),
@@ -76,6 +80,8 @@ PARAMS = [
     ('pad_t', '2 mm', 'mm', 'Screw boss pad height under the panel'),
     ('cb_d', '6.4 mm', 'mm', 'Counterbore diameter (M3 button head 5.7)'),
     ('cb_depth', '1.9 mm', 'mm', 'Counterbore depth (button head 1.65)'),
+    ('skin_t', '0.25 mm', 'mm', 'Sacrificial bridge layer over the M3 holes (pierce once)'),
+    ('reveal', '0.5 mm', 'mm', 'Shadow-line rabbet on the BASE rim at the two-tone seam'),
     # --- display (0.56in 4-digit 7-seg + HT16K33 backpack) -----------------------
     ('disp_win_w', '46 mm', 'mm', 'Display window width'),
     ('disp_win_h', '17 mm', 'mm', 'Display window height'),
@@ -97,7 +103,7 @@ PARAMS = [
     ('diff_t', '1.2 mm', 'mm', 'Diffuser thickness'),
     ('diff_d', 'ring_od + 6 mm', 'mm', 'Diffuser diameter'),
     ('tube_t', '1.6 mm', 'mm', 'Ring holder tube wall'),
-    ('rclip_t', '1 mm', 'mm', 'Ring clip thickness'),
+    ('rclip_t', '0.8 mm', 'mm', 'Ring clip thickness'),
     ('rclip_w', '5 mm', 'mm', 'Ring clip width'),
     ('rclip_hook', '0.35 mm', 'mm', 'Ring clip hook overlap'),
     # --- buttons ------------------------------------------------------------
@@ -120,7 +126,8 @@ PARAMS = [
     ('esp_x', '0 mm', 'mm', 'ESP32 board centre X'),
     ('esp_gap', '1 mm', 'mm', 'Gap board USB edge -> back wall inner face'),
     ('rail_t', '2 mm', 'mm', 'ESP32 guide rail thickness'),
-    ('esp_snap', '0.6 mm', 'mm', 'ESP32 snap lip overlap'),
+    ('esp_snap', '0.45 mm', 'mm', 'ESP32 snap lip hook depth'),
+    ('esp_clip_t', '1 mm', 'mm', 'ESP32 snap lip thickness'),
     # --- USB ------------------------------------------------------------------
     ('usb_w', '12 mm', 'mm', 'USB cutout width'),
     ('usb_h', '8 mm', 'mm', 'USB cutout height'),
@@ -164,11 +171,13 @@ C_REF = (0xC8, 0xC8, 0xC8)
 class Report(object):
     def __init__(self):
         self.lines = []
+        self.infos = []
         self.warnings = []
         self.parts = []          # (name, ok, note)
         self.validation = []
 
     def info(self, msg):
+        self.infos.append(msg)
         self.lines.append(msg)
 
     def warn(self, msg):
@@ -186,6 +195,10 @@ class Report(object):
         for name, ok, note in self.parts:
             out.append('{:<16} {}{}'.format(name, 'BUILT ' if ok else 'FAILED',
                                             ('  ' + note) if note else ''))
+        if self.infos:
+            out.append('')
+            out.append('INFO')
+            out.extend('  ' + m for m in self.infos)
         if self.validation:
             out.append('')
             out.append('VALIDATION')
@@ -202,9 +215,10 @@ class Report(object):
 
 
 def log_out(app, msg):
-    """Write to the Text Commands window (app.log) and stdout."""
+    """Write to the Text Commands window (app.log; print() as a fallback)."""
     try:
         app.log(msg)
+        return
     except Exception:
         pass
     try:
@@ -219,11 +233,34 @@ def short_err(e):
 
 
 def step(ctx, label, fn, *args, **kw):
-    """Run an optional modelling step; on failure log a warning and go on."""
+    """Run an optional modelling step. On failure every feature it added is
+    rolled back (timeline), a warning is logged and the build goes on."""
+    tl = None
+    n0 = -1
+    try:
+        tl = ctx.design.timeline
+        n0 = tl.count
+    except Exception:
+        tl = None
     try:
         return fn(*args, **kw)
     except Exception as e:
-        ctx.rep.warn('{}: skipped ({})'.format(label, short_err(e)))
+        note = ''
+        if tl is not None:
+            try:
+                if tl.count > n0:
+                    tl.markerPosition = n0
+                    tl.deleteAllAfterMarker()
+                    note = '; partial features rolled back'
+            except Exception as e2:
+                try:
+                    tl.moveToEnd()
+                except Exception:
+                    pass
+                note = '; ROLLBACK FAILED, partial features remain ({})'.format(short_err(e2))
+        for pl in ctx.planes:
+            pl.forget_deleted()
+        ctx.rep.warn('{}: skipped ({}){}'.format(label, short_err(e), note))
         return None
 
 
@@ -518,6 +555,19 @@ class Planes(object):
         self._tilt = None
         self._sec = None
 
+    def forget_deleted(self):
+        """Drop planes that a timeline rollback deleted."""
+        def ok(o):
+            try:
+                return o is not None and o.isValid
+            except Exception:
+                return False
+        self.cache = dict((k, v) for k, v in self.cache.items() if ok(v))
+        if not ok(self._tilt):
+            self._tilt = None
+        if not ok(self._sec):
+            self._sec = None
+
     def _angle_plane(self, ref, want, name):
         cps = self.c.constructionPlanes
         for ang in (self.fr.th, -self.fr.th):
@@ -641,6 +691,12 @@ class Sk(object):
     def rect(self, a0, b0, a1, b1):
         return self.poly([(a0, b0), (a1, b0), (a1, b1), (a0, b1)])
 
+    def axis(self, a0, b0, a1, b1):
+        """Construction line (revolve axis); it does not create profiles."""
+        ln = self.sk.sketchCurves.sketchLines.addByTwoPoints(self.p(a0, b0), self.p(a1, b1))
+        ln.isConstruction = True
+        return ln
+
     def _end_near(self, arc, ab):
         t = self.p(ab[0], ab[1])
         sp = arc.startSketchPoint
@@ -729,10 +785,10 @@ def extrude_to(comp, sk, prof, op, entity, dirv, bodies=None, name=None, start=N
     """Extrude up to a plane/face, optionally starting from another one."""
     ef = comp.features.extrudeFeatures
     inp = ef.createInput(prof, op)
-    if start is not None:
-        inp.startExtent = adsk.fusion.FromEntityStartDefinition.create(start, VI(0.0))
     inp.setOneSideExtent(adsk.fusion.ToEntityExtentDefinition.create(entity, False, VI(0.0)),
                          _dir_for(sk, dirv))
+    if start is not None:
+        inp.startExtent = adsk.fusion.FromEntityStartDefinition.create(start, VI(0.0))
     if bodies:
         inp.participantBodies = list(bodies)
     return _name(ef.add(inp), name)
@@ -771,6 +827,16 @@ def chamfer_da(comp, edges, dist, ang_deg, flipped, tangent=True, name=None):
     inp.chamferEdgeSets.addDistanceAndAngleChamferEdgeSet(OC(edges), VI(dist), VA(ang_deg),
                                                           flipped, tangent)
     return _name(cf.add(inp), name)
+
+
+def revolve(comp, prof, axis, op, angle_deg=360.0, symmetric=False, bodies=None, name=None):
+    """symmetric=True: angle_deg is per side (Fusion convention)."""
+    rf = comp.features.revolveFeatures
+    inp = rf.createInput(prof, axis, op)
+    inp.setAngleExtent(symmetric, VA(angle_deg))
+    if bodies:
+        inp.participantBodies = list(bodies)
+    return _name(rf.add(inp), name)
 
 
 def get_body(comp, name):
@@ -852,7 +918,14 @@ def new_comp(ctx, name):
     occ = ctx.root.occurrences.addNewComponent(adsk.core.Matrix3D.create())
     comp = occ.component
     comp.name = name
+    ctx.occs[name] = occ
     return occ, comp
+
+
+def new_planes(ctx, comp, tag):
+    pl = Planes(comp, ctx.fr, tag)
+    ctx.planes.append(pl)
+    return pl
 
 
 # ---- appearances ---------------------------------------------------------------
@@ -937,10 +1010,9 @@ def make_appearance(ctx, name, rgb, translucent=False):
 
 def paint(ctx, body, name, rgb, translucent=False, opacity=None):
     try:
-        a = ctx.appearances.get(name)
-        if a is None:
-            a = make_appearance(ctx, name, rgb, translucent)
-            ctx.appearances[name] = a
+        if name not in ctx.appearances:          # failures are cached as None
+            ctx.appearances[name] = make_appearance(ctx, name, rgb, translucent)
+        a = ctx.appearances[name]
         if a is not None:
             body.appearance = a
     except Exception as e:
@@ -972,7 +1044,8 @@ def t_bool(target, tools, kind):
     k = {'union': bt.UnionBooleanType, 'sub': bt.DifferenceBooleanType,
          'int': bt.IntersectionBooleanType}[kind]
     for t in tools:
-        tbm().booleanOperation(target, t, k)
+        if not tbm().booleanOperation(target, t, k):
+            raise RuntimeError('temporary {} boolean failed'.format(kind))
     return target
 
 
@@ -1006,6 +1079,26 @@ def cut_halfspace(ctx, comp, planes, body, w, side, name):
     dirv = fr.n if side > 0 else neg(fr.n)
     return extrude(comp, s, s.profiles(), ctx.CUT, 2.0 * p.h_back + 60.0,
                    dirv=dirv, bodies=[body], name=name)
+
+
+def vertical_band(ctx, comp, planes, s, w_lo, w_hi, op, body, name):
+    """Extrude the 2-loop profile of sketch s (drawn on the XY plane) with
+    vertical walls between the panel-parallel planes w_lo (below) and w_hi."""
+    try:
+        return extrude_to(comp, s, s.profiles(loops=2), op, planes.frame(w_hi), (0.0, 0.0, 1.0),
+                          bodies=[body], name=name, start=planes.frame(w_lo))
+    except Exception as e:
+        ctx.rep.warn('{}: from/to extrude failed ({}); using cut + combine'.format(name, short_err(e)))
+    f = extrude(comp, s, s.profiles(loops=2), ctx.NEW, ctx.p.h_back + 5.0,
+                dirv=(0.0, 0.0, 1.0), name=name + ' blank')
+    blank = f.bodies.item(0)
+    cut_halfspace(ctx, comp, planes, blank, w_hi, +1, name + ' blank top')
+    cut_halfspace(ctx, comp, planes, blank, w_lo, -1, name + ' blank bottom')
+    cf = comp.features.combineFeatures
+    ci = cf.createInput(body, OC([blank]))
+    ci.operation = op
+    ci.isKeepToolBodies = False
+    return _name(cf.add(ci), name)
 
 
 def build_wedge(ctx, comp, planes, name):
@@ -1120,15 +1213,16 @@ def top_round(ctx, comp, bname):
 # =============================================================================
 # 6. BASE
 #    Print orientation: the floor (Z=0 face) goes on the bed. No supports.
-#    Bed edge: bed_chamfer. Pillars lean 15 deg (< 45). USB cutout = 12 mm
-#    bridge, grille slots are vertical (2 mm bridges), tie-loop bridges 4.5 mm,
-#    snap lips have 45/45 deg hooks.
+#    Bed edges (perimeter + foot recess rims): bed_chamfer. Pillars lean 15 deg
+#    (< 45). USB cutout = 12 mm bridge, grille slots are vertical (2 mm
+#    bridges), tie-loop bridges 4.5 mm, snap lips have 45/45 deg hooks, the
+#    seam reveal is a rabbet on the top outer edge (no overhang).
 # =============================================================================
 def build_base(ctx):
-    p, fr, lay = ctx.p, ctx.fr, ctx.lay
+    p, lay = ctx.p, ctx.lay
     occ, comp = new_comp(ctx, 'BASE')
     ctx.comps['BASE'] = comp
-    pl = Planes(comp, fr, 'BASE')
+    pl = new_planes(ctx, comp, 'BASE')
     body, fsk = build_wedge(ctx, comp, pl, 'BASE')
     step(ctx, 'BASE top perimeter', top_round, ctx, comp, 'BASE')
     body = get_body(comp, 'BASE')
@@ -1138,14 +1232,18 @@ def build_base(ctx):
     s.rrect(0.0, 0.0, 2.0 * lay.xi, 2.0 * lay.yi, lay.ri)
     extrude(comp, s, s.profiles(), ctx.CUT, p.h_back + 10.0, dirv=(0.0, 0.0, 1.0),
             bodies=[body], name='Cavity')
+    step(ctx, 'BASE seam reveal', _base_reveal, ctx, comp, pl)
     step(ctx, 'BASE pillars + inserts', _base_pillars, ctx, comp, pl, fsk)
     for label, fn in (('BASE ESP32 cradle', _base_esp),
                       ('BASE buzzer cradle', _base_buzzer),
+                      ('BASE buzzer crush ribs', _base_buzzer_ribs),
                       ('BASE cable-tie loops', _base_ties),
                       ('BASE USB cutout', _base_usb),
+                      ('BASE USB chamfered frame', _base_usb_frame),
                       ('BASE buzzer grille', _base_grille),
                       ('BASE foot recesses', _base_feet),
-                      ('BASE bed chamfer', _base_bed_chamfer)):
+                      ('BASE bed chamfer', _base_bed_chamfer),
+                      ('BASE foot recess rim chamfer', _base_foot_rims)):
         step(ctx, label, fn, ctx, comp, pl)
     body = get_body(comp, 'BASE')
     paint(ctx, body, 'RA Base Dark Grey', C_BASE)
@@ -1182,7 +1280,7 @@ def _base_pillars(ctx, comp, pl, fsk):
     s = Sk(comp, pl.frame(w), mp, 'BASE insert holes')
     for (u, v) in lay.pillars:
         s.circle(u, v, p.insert_d)
-    extrude(comp, s, s.profiles(), ctx.CUT, 'insert_depth', dirv=neg(fr.n), bodies=[body],
+    extrude(comp, s, s.profiles(), ctx.CUT, p.insert_depth, dirv=neg(fr.n), bodies=[body],
             name='Heat-set insert holes')
     w2 = w - p.insert_depth
     s = Sk(comp, pl.frame(w2), lambda a, b: fr.P(a, b, w2), 'BASE insert relief')
@@ -1208,14 +1306,14 @@ def _base_esp(ctx, comp, pl):
             xa, xb = x0 + sx * (hw - 3.0), x0 + sx * x_in
             ya, yb = cy + sy * (hl - 4.0), cy + sy * hl
             s.rect(min(xa, xb), min(ya, yb), max(xa, xb), max(ya, yb))
-    extrude(comp, s, s.profiles(), ctx.JOIN, 'esp_clear', dirv=(0.0, 0.0, 1.0),
+    extrude(comp, s, s.profiles(), ctx.JOIN, p.esp_clear, dirv=(0.0, 0.0, 1.0),
             bodies=[body], name='ESP pads')
     zr = lay.z_pcb_top + 0.5
     s = Sk(comp, pl.xz(cy), lambda a, b: (a, cy, b), 'ESP rails')
     for sx in (-1, 1):
         xa, xb = x0 + sx * x_in, x0 + sx * (x_in + p.rail_t)
         s.rect(min(xa, xb), zb, max(xa, xb), zr)
-    extrude(comp, s, s.profiles(), ctx.JOIN, 'esp_l', sym=True, bodies=[body], name='ESP rails')
+    extrude(comp, s, s.profiles(), ctx.JOIN, p.esp_l, sym=True, bodies=[body], name='ESP rails')
     clip_l = 6.0
     s = Sk(comp, pl.xy(zb), xy, 'ESP rail gaps')
     for sx in (-1, 1):
@@ -1224,7 +1322,7 @@ def _base_esp(ctx, comp, pl):
             s.rect(min(xa, xb), yc - clip_l / 2.0 - 0.8, max(xa, xb), yc + clip_l / 2.0 + 0.8)
     extrude(comp, s, s.profiles(), ctx.CUT, zr - zb + 1.0, dirv=(0.0, 0.0, 1.0),
             bodies=[body], name='ESP rail gaps')
-    ct, h = 1.2, p.esp_snap
+    ct, h = p.esp_clip_t, p.esp_snap      # ~1.2 % bending strain at defaults
     zc = lay.z_pcb_top
     zt = zc + 2.0 * h + 0.6
     lip = [(x_in, zb), (x_in + ct, zb), (x_in + ct, zt), (x_in, zt),
@@ -1243,7 +1341,9 @@ def _base_esp(ctx, comp, pl):
 
 
 def _base_buzzer(ctx, comp, pl):
-    """U-cradle against the back wall; buzzer axis along Y, snaps in from above."""
+    """U-cradle against the back wall, buzzer axis along Y. The buzzer slides
+    in from the front until its face touches the wall; the 218 deg wrap keeps
+    it seated and two crush ribs (next step) hold it axially."""
     p, lay = ctx.p, ctx.lay
     body = get_body(comp, 'BASE')
     zb = p.floor_t
@@ -1258,6 +1358,37 @@ def _base_buzzer(ctx, comp, pl):
     s.circle(bx, bz, p.buz_d)
     extrude(comp, s, s.profiles(), ctx.CUT, length + 1.0, dirv=(0.0, -1.0, 0.0),
             bodies=[body], name='Buzzer bore')
+
+
+def _base_buzzer_ribs(ctx, comp, pl):
+    """Two 1 mm crush ribs in the lower half of the bore (0.1 mm grip)."""
+    p, lay = ctx.p, ctx.lay
+    body = get_body(comp, 'BASE')
+    bx, bz, yi = p.buz_x, lay.buz_z, lay.yi
+    length = max(p.buz_len - 1.5, 4.0)
+    rc = p.buz_d / 2.0 + 0.5 - 0.2
+    s = Sk(comp, pl.xz(yi), lambda a, b: (a, yi, b), 'Buzzer crush ribs')
+    for deg in (220.0, 320.0):
+        t = math.radians(deg)
+        s.circle(bx + rc * math.cos(t), bz + rc * math.sin(t), 1.0)
+    extrude(comp, s, s.profiles(), ctx.JOIN, length, dirv=(0.0, -1.0, 0.0), bodies=[body],
+            name='Buzzer crush ribs')
+
+
+def _base_reveal(ctx, comp, pl):
+    """Shadow-line rabbet (reveal x reveal) on the outer top edge of the BASE:
+    a crisp dark line under the light panel that hides the colour seam and
+    any print mismatch between the two parts."""
+    p, lay = ctx.p, ctx.lay
+    if p.reveal < 0.05:
+        return
+    body = get_body(comp, 'BASE')
+    s = Sk(comp, comp.xYConstructionPlane, lambda a, b: (a, b, 0.0), 'BASE seam reveal')
+    s.rrect(0.0, 0.0, p.box_w + 20.0, p.box_d + 20.0, p.r_corner + 10.0)
+    s.rrect(0.0, 0.0, p.box_w - 2.0 * p.reveal, p.box_d - 2.0 * p.reveal,
+            max(p.r_corner - p.reveal, 0.5))
+    vertical_band(ctx, comp, pl, s, lay.w_part - p.reveal, lay.w_part + 1.0, ctx.CUT, body,
+                  'Seam reveal')
 
 
 def _base_ties(ctx, comp, pl):
@@ -1283,6 +1414,11 @@ def _base_usb(ctx, comp, pl):
     s.rrect(p.esp_x, lay.usb_z, p.usb_w, p.usb_h, 1.5)
     extrude(comp, s, s.profiles(), ctx.CUT, p.wall_t + 1.0, dirv=(0.0, 1.0, 0.0),
             bodies=[body], name='USB cutout')
+
+
+def _base_usb_frame(ctx, comp, pl):
+    """usb_chamfer x 45 deg frame around the USB cutout on the outside."""
+    p, lay = ctx.p, ctx.lay
     body = get_body(comp, 'BASE')
     face = find_planar_face(body, (0.0, 1.0, 0.0), (0.0, p.box_d / 2.0, lay.usb_z))
 
@@ -1323,6 +1459,15 @@ def _base_bed_chamfer(ctx, comp, pl):
     chamfer(comp, outer_loop_edges(face), 'bed_chamfer', True, 'Bed chamfer')
 
 
+def _base_foot_rims(ctx, comp, pl):
+    body = get_body(comp, 'BASE')
+    face = find_planar_face(body, (0.0, 0.0, -1.0), (0.0, 0.0, 0.0))
+    edges = [e for lp in face.loops if not lp.isOuter for e in lp.edges]
+    if not edges:
+        raise RuntimeError('foot recess rims not found')
+    chamfer(comp, edges, 'bed_chamfer', True, 'Foot recess rim chamfer')
+
+
 # =============================================================================
 # 7. TOP_PANEL
 #    Print orientation: visible top face DOWN on the bed (smooth bed side).
@@ -1332,10 +1477,10 @@ def _base_bed_chamfer(ctx, comp, pl):
 #    Clip hooks and ring stop tabs use 45 deg faces.
 # =============================================================================
 def build_top_panel(ctx):
-    fr, lay = ctx.fr, ctx.lay
+    lay = ctx.lay
     occ, comp = new_comp(ctx, 'TOP_PANEL')
     ctx.comps['TOP_PANEL'] = comp
-    pl = Planes(comp, fr, 'PANEL')
+    pl = new_planes(ctx, comp, 'PANEL')
     build_wedge(ctx, comp, pl, 'TOP_PANEL')
     step(ctx, 'TOP_PANEL top perimeter', top_round, ctx, comp, 'TOP_PANEL')
     body = get_body(comp, 'TOP_PANEL')
@@ -1345,7 +1490,10 @@ def build_top_panel(ctx):
                       ('TOP_PANEL display window/pocket', _panel_display),
                       ('TOP_PANEL display clips', _panel_display_clips),
                       ('TOP_PANEL diffuser seat', _panel_seat),
+                      ('TOP_PANEL seat 45 deg cone', _panel_seat_cone),
                       ('TOP_PANEL LED ring holder', _panel_ring_holder),
+                      ('TOP_PANEL LED ring clips', _panel_ring_clips),
+                      ('TOP_PANEL LED ring crush ribs', _panel_ring_ribs),
                       ('TOP_PANEL button holes', _panel_buttons),
                       ('TOP_PANEL screw holes', _panel_screws),
                       ('TOP_PANEL hole rim chamfers', _panel_rim_chamfers),
@@ -1365,22 +1513,7 @@ def _panel_lip(ctx, comp, pl):
     s = Sk(comp, comp.xYConstructionPlane, lambda c, d: (c, d, 0.0), 'PANEL lip')
     s.rrect(0.0, 0.0, p.box_w - 2.0 * a, p.box_d - 2.0 * a, p.r_corner - a)
     s.rrect(0.0, 0.0, p.box_w - 2.0 * b, p.box_d - 2.0 * b, max(p.r_corner - b, 0.5))
-    p_lip, p_part = pl.frame(lay.w_lip), pl.frame(lay.w_part)
-    try:
-        extrude_to(comp, s, s.profiles(loops=2), ctx.JOIN, p_part, (0.0, 0.0, 1.0),
-                   bodies=[body], name='Alignment lip', start=p_lip)
-        return
-    except Exception as e:
-        ctx.rep.warn('lip from/to extrude failed ({}); using cut + combine'.format(short_err(e)))
-    f = extrude(comp, s, s.profiles(loops=2), ctx.NEW, ctx.p.h_back + 5.0,
-                dirv=(0.0, 0.0, 1.0), name='Lip blank')
-    blank = f.bodies.item(0)
-    cut_halfspace(ctx, comp, pl, blank, lay.w_part, +1, 'Lip top cut')
-    cut_halfspace(ctx, comp, pl, blank, lay.w_lip, -1, 'Lip bottom cut')
-    cf = comp.features.combineFeatures
-    ci = cf.createInput(get_body(comp, 'TOP_PANEL'), OC([blank]))
-    ci.operation = ctx.JOIN
-    cf.add(ci)
+    vertical_band(ctx, comp, pl, s, lay.w_lip, lay.w_part, ctx.JOIN, body, 'Alignment lip')
 
 
 def _panel_pads(ctx, comp, pl):
@@ -1390,7 +1523,7 @@ def _panel_pads(ctx, comp, pl):
     s = Sk(comp, pl.frame(w), lambda a, b: fr.P(a, b, w), 'PANEL screw pads')
     for (u, v) in lay.pillars:
         s.circle(u, v, p.pad_d)
-    extrude(comp, s, s.profiles(), ctx.JOIN, 'pad_t', dirv=neg(fr.n), bodies=[body],
+    extrude(comp, s, s.profiles(), ctx.JOIN, p.pad_t, dirv=neg(fr.n), bodies=[body],
             name='Screw boss pads')
 
 
@@ -1400,7 +1533,7 @@ def _panel_display(ctx, comp, pl):
     w = lay.w_part
     s = Sk(comp, pl.frame(w), lambda a, b: fr.P(a, b, w), 'PANEL display pocket')
     s.rrect(0.0, p.disp_y, p.disp_w + p.fit, p.disp_h + p.fit, 0.5)
-    extrude(comp, s, s.profiles(), ctx.CUT, 'panel_t - disp_frame', dirv=fr.n, bodies=[body],
+    extrude(comp, s, s.profiles(), ctx.CUT, p.panel_t - p.disp_frame, dirv=fr.n, bodies=[body],
             name='Display pocket')
     s = Sk(comp, pl.frame(0.0), lambda a, b: fr.P(a, b, 0.0), 'PANEL display window')
     s.rrect(0.0, p.disp_y, p.disp_win_w, p.disp_win_h, 1.0)
@@ -1438,7 +1571,7 @@ def _panel_seat(ctx, comp, pl):
     mp = lambda a, b: fr.P(a, b, 0.0)
     s = Sk(comp, pl.frame(0.0), mp, 'PANEL diffuser seat')
     s.circle(0.0, p.ring_y, p.diff_d + p.press)
-    extrude(comp, s, s.profiles(), ctx.CUT, 'diff_t', dirv=neg(fr.n), bodies=[body],
+    extrude(comp, s, s.profiles(), ctx.CUT, p.diff_t, dirv=neg(fr.n), bodies=[body],
             name='Diffuser seat (press fit)')
     s = Sk(comp, pl.frame(0.0), mp, 'PANEL light hole')
     s.circle(0.0, p.ring_y, 2.0 * lay.r_tube_in)
@@ -1446,9 +1579,27 @@ def _panel_seat(ctx, comp, pl):
             name='Light hole')
 
 
+def _panel_seat_cone(ctx, comp, pl):
+    """45 deg cone under the press-fit seat. Printed face-down the seat ledge
+    would be a 2.9 mm flat overhang; now only a short land remains for the
+    diffuser to rest on and the cone ends exactly at the light hole."""
+    p, fr, lay = ctx.p, ctx.fr, ctx.lay
+    h = p.panel_t - p.diff_t
+    ri = lay.r_tube_in
+    r0 = ri + h
+    if h < 0.2 or r0 > (p.diff_d + p.press) / 2.0 - 0.3:
+        raise RuntimeError('no room for the seat cone')
+    body = get_body(comp, 'TOP_PANEL')
+    vr = p.ring_y
+    s = Sk(comp, pl.section(vr), lambda a, b: fr.P(a, vr, b), 'PANEL seat cone')
+    ax = s.axis(0.0, 1.0, 0.0, -p.panel_t - 2.0)
+    s.poly([(ri - 0.5, -p.diff_t), (r0, -p.diff_t), (ri, -p.panel_t), (ri - 0.5, -p.panel_t)])
+    revolve(comp, s.profiles(), ax, ctx.CUT, 360.0, bodies=[body], name='Seat 45 deg cone')
+
+
 def _panel_ring_holder(ctx, comp, pl):
     """Tube that holds the ring PCB ring_gap behind the diffuser: 2 stop tabs
-    (+-v) fix the depth, 2 snap clips (+-u) hold the PCB's back face."""
+    (+-v) fix the depth; clips and crush ribs are separate steps."""
     p, fr, lay = ctx.p, ctx.fr, ctx.lay
     body = get_body(comp, 'TOP_PANEL')
     vr = p.ring_y
@@ -1470,7 +1621,7 @@ def _panel_ring_holder(ctx, comp, pl):
         s.rect(min(a0, a1), vr - gap_v, max(a0, a1), vr + gap_v)
     extrude(comp, s, s.profiles(), ctx.CUT, tube_len + 0.5, dirv=neg(fr.n), bodies=[body],
             name='Ring clip gaps')
-    r_s = p.ring_od / 2.0 - 1.0
+    r_s = p.ring_od / 2.0 - 0.6          # 0.6 mm over the PCB rim, clear of the LEDs
     r_o2 = r_in + 0.75
     wt = lay.w_ring_top
     d45 = min(r_in - r_s, 0.9 * (w - wt))
@@ -1482,13 +1633,48 @@ def _panel_ring_holder(ctx, comp, pl):
     for sv in (-1, 1):
         s.poly([(vr + sv * a, b) for (a, b) in tab])
     extrude(comp, s, s.profiles(), ctx.JOIN, 2.5, sym=True, bodies=[body], name='Ring stop tabs')
+
+
+def _panel_ring_clips(ctx, comp, pl):
+    """2 snap clips at +-u holding the ring PCB's back face. They are swept as
+    arcs about the ring axis so the hook engagement is the same over the
+    whole clip width (a straight clip would lose it at its ends)."""
+    p, fr, lay = ctx.p, ctx.fr, ctx.lay
+    body = get_body(comp, 'TOP_PANEL')
+    vr = p.ring_y
+    r_in = lay.r_tube_in
     w_catch = lay.w_ring_bot - 0.05 + (r_in - p.ring_od / 2.0)
-    prof = _clip_profile(r_in, p.rclip_t, p.rclip_hook, w + 0.4, w_catch)
+    prof = _clip_profile(r_in, p.rclip_t, p.rclip_hook, lay.w_part, w_catch)
     s = Sk(comp, pl.section(vr), lambda a, b: fr.P(a, vr, b), 'PANEL ring clips')
+    ax = s.axis(0.0, 1.0, 0.0, lay.w_ring_bot - 3.0)
     for sx in (-1, 1):
         s.poly([(sx * a, b) for (a, b) in prof])
-    extrude(comp, s, s.profiles(), ctx.JOIN, 'rclip_w', sym=True, bodies=[body],
+    half = math.degrees(p.rclip_w / 2.0 / r_in)
+    try:
+        revolve(comp, s.profiles(), ax, ctx.JOIN, half, symmetric=True, bodies=[body],
+                name='Ring snap clips (arc)')
+        return
+    except Exception as e:
+        ctx.rep.warn('ring clips: arc revolve failed ({}); straight clips used'.format(short_err(e)))
+    extrude(comp, s, s.profiles(), ctx.JOIN, p.rclip_w, sym=True, bodies=[body],
             name='Ring snap clips')
+
+
+def _panel_ring_ribs(ctx, comp, pl):
+    """4 crush ribs between the clips and the tabs: centre the ring PCB (no
+    side play toward one clip) and hold it by friction."""
+    p, fr, lay = ctx.p, ctx.fr, ctx.lay
+    body = get_body(comp, 'TOP_PANEL')
+    w = lay.w_part
+    vr = p.ring_y
+    rr = 0.5
+    rc = p.ring_od / 2.0 - 0.05 + rr      # ribs reach 0.05 mm into the PCB rim
+    s = Sk(comp, pl.frame(w), lambda a, b: fr.P(a, b, w), 'PANEL ring crush ribs')
+    for k in range(4):
+        t = math.radians(45.0 + 90.0 * k)
+        s.circle(rc * math.cos(t), vr + rc * math.sin(t), 2.0 * rr)
+    extrude(comp, s, s.profiles(), ctx.JOIN, w - lay.w_ring_bot, dirv=neg(fr.n), bodies=[body],
+            name='Ring crush ribs')
 
 
 def _panel_buttons(ctx, comp, pl):
@@ -1507,15 +1693,19 @@ def _panel_screws(ctx, comp, pl):
     p, fr, lay = ctx.p, ctx.fr, ctx.lay
     body = get_body(comp, 'TOP_PANEL')
     mp = lambda a, b: fr.P(a, b, 0.0)
-    s = Sk(comp, pl.frame(0.0), mp, 'PANEL screw holes')
+    # The M3 hole starts skin_t above the counterbore floor: printed face-down
+    # the counterbore ceiling is then a 6.4 mm bridge instead of a flat
+    # overhang. Push the screw through (or drill 3 mm) once after printing.
+    w0 = -(p.cb_depth + p.skin_t) if p.skin_t > 0.01 else 0.0
+    s = Sk(comp, pl.frame(w0), lambda a, b: fr.P(a, b, w0), 'PANEL screw holes')
     for (u, v) in lay.pillars:
         s.circle(u, v, p.m3_clear)
-    extrude(comp, s, s.profiles(), ctx.CUT, p.panel_t + p.pad_t + 0.5, dirv=neg(fr.n),
+    extrude(comp, s, s.profiles(), ctx.CUT, p.panel_t + p.pad_t + 0.5 + w0, dirv=neg(fr.n),
             bodies=[body], name='M3 clearance holes')
     s = Sk(comp, pl.frame(0.0), mp, 'PANEL counterbores')
     for (u, v) in lay.pillars:
         s.circle(u, v, p.cb_d)
-    extrude(comp, s, s.profiles(), ctx.CUT, 'cb_depth', dirv=neg(fr.n), bodies=[body],
+    extrude(comp, s, s.profiles(), ctx.CUT, p.cb_depth, dirv=neg(fr.n), bodies=[body],
             name='Counterbores (M3 button head)')
 
 
@@ -1590,7 +1780,9 @@ def _panel_title(ctx, comp, pl):
                                        cy + ox * math.sin(ang) + oy * math.cos(ang), 0.0)
         ti = texts.createInput(TITLE_TEXT, h, pos)
         ti.angle = ang
-        _text_style(ti, dot(ns, fr.n) < 0, False)
+        # baseline is already +u; a sketch normal pointing into the panel only
+        # mirrors the glyphs top-to-bottom -> vertical flip
+        _text_style(ti, False, dot(ns, fr.n) < 0)
         txt = texts.add(ti)
     ed = adsk.fusion.ExtentDirections
     dr = ed.PositiveExtentDirection if dot(ns, neg(fr.n)) >= 0 else ed.NegativeExtentDirection
@@ -1623,10 +1815,10 @@ def build_diffuser(ctx):
     p, fr = ctx.p, ctx.fr
     occ, comp = new_comp(ctx, 'DIFFUSER')
     ctx.comps['DIFFUSER'] = comp
-    pl = Planes(comp, fr, 'DIFFUSER')
+    pl = new_planes(ctx, comp, 'DIFFUSER')
     s = Sk(comp, pl.frame(0.0), lambda a, b: fr.P(a, b, 0.0), 'Diffuser disc')
     s.circle(0.0, p.ring_y, p.diff_d)
-    f = extrude(comp, s, s.profiles(), ctx.NEW, 'diff_t', dirv=neg(fr.n), name='Diffuser disc')
+    f = extrude(comp, s, s.profiles(), ctx.NEW, p.diff_t, dirv=neg(fr.n), name='Diffuser disc')
     f.bodies.item(0).name = 'DIFFUSER'
 
     def bed_chamfer():
@@ -1733,7 +1925,7 @@ def build_fit_test(ctx):
     p, lay = ctx.p, ctx.lay
     occ, comp = new_comp(ctx, 'FIT_TEST')
     ctx.comps['FIT_TEST'] = comp
-    pl = Planes(comp, ctx.fr, 'FIT')
+    pl = new_planes(ctx, comp, 'FIT')
     m, g = 3.0, 3.0
     seat_d = p.diff_d + p.press
     col = max(p.btn_hole, p.pillar_d)
@@ -1752,60 +1944,78 @@ def build_fit_test(ctx):
     xy0 = lambda a, b: (a, b, 0.0)
     s = Sk(comp, comp.xYConstructionPlane, xy0, 'FIT plate')
     s.rrect(X0, 0.0, W, D, 3.0)
-    f = extrude(comp, s, s.profiles(), ctx.NEW, 'ft_t', dirv=(0.0, 0.0, 1.0), name='FIT plate')
+    f = extrude(comp, s, s.profiles(), ctx.NEW, p.ft_t, dirv=(0.0, 0.0, 1.0), name='FIT plate')
     body = f.bodies.item(0)
     body.name = 'FIT_TEST'
+
+    def fb():
+        return get_body(comp, 'FIT_TEST')
 
     def seat_and_holes():
         s = Sk(comp, comp.xYConstructionPlane, xy0, 'FIT diffuser seat')
         s.circle(xs, 0.0, seat_d)
-        extrude(comp, s, s.profiles(), ctx.CUT, 'diff_t', dirv=(0.0, 0.0, 1.0), bodies=[body],
+        extrude(comp, s, s.profiles(), ctx.CUT, p.diff_t, dirv=(0.0, 0.0, 1.0), bodies=[fb()],
                 name='FIT diffuser seat')
         s = Sk(comp, comp.xYConstructionPlane, xy0, 'FIT through holes')
         s.circle(xs, 0.0, 2.0 * lay.r_tube_in)
         s.circle(xc, yb, p.btn_hole)
-        extrude(comp, s, s.profiles(), ctx.CUT, t + 1.0, dirv=(0.0, 0.0, 1.0), bodies=[body],
+        extrude(comp, s, s.profiles(), ctx.CUT, t + 1.0, dirv=(0.0, 0.0, 1.0), bodies=[fb()],
                 name='FIT light + button holes')
+
+    def seat_cone():
+        """Same 45 deg cone as TOP_PANEL so the coupon tests the real seat."""
+        h = t - p.diff_t
+        ri = lay.r_tube_in
+        r0 = ri + h
+        if h < 0.2 or r0 > seat_d / 2.0 - 0.3:
+            raise RuntimeError('no room for the seat cone')
+        s = Sk(comp, comp.xZConstructionPlane, lambda a, b: (xs + a, 0.0, b), 'FIT seat cone')
+        ax = s.axis(0.0, -1.0, 0.0, t + 2.0)
+        s.poly([(ri - 0.5, p.diff_t), (r0, p.diff_t), (ri, t), (ri - 0.5, t)])
+        revolve(comp, s.profiles(), ax, ctx.CUT, 360.0, bodies=[fb()], name='FIT seat 45 deg cone')
 
     def pillar_stub():
         hs = p.insert_depth + 3.0
         s = Sk(comp, pl.xy(t), lambda a, b: (a, b, t), 'FIT pillar stub')
         s.circle(xc, yp, p.pillar_d)
-        extrude(comp, s, s.profiles(), ctx.JOIN, hs, dirv=(0.0, 0.0, 1.0), bodies=[body],
+        extrude(comp, s, s.profiles(), ctx.JOIN, hs, dirv=(0.0, 0.0, 1.0), bodies=[fb()],
                 name='FIT pillar stub')
         zt = t + hs
         s = Sk(comp, pl.xy(zt), lambda a, b: (a, b, zt), 'FIT insert hole')
         s.circle(xc, yp, p.insert_d)
-        extrude(comp, s, s.profiles(), ctx.CUT, 'insert_depth', dirv=(0.0, 0.0, -1.0),
-                bodies=[body], name='FIT insert hole')
+        extrude(comp, s, s.profiles(), ctx.CUT, p.insert_depth, dirv=(0.0, 0.0, -1.0),
+                bodies=[fb()], name='FIT insert hole')
         zr = zt - p.insert_depth
         s = Sk(comp, pl.xy(zr), lambda a, b: (a, b, zr), 'FIT insert relief')
         s.circle(xc, yp, min(p.m3_clear, p.insert_d - 0.4))
-        extrude(comp, s, s.profiles(), ctx.CUT, 2.0, dirv=(0.0, 0.0, -1.0), bodies=[body],
+        extrude(comp, s, s.profiles(), ctx.CUT, 2.0, dirv=(0.0, 0.0, -1.0), bodies=[fb()],
                 name='FIT insert relief')
 
+    zc_usb = t + (lay.usb_z - p.floor_t)
+    xo = X0 + W / 2.0
+
     def usb_wall():
-        zc = t + (lay.usb_z - p.floor_t)
-        ztop = zc + p.usb_h / 2.0 + 3.0
+        ztop = zc_usb + p.usb_h / 2.0 + 3.0
         half = p.usb_w / 2.0 + p.usb_chamfer + 3.0
-        xo = X0 + W / 2.0
         xi = xo - p.wall_t
         s = Sk(comp, pl.xy(t), lambda a, b: (a, b, t), 'FIT USB wall')
         s.rect(xi, -half, xo, half)
-        extrude(comp, s, s.profiles(), ctx.JOIN, ztop - t, dirv=(0.0, 0.0, 1.0), bodies=[body],
+        extrude(comp, s, s.profiles(), ctx.JOIN, ztop - t, dirv=(0.0, 0.0, 1.0), bodies=[fb()],
                 name='FIT USB wall')
         s = Sk(comp, pl.yz(xi), lambda a, b: (xi, a, b), 'FIT USB cutout')
-        s.rrect(0.0, zc, p.usb_w, p.usb_h, 1.5)
+        s.rrect(0.0, zc_usb, p.usb_w, p.usb_h, 1.5)
         extrude(comp, s, s.profiles(), ctx.CUT, p.wall_t + 1.0, dirv=(1.0, 0.0, 0.0),
-                bodies=[body], name='FIT USB cutout')
-        face = find_planar_face(get_body(comp, 'FIT_TEST'), (1.0, 0.0, 0.0), (xo, 0.0, zc))
-        lps = inner_loops_near(face, lambda bb: abs((bb[2] + bb[5]) / 2.0 - zc) < 1.0)
+                bodies=[fb()], name='FIT USB cutout')
+
+    def usb_frame():
+        face = find_planar_face(fb(), (1.0, 0.0, 0.0), (xo, 0.0, zc_usb))
+        lps = inner_loops_near(face, lambda bb: abs((bb[2] + bb[5]) / 2.0 - zc_usb) < 1.0)
         if not lps:
             raise RuntimeError('USB rim not found')
         chamfer(comp, [e for e in lps[0].edges], 'usb_chamfer', True, 'FIT USB chamfered frame')
 
     def bed_chamfers():
-        face = find_planar_face(get_body(comp, 'FIT_TEST'), (0.0, 0.0, -1.0), (X0, 0.0, 0.0))
+        face = find_planar_face(fb(), (0.0, 0.0, -1.0), (X0, 0.0, 0.0))
         edges = outer_loop_edges(face)
         for lp in face.loops:
             if not lp.isOuter:
@@ -1813,8 +2023,10 @@ def build_fit_test(ctx):
         chamfer(comp, edges, 'bed_chamfer', True, 'FIT bed chamfers')
 
     step(ctx, 'FIT_TEST seat + holes', seat_and_holes)
+    step(ctx, 'FIT_TEST seat 45 deg cone', seat_cone)
     step(ctx, 'FIT_TEST insert pillar stub', pillar_stub)
     step(ctx, 'FIT_TEST USB wall', usb_wall)
+    step(ctx, 'FIT_TEST USB chamfered frame', usb_frame)
     step(ctx, 'FIT_TEST bed chamfers', bed_chamfers)
     body = get_body(comp, 'FIT_TEST')
     paint(ctx, body, 'RA Panel Off-White', C_PANEL)
@@ -1826,16 +2038,105 @@ def build_fit_test(ctx):
 # 11. VALIDATION
 # =============================================================================
 def _intersect_mm3(a, b):
-    """Volume (mm^3) of a ^ b, or None if the boolean failed."""
+    """Volume (mm^3) of a ^ b via temporary B-Rep, or None if the boolean failed."""
     try:
         if not a.boundingBox.intersects(b.boundingBox):
             return 0.0
         ta = tbm().copy(a)
         tb = tbm().copy(b)
-        tbm().booleanOperation(ta, tb, adsk.fusion.BooleanTypes.IntersectionBooleanType)
+        if not tbm().booleanOperation(ta, tb, adsk.fusion.BooleanTypes.IntersectionBooleanType):
+            return None
+        if ta.faces.count == 0:
+            return 0.0
         return max(ta.volume, 0.0) * 1000.0
     except Exception:
         return None
+
+
+def _interference_fusion(ctx, named):
+    """Fusion's own interference analysis on root-context proxies; contact
+    (coincident) faces are excluded. Returns {(nameA, nameB): mm^3}."""
+    proxies = [b.createForAssemblyContext(occ) for (_nm, b, occ) in named]
+    inp = ctx.design.createInterferenceInput(OC(proxies))
+    inp.areCoincidentFacesIncluded = False
+    res = ctx.design.analyzeInterference(inp)
+    out = {}
+    for i in range(res.count):
+        r = res.item(i)
+        a = adsk.fusion.BRepBody.cast(r.entityOne)
+        b = adsk.fusion.BRepBody.cast(r.entityTwo)
+        if a is None or b is None:
+            continue
+        key = tuple(sorted((a.name, b.name)))
+        vol = 0.0
+        try:
+            vol = r.interferenceBody.volume * 1000.0
+        except Exception:
+            vol = 1e9          # interference reported but no body: count it
+        out[key] = out.get(key, 0.0) + vol
+    return out
+
+
+def check_interference(ctx):
+    rep = ctx.rep
+    printed = [(k, ctx.bodies[k], ctx.occs.get(k)) for k in ('BASE', 'TOP_PANEL', 'DIFFUSER')
+               if k in ctx.bodies]
+    refs = [(k, b, ctx.occs.get('Reference parts')) for k, b in sorted(ctx.ref_bodies.items())]
+    if not refs:
+        rep.val('Interference: no reference parts to check')
+        return
+    ref_names = set(n for (n, _b, _o) in refs)
+    allb = refs + printed
+    bodies = dict((n, b) for (n, b, _o) in allb)
+    names = [n for (n, _b, _o) in allb]
+    kind = {}
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            ra, rb = names[i] in ref_names, names[j] in ref_names
+            kind[tuple(sorted((names[i], names[j])))] = (
+                'REF/REF' if ra and rb else 'REF/printed' if ra or rb else 'printed/printed')
+    method = 'Fusion interference analysis'
+    try:
+        vols = _interference_fusion(ctx, allb)
+    except Exception as e:
+        method = 'temporary B-Rep booleans'
+        rep.info('analyzeInterference unavailable ({}); used temporary B-Rep booleans'.format(
+            short_err(e)))
+        vols = {}
+        for key in sorted(kind):
+            v = _intersect_mm3(bodies[key[0]], bodies[key[1]])
+            if v is None:
+                rep.warn('interference check failed for {} / {}'.format(key[0], key[1]))
+            elif v > 0.0:
+                vols[key] = v
+    hits = 0
+    for key in sorted(vols):
+        if vols[key] > 1.0:
+            hits += 1
+            rep.val('INTERFERENCE ({}) {} <-> {}: {:.1f} mm^3'.format(
+                kind.get(key, '?'), key[0], key[1], vols[key]))
+    if hits == 0:
+        rep.val('Interference: none ({} bodies, {}; contact faces and crush-rib grip ignored)'.format(
+            len(allb), method))
+    else:
+        rep.warn('{} interfering pair(s) - see VALIDATION'.format(hits))
+
+
+def snap_strains(p, lay):
+    """Bending strain 1.5*t*d/L^2 of the printed snap features."""
+    w_dc = lay.w_disp_pcb - 0.05 + p.fit / 2.0
+    w_rc = lay.w_ring_bot - 0.05 + p.fit / 2.0
+    rows = [('ESP32 snap lips', p.esp_clip_t, p.esp_snap - p.fit / 2.0,
+             lay.z_pcb_top + p.esp_snap - p.floor_t),
+            ('display clips', p.clip_t, p.clip_hook - p.fit / 2.0,
+             abs(lay.w_part - (w_dc - p.clip_hook))),
+            ('LED ring clips', p.rclip_t, p.rclip_hook - p.fit / 2.0,
+             abs(lay.w_part - (w_rc - p.rclip_hook)))]
+    out = []
+    for nm, t, d, L in rows:
+        eps = 150.0 * t * d / (L * L) if L > 0.1 else 99.0
+        out.append((nm, d, eps))
+    return out
 
 
 def validate(ctx):
@@ -1880,26 +2181,10 @@ def validate(ctx):
             rep.val('Suggested fix (any one): ' + ' | '.join(tips))
     elif not issues:
         rep.val('Panel layout: no conflicts (>= 2 mm webs, nut keep-outs clear)')
-    printed = [(k, ctx.bodies[k]) for k in ('BASE', 'TOP_PANEL', 'DIFFUSER') if k in ctx.bodies]
-    refs = sorted(ctx.ref_bodies.items())
-    pairs = [(a, b, 'REF/printed') for a in refs for b in printed]
-    pairs += [(refs[i], refs[j], 'REF/REF') for i in range(len(refs)) for j in range(i + 1, len(refs))]
-    pairs += [(printed[i], printed[j], 'printed/printed') for i in range(len(printed))
-              for j in range(i + 1, len(printed))]
-    hits = 0
-    for (na, ba), (nb, bb), kind in pairs:
-        vol = _intersect_mm3(ba, bb)
-        if vol is None:
-            rep.warn('interference check failed for {} / {}'.format(na, nb))
-        elif vol > 0.5:
-            hits += 1
-            rep.val('INTERFERENCE ({}) {} <-> {}: {:.1f} mm^3'.format(kind, na, nb, vol))
-    if not refs:
-        rep.val('Interference: no reference parts to check')
-    elif hits == 0:
-        rep.val('Interference: none ({} pairs checked; resting/contact faces ignored)'.format(len(pairs)))
-    else:
-        rep.warn('{} interfering pair(s) - see VALIDATION'.format(hits))
+    for nm, d, eps in snap_strains(p, lay):
+        rep.val('Snap fit {:<16} hook engagement {:.2f} mm, strain {:.1f} % {}'.format(
+            nm, d, eps, 'OK' if eps <= 1.5 else '(high for PLA - use PETG or reduce the hook)'))
+    check_interference(ctx)
 
 
 # =============================================================================
@@ -1922,18 +2207,51 @@ def _read_existing_expressions(app):
     return out
 
 
+def _literal_default(name, units, prms):
+    """Plain-number stand-in for a derived default that Fusion refused."""
+    def mm(n):
+        return prms[n].value / MM
+    if name == 'slope_ang':
+        return '{:.4f} deg'.format(math.degrees(math.atan2(mm('h_back') - mm('h_front'), mm('box_d'))))
+    if name == 'diff_d':
+        return '{:.4f} mm'.format(mm('ring_od') + 6.0)
+    raise RuntimeError('parameter {} could not be created'.format(name))
+
+
 def create_params(design, rep, old):
+    """Pass 1 creates every parameter with its default (so expressions may
+    reference any other parameter); pass 2 re-applies the expressions found
+    in the previously active design, retrying until no more succeed."""
     ups = design.userParameters
-    vals = Vals()
+    prms = {}
     for name, expr, units, comment in PARAMS:
         prm = ups.itemByName(name)
-        e = old.get(name, expr)
         if prm is None:
             try:
-                prm = ups.add(name, adsk.core.ValueInput.createByString(e), units, comment)
-            except Exception:
-                rep.warn('parameter {}: expression "{}" rejected, default used'.format(name, e))
                 prm = ups.add(name, adsk.core.ValueInput.createByString(expr), units, comment)
+            except Exception:
+                prm = None
+            if prm is None:
+                lit = _literal_default(name, units, prms)
+                rep.warn('parameter {}: default "{}" rejected, stored as {}'.format(name, expr, lit))
+                prm = ups.add(name, adsk.core.ValueInput.createByString(lit), units, comment)
+        prms[name] = prm
+    pending = [(n, e) for n, e in old.items() if n in prms and prms[n].expression != e]
+    while pending:
+        failed = []
+        for n, e in pending:
+            try:
+                prms[n].expression = e
+            except Exception:
+                failed.append((n, e))
+        if len(failed) == len(pending):
+            break
+        pending = failed
+    for n, e in pending:
+        rep.warn('parameter {}: expression "{}" rejected, default kept'.format(n, e))
+    vals = Vals()
+    for name, expr, units, comment in PARAMS:
+        prm = prms[name]
         if units == 'mm':
             val = prm.value / MM
         elif units == 'deg':
@@ -1965,6 +2283,8 @@ class Ctx(object):
         self.lay = Layout(p, self.fr)
         self.NEW, self.JOIN, self.CUT, self.INT = feature_ops()
         self.comps = {}
+        self.occs = {}
+        self.planes = []
         self.bodies = {}
         self.ref_bodies = {}
         self.appearances = {}
@@ -2013,6 +2333,9 @@ def run(context):
         except Exception:
             pass
         p = create_params(design, rep, old)
+        rep.info('Live-linked: top_fillet, bed_chamfer, usb_chamfer, foot_depth, title_depth, '
+                 'clip_w. Any other edit: change it in Change Parameters, keep this design '
+                 'active and run the script again.')
         ctx = Ctx(app, ui, design, p, rep)
         for name, fn in BUILDERS:
             n0 = len(rep.warnings)
