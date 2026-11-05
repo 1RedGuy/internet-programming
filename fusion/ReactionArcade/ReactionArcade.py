@@ -557,34 +557,84 @@ def plane_dist_mm(cplane, pt):
     return abs(d) / MM
 
 
+def try_name(obj, name):
+    """Naming is cosmetic: never let it fail a part."""
+    try:
+        obj.name = name
+    except Exception:
+        pass
+
+
 class Planes(object):
     """Self-checking construction planes inside one component.
 
-    Every plane is verified against a point that must lie on it; if Fusion's
-    sign convention for an offset/angle turns out the other way round, the
-    plane is deleted and rebuilt with the opposite sign.
+    Panel-parallel and section planes are built through three sketch points
+    that lie in flat (YZ-parallel) sketches; the angle + offset method is the
+    fallback. Every plane is verified against points that must lie on it, and
+    an offset with the wrong sign convention is rebuilt with the other sign.
     """
 
-    def __init__(self, comp, fr, tag):
+    def __init__(self, comp, fr, tag, rep=None):
         self.c = comp
         self.fr = fr
         self.tag = tag
+        self.rep = rep
         self.cache = {}
         self._tilt = None
         self._sec = None
+        self._ptsk = {}
+        self._three_ok = True
 
     def forget_deleted(self):
-        """Drop planes that a timeline rollback deleted."""
+        """Drop planes and helper sketches that a timeline rollback deleted."""
         def ok(o):
             try:
                 return o is not None and o.isValid
             except Exception:
                 return False
         self.cache = dict((k, v) for k, v in self.cache.items() if ok(v))
+        self._ptsk = dict((k, v) for k, v in self._ptsk.items() if ok(v))
         if not ok(self._tilt):
             self._tilt = None
         if not ok(self._sec):
             self._sec = None
+
+    def _note(self, msg):
+        if self.rep is not None:
+            self.rep.warn(msg)
+
+    def _point(self, xyz):
+        """Sketch point at model point xyz (mm), in a sketch on the plane X = x."""
+        key = round(xyz[0], 4)
+        sk = self._ptsk.get(key)
+        if sk is None:
+            sk = self.c.sketches.add(self.yz(xyz[0]))
+            try_name(sk, '{} plane points X{:.0f}'.format(self.tag, xyz[0]))
+            self._ptsk[key] = sk
+        q = sk.modelToSketchSpace(P3t(xyz))
+        return sk.sketchPoints.add(adsk.core.Point3D.create(q.x, q.y, 0.0))
+
+    def _three_point(self, pts, name):
+        cps = self.c.constructionPlanes
+        sps = [self._point(q) for q in pts]
+        inp = cps.createInput()
+        inp.setByThreePoints(sps[0], sps[1], sps[2])
+        pl = cps.add(inp)
+        if max(plane_dist_mm(pl, q) for q in pts) > 1e-3:
+            pl.deleteMe()
+            raise RuntimeError('three-point plane misplaced: ' + name)
+        try_name(pl, name)
+        return pl
+
+    def _make(self, pts, name, legacy):
+        if self._three_ok:
+            try:
+                return self._three_point(pts, name)
+            except Exception as e:
+                self._three_ok = False
+                self._note('{}: three-point planes failed ({}); using angle planes'.format(
+                    self.tag, short_err(e)))
+        return legacy()
 
     def _angle_plane(self, ref, want, name):
         cps = self.c.constructionPlanes
@@ -595,7 +645,7 @@ class Planes(object):
             pl = cps.add(inp)
             nrm = unit(tup(pl.geometry.normal))
             if abs(abs(dot(nrm, want)) - 1.0) < 1e-5:
-                pl.name = name
+                try_name(pl, name)
                 return pl
             pl.deleteMe()
         raise RuntimeError('could not create the tilted plane ' + name)
@@ -609,7 +659,7 @@ class Planes(object):
             inp.setByOffset(base, VI(sgn * dist))
             pl = cps.add(inp)
             if plane_dist_mm(pl, check) < 1e-3:
-                pl.name = name
+                try_name(pl, name)
                 return pl
             pl.deleteMe()
         raise RuntimeError('offset plane failed: ' + name)
@@ -618,45 +668,51 @@ class Planes(object):
         """Plane parallel to the panel, w mm along the panel normal."""
         key = ('f', round(w, 4))
         if key not in self.cache:
-            if self._tilt is None:
-                self._tilt = self._angle_plane(self.c.xYConstructionPlane,
-                                               self.fr.n, self.tag + ' tilt')
-            self.cache[key] = self._offset(
-                self._tilt, self.fr.d_top + w, self.fr.P(0.0, 0.0, w),
-                '{} panel w={:+.2f}'.format(self.tag, w))
+            name = '{} panel w {:.2f}'.format(self.tag, w)
+            pts = [self.fr.P(0.0, 0.0, w), self.fr.P(50.0, 0.0, w), self.fr.P(0.0, 50.0, w)]
+
+            def legacy():
+                if self._tilt is None:
+                    self._tilt = self._angle_plane(self.c.xYConstructionPlane,
+                                                   self.fr.n, self.tag + ' tilt')
+                return self._offset(self._tilt, self.fr.d_top + w, pts[0], name)
+            self.cache[key] = self._make(pts, name, legacy)
         return self.cache[key]
 
     def section(self, v):
         """Plane perpendicular to the panel, normal = up-slope, at panel v."""
         key = ('s', round(v, 4))
         if key not in self.cache:
-            if self._sec is None:
-                self._sec = self._angle_plane(self.c.xZConstructionPlane,
-                                              self.fr.vd, self.tag + ' tilt section')
-            self.cache[key] = self._offset(
-                self._sec, self.fr.zc * self.fr.sn + v, self.fr.P(0.0, v, 0.0),
-                '{} section v={:+.2f}'.format(self.tag, v))
+            name = '{} section v {:.2f}'.format(self.tag, v)
+            pts = [self.fr.P(0.0, v, 0.0), self.fr.P(50.0, v, 0.0), self.fr.P(0.0, v, -50.0)]
+
+            def legacy():
+                if self._sec is None:
+                    self._sec = self._angle_plane(self.c.xZConstructionPlane,
+                                                  self.fr.vd, self.tag + ' tilt section')
+                return self._offset(self._sec, self.fr.zc * self.fr.sn + v, pts[0], name)
+            self.cache[key] = self._make(pts, name, legacy)
         return self.cache[key]
 
     def xy(self, z):
         key = ('xy', round(z, 4))
         if key not in self.cache:
             self.cache[key] = self._offset(self.c.xYConstructionPlane, z, (0.0, 0.0, z),
-                                           '{} Z={:.2f}'.format(self.tag, z))
+                                           '{} Z {:.2f}'.format(self.tag, z))
         return self.cache[key]
 
     def xz(self, y):
         key = ('xz', round(y, 4))
         if key not in self.cache:
             self.cache[key] = self._offset(self.c.xZConstructionPlane, y, (0.0, y, 0.0),
-                                           '{} Y={:.2f}'.format(self.tag, y))
+                                           '{} Y {:.2f}'.format(self.tag, y))
         return self.cache[key]
 
     def yz(self, x):
         key = ('yz', round(x, 4))
         if key not in self.cache:
             self.cache[key] = self._offset(self.c.yZConstructionPlane, x, (x, 0.0, 0.0),
-                                           '{} X={:.2f}'.format(self.tag, x))
+                                           '{} X {:.2f}'.format(self.tag, x))
         return self.cache[key]
 
 
@@ -859,6 +915,8 @@ def revolve(comp, prof, axis, op, angle_deg=360.0, symmetric=False, bodies=None,
 
 def get_body(comp, name):
     b = comp.bRepBodies.itemByName(name)
+    if b is None and comp.bRepBodies.count == 1:
+        b = comp.bRepBodies.item(0)       # naming failed but the body is there
     if b is None:
         raise RuntimeError('body "{}" not found'.format(name))
     return b
@@ -935,13 +993,16 @@ def body_bbox(body):
 def new_comp(ctx, name):
     occ = ctx.root.occurrences.addNewComponent(adsk.core.Matrix3D.create())
     comp = occ.component
-    comp.name = name
+    try:
+        comp.name = name
+    except Exception as e:
+        ctx.rep.warn('component {} could not be named ({})'.format(name, short_err(e)))
     ctx.occs[name] = occ
     return occ, comp
 
 
 def new_planes(ctx, comp, tag):
-    pl = Planes(comp, ctx.fr, tag)
+    pl = Planes(comp, ctx.fr, tag, ctx.rep)
     ctx.planes.append(pl)
     return pl
 
@@ -1136,7 +1197,7 @@ def build_wedge(ctx, comp, planes, name):
                     name=name + ' wedge')
         body = f.bodies.item(0)
         cut_halfspace(ctx, comp, planes, body, 0.0, +1, name + ' slope cut')
-    body.name = name
+    try_name(body, name)
     return body, s
 
 
@@ -1765,7 +1826,7 @@ def _panel_title(ctx, comp, pl):
     body = get_body(comp, 'TOP_PANEL')
     face = _top_face(ctx, comp, 'TOP_PANEL')
     sk = comp.sketches.add(face)
-    sk.name = 'PANEL title'
+    try_name(sk, 'PANEL title')
     xs, ys = unit(tup(sk.xDirection)), unit(tup(sk.yDirection))
     ns = unit(cross(xs, ys))
     h = p.title_h * MM
@@ -1843,7 +1904,7 @@ def build_diffuser(ctx):
     s = Sk(comp, pl.frame(0.0), lambda a, b: fr.P(a, b, 0.0), 'Diffuser disc')
     s.circle(0.0, p.ring_y, p.diff_d)
     f = extrude(comp, s, s.profiles(), ctx.NEW, p.diff_t, dirv=neg(fr.n), name='Diffuser disc')
-    f.bodies.item(0).name = 'DIFFUSER'
+    try_name(f.bodies.item(0), 'DIFFUSER')
 
     def bed_chamfer():
         face = find_planar_face(get_body(comp, 'DIFFUSER'), fr.n, fr.P(0.0, 0.0, 0.0))
@@ -1970,7 +2031,7 @@ def build_fit_test(ctx):
     s.rrect(X0, 0.0, W, D, 3.0)
     f = extrude(comp, s, s.profiles(), ctx.NEW, p.ft_t, dirv=(0.0, 0.0, 1.0), name='FIT plate')
     body = f.bodies.item(0)
-    body.name = 'FIT_TEST'
+    try_name(body, 'FIT_TEST')
 
     def fb():
         return get_body(comp, 'FIT_TEST')
