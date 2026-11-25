@@ -230,12 +230,16 @@ def prop_plan(d, out):
     sg, L = d["sensor_gap"], d["saddle_len"]
     def rect(x0, x1, hy, fill, outline, w=4):
         a, b = to(x1, hy), to(x0, -hy); dr.rectangle([a[0], a[1], b[0], b[1]], fill=fill, outline=outline, width=w)
-    rect(-sg - 60, -sg, 42, (40, 160, 170, 70), (20, 110, 120, 255))                      # payload zone 84 x 60
+    xr_, hb, ch = -sg - L - 0.3 - 5.3, 42.0, 10.0                                          # the payload box outline
+    boxo = [(-sg, hb), (xr_ + ch, hb), (xr_, hb - ch), (xr_, -hb + ch), (xr_ + ch, -hb), (-sg, -hb)]
+    dr.polygon([to(*q) for q in boxo], fill=(40, 160, 170, 70), outline=(20, 110, 120, 255))
+    dr.line([to(*q) for q in boxo] + [to(*boxo[0])], fill=(20, 110, 120, 255), width=4)
     rect(-sg - L, -sg, d["deck_w"] / 2, (240, 120, 30, 110), (200, 80, 0, 255))
     bx = -sg - L / 2 + d["beam_x"]
     rect(bx - d["beam_w"] / 2, bx + d["beam_w"] / 2, d["ear_out"], (240, 120, 30, 110), (200, 80, 0, 255))
     # clearance from the rear corner of the payload zone to the rear disc
-    corner = (-sg - 60, 42.0); mx, my = MOTORS["rear"]
+    mx, my = MOTORS["rear"]
+    corner = min(boxo, key=lambda q: math.hypot(q[0] - mx, q[1] - my))
     v = (corner[0] - mx, corner[1] - my); n = math.hypot(*v); edge = (mx + v[0] / n * PROP_R, my + v[1] / n * PROP_R)
     dr.line([to(*corner), to(*edge)], fill=(190, 20, 20, 255), width=4)
     dr.text((to(*edge)[0] - 250, to(*edge)[1] + 6), f"about {n - PROP_R:.0f} mm", fill=(170, 10, 10, 255), font=f)
@@ -244,7 +248,7 @@ def prop_plan(d, out):
     y0 = H - 150
     for i, (col, txt) in enumerate((((120, 150, 220), "propeller discs, positions measured from the FCC top photo (+/- 5-8 mm)"),
                                     ((240, 120, 30), "saddle and the cross beam with the clamp screws"),
-                                    ((40, 160, 170), "zone for the payload box: 84 x 60 mm; its rear corners are the closest point to the propellers"))):
+                                    ((40, 160, 170), "payload box, 84 x 56 mm with cut rear corners; those corners are the closest point to the propellers"))):
         dr.rectangle([30, y0 + i * 40, 62, y0 + i * 40 + 24], fill=col + (255,), outline=(60, 60, 60, 255))
         dr.text((76, y0 + i * 40), txt, fill=(20, 20, 20, 255), font=fs)
     im.save(out)
