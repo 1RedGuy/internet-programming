@@ -103,54 +103,102 @@ def label(im, to_px, pt, text, off=(60, -60), fnt=None):
     dr.text((ax, ay), text, fill=(20, 20, 20), font=fnt)
 
 
+# calibration of the FCC photos (ref/): pixel of the centre top camera, mm per pixel, nose = up
+TOP = dict(file="ref/fcc_top_view.png", cx=612.5, cy=401.0, mm=0.533)
+BOT = dict(file="ref/fcc_bottom_view.png", cx=592.0, cy=340.0, mm=0.524)   # cy +/- 20 px uncertain
+
+
+def overlay(d, out):
+    """Draw the mount footprint on the real top / bottom photos."""
+    here = pathlib.Path(__file__).parent
+    sx, L = d["sensor_x"], d["saddle_len"]
+    tiles = []
+    for cal, title, bottom in ((TOP, "TOP  (FCC external photo 1)", False), (BOT, "BOTTOM  (FCC external photo 7)", True)):
+        im = Image.open(here / cal["file"]).convert("RGB")
+        k = 3
+        box = (int(cal["cx"] - 150), int(cal["cy"] - 215), int(cal["cx"] + 150), int(cal["cy"] + 215))
+        im = im.crop(box).resize(((box[2] - box[0]) * k, (box[3] - box[1]) * k), Image.LANCZOS)
+        dr = ImageDraw.Draw(im, "RGBA")
+        def P(x, y):      # mount coords (x forward, y left) -> pixel
+            return ((cal["cx"] - y / cal["mm"] - box[0]) * k, (cal["cy"] - (x - sx) / cal["mm"] - box[1]) * k)
+        def rect(x0, x1, y0, y1, fill, outline, w=4):
+            a, b = P(x1, y1), P(x0, y0)
+            dr.rectangle([min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])], fill=fill, outline=outline, width=w)
+        bx0, bx1 = d["beam_x"] - d["beam_w"] / 2, d["beam_x"] + d["beam_w"] / 2
+        f = font(26)
+        if not bottom:
+            rect(L / 2 - d["tray_l"], L / 2, -d["tray_w"] / 2, d["tray_w"] / 2, (40, 160, 170, 70), (20, 110, 120, 255))
+            rect(-L / 2, L / 2, -d["deck_w"] / 2, d["deck_w"] / 2, (240, 120, 30, 90), (200, 80, 0, 255))
+            rect(bx0, bx1, -d["ear_out"], d["ear_out"], (240, 120, 30, 90), (200, 80, 0, 255))
+            for sy in (1, -1):
+                c = P(d["beam_x"], sy * d["ear_y"]); dr.ellipse([c[0] - 9, c[1] - 9, c[0] + 9, c[1] + 9], fill=(255, 255, 255, 255), outline=(0, 0, 0, 255))
+            for txt, pt, col in (("tray", (L / 2 - d["tray_l"] + 4, d["tray_w"] / 2 - 2), (10, 80, 90)),
+                                 ("saddle", (-4, 16), (150, 50, 0)),
+                                 ("clamp screws", (bx1 + 9, d["ear_out"] + 2), (150, 50, 0))):
+                q = P(*pt); dr.text(q, txt, fill=col + (255,), font=f)
+        else:
+            rect(bx0, bx1, -d["ear_out"], d["ear_out"], (60, 60, 70, 120), (255, 220, 0, 255))
+            q = P(bx0 - 3, d["ear_out"]); dr.text(q, "clamp bar under the belly", fill=(255, 220, 0, 255), font=f)
+            q = P(bx1 + 26, 30); dr.text(q, "+/- 10 mm along the body", fill=(255, 220, 0, 255), font=font(20))
+        dr.rectangle([0, 0, im.width, 44], fill=(0, 0, 0, 170)); dr.text((12, 8), title, fill=(255, 255, 255, 255), font=f)
+        tiles.append(im)
+    sheet = Image.new("RGB", (tiles[0].width + tiles[1].width + 20, tiles[0].height), "white")
+    sheet.paste(tiles[0], (0, 0)); sheet.paste(tiles[1], (tiles[0].width + 20, 0))
+    sheet.save(out)
+
+
 if __name__ == "__main__":
     override = json.loads(pathlib.Path(sys.argv[1]).read_text()) if len(sys.argv) > 1 else {}
     d, parts = m.build(override)
     out = pathlib.Path(__file__).parent / "out"
     out.mkdir(exist_ok=True)
+    overlay(d, out / "preview_on_photos.png")
 
-    ORANGE, TEAL, GREY, DARK, BLUE, STEEL = ((240, 120, 30), (40, 130, 140), (205, 205, 205),
-                                             (70, 72, 80), (150, 185, 235), (175, 180, 190))
+    ORANGE, TEAL, GREY, DARK, BLUE, STEEL, BLACK, WHITE = ((240, 120, 30), (40, 130, 140), (200, 202, 208), (70, 72, 80),
+                                                           (150, 185, 235), (175, 180, 190), (25, 25, 28), (235, 235, 230))
     body = m.body_proxy(d)
+    cams, vents = m.body_marks(d)
     L = d["saddle_len"]
     box_h = 30.0
     zt = d["tray_z0"] + d["tray_t"]
-    payload = (cq.Workplane("XY").box(70, 60, box_h)
-               .translate((L / 2 + d["tray_front"] - d["tray_l"] / 2, 0, zt + box_h / 2)).edges().fillet(3))
+    payload = (cq.Workplane("XY").box(d["tray_l"] - 4, 56, box_h)
+               .translate((L / 2 - d["tray_l"] / 2, 0, zt + box_h / 2)).edges().fillet(3))
 
-    sad, tr = mesh(parts["saddle"]), mesh(parts["tray"])
-    y1, y2 = mesh(parts["yoke"]), mesh(parts["yoke2"])
+    sad, tr, yk = mesh(parts["saddle"]), mesh(parts["tray"]), mesh(parts["yoke"])
     bod, pl, scr = mesh(body, 0.15), mesh(payload, 0.15), mesh(m.screws(d), 0.05)
-    ey, zear = d["ear_y"], -d["skirt_drop"] + d["ear_t"]
+    cm, vt = mesh(cams, 0.1), mesh(vents, 0.1)
+    base = [(*bod, GREY), (*cm, BLACK), (*vt, WHITE)]
+    ey, sx = d["ear_y"], d["sensor_x"]
 
     # 1) assembled, 3/4 rear view
-    items = [(*bod, GREY), (*y1, DARK), (*y2, DARK), (*sad, ORANGE), (*tr, TEAL), (*pl, BLUE), (*scr, STEEL)]
+    items = base + [(*yk, DARK), (*sad, ORANGE), (*tr, TEAL), (*pl, BLUE), (*scr, STEEL)]
     im, px = render(items, eye_dir=(-0.75, -0.9, 0.62))
-    label(im, px, (L / 2 - 4, -d["deck_w"] / 2, d["deck_z"] - 2), "saddle", (150, -40))
-    label(im, px, (-L / 2 + 5, -d["tray_w"] / 2, zt - 1), "tray (slides on from the rear)", (-260, -90))
-    label(im, px, (d["yoke_x"], -d["wo"] / 2, -45), "2 x U-clamp under the belly", (60, 130))
-    label(im, px, (-d["yoke_x"], -ey, zear + 3), "4 x M3x16 + nut", (-170, 150))
+    label(im, px, (d["beam_x"], -d["ear_out"] + 4, -8), "saddle + cross beam", (-60, -150))
+    label(im, px, (-L / 2 - 4, -d["tray_w"] / 2 + 6, zt), "tray (slides in from the rear)", (-260, -60))
+    label(im, px, (d["beam_x"], -d["yi"] - 3, -55), "U-clamp, clear of the sides", (40, 150))
     label(im, px, (L / 2 - d["tray_l"] / 2, 0, zt + box_h), "your payload (example box)", (120, -70))
-    label(im, px, (70, 0, 0), "nose  ->", (40, -50))
+    label(im, px, (sx, 0, 2), "centre top camera - stays uncovered", (150, -110))
+    label(im, px, (sx - 76, 0, 1), "exhaust grille - stays uncovered", (-60, -330))
+    label(im, px, (sx - 30, -d["body_w"] / 2, -21), "side air vent", (-60, 190))
     im.save(out / "preview_assembly.png")
 
     # 2) exploded
-    lift, drop = 26, 30
-    tr_x = (tr[0] + np.array([-38, 0, lift]), tr[1])
-    y1_x, y2_x = (y1[0] + np.array([0, 0, -drop]), y1[1]), (y2[0] + np.array([0, 0, -drop]), y2[1])
-    scr_x = (scr[0] + np.array([0, 0, 14]), scr[1])
-    items = [(*bod, GREY), (*y1_x, DARK), (*y2_x, DARK), (*sad, ORANGE), (*tr_x, TEAL), (*scr_x, STEEL)]
+    lift, drop = 24, 26
+    tr_x = (tr[0] + np.array([-34, 0, lift]), tr[1])
+    yk_x = (yk[0] + np.array([0, 0, -drop]), yk[1])
+    scr_x = (scr[0] + np.array([0, 0, 16]), scr[1])
+    items = base + [(*yk_x, DARK), (*sad, ORANGE), (*tr_x, TEAL), (*scr_x, STEEL)]
     im, px = render(items, eye_dir=(-0.8, -0.75, 0.75))
-    label(im, px, (-L / 2 - 43, 0, d["lock_z"] + lift), "M3x12 tray lock screw", (-150, 90))
-    label(im, px, (L / 2 - 6, d["rail_w"] / 2 - 2, d["rail_top_z"]), "dovetail rail", (170, -110))
-    label(im, px, (L / 2 - 10 - 38, d["tray_w"] / 2 - 9, zt + lift), "M3 holes + slots for the payload", (60, -70))
-    label(im, px, (d["yoke_x"], -d["wo"] / 2, -50 - drop), "clamp comes up from below", (90, 110))
-    label(im, px, (-d["yoke_x"], -ey, d["yoke_top_z"] - drop), "captive nut under the flange", (-330, 60))
+    label(im, px, (-L / 2 - 34 - 5, -d["lock_y"], d["lock_z"] + lift), "2 x M3x12 tray lock", (-200, 40))
+    label(im, px, (L / 2 - 4, d["rail_w"] / 2 + 2, d["deck_top"]), "dovetail channel", (170, -90))
+    label(im, px, (d["beam_x"], -ey, d["ear_top"] + 20), "2 x M3x20 clamp screws", (-330, -30))
+    label(im, px, (d["beam_x"], -d["yi"] - 3, -55 - drop), "clamp comes up from below", (60, 120))
+    label(im, px, (d["beam_x"], -ey, d["flange_top"] - drop), "captive nut under the flange", (-340, 70))
     im.save(out / "preview_exploded.png")
 
     # 3) front view with dimensions (payload hidden)
-    items = [(*bod, GREY), (*y1, DARK), (*sad, ORANGE), (*tr, TEAL), (*scr, STEEL)]
-    im, px = render(items, eye_dir=(1, 0, 0), size=(1500, 1150), margin=0.17)
+    items = [(*bod, GREY), (*yk, DARK), (*sad, ORANGE), (*tr, TEAL), (*scr, STEEL)]
+    im, px = render(items, eye_dir=(1, 0, 0), size=(1500, 1250), margin=0.17)
     dr = ImageDraw.Draw(im); fnt = font(22)
 
     def dim(p0, p1, text, side=1):
@@ -164,13 +212,12 @@ if __name__ == "__main__":
         dr.rectangle([x0 - 4, my - 18, x0 + bb[2] + 6, my + 16], fill=(255, 255, 255))
         dr.text((x0, my - 14), text, fill=(150, 10, 10), font=fnt)
 
-    bw, bh = d["body_w"], d["body_h"]
-    dim((0, -bw / 2, -bh * 0.72), (0, bw / 2, -bh * 0.72), f"body_w = {bw:g}  (MEASURE)")
-    dim((0, -14, 0), (0, -14, -bh), f"body_h = {bh:g}  (MEASURE)", side=-1)
-    dim((0, d["wo"] / 2 + d["ear_out"] + 6, 0), (0, d["wo"] / 2 + d["ear_out"] + 6, zt), f"{zt:.1f} mm up")
-    dim((0, -d["wo"] / 2 - d["ear_out"], -bh - 16), (0, d["wo"] / 2 + d["ear_out"], -bh - 16),
-        f"overall {d['wo'] + 2 * d['ear_out']:.0f} wide")
-    dim((0, d["wo"] / 2 + 4, -bh), (0, d["wo"] / 2 + 4, d["yoke_bot_z"]),
-        f"{-d['yoke_bot_z'] - bh:.1f} below belly", side=1)
+    bw, bh, X = d["body_w"], d["body_h"], 200
+    dim((X, -bw / 2, -bh * 0.62), (X, bw / 2, -bh * 0.62), f"waist ~{bw:g}")
+    dim((X, -10, 0), (X, -10, -bh), f"height ~{bh:g}", side=-1)
+    dim((X, d["ear_out"] + 6, 0), (X, d["ear_out"] + 6, zt), f"{zt:.1f} up")
+    dim((X, -d["ear_out"], d["yoke_bot"] - 9), (X, d["ear_out"], d["yoke_bot"] - 9), f"overall {2 * d['ear_out']:.0f} wide")
+    dim((X, d["yi"] + 8, -bh), (X, d["yi"] + 8, d["yoke_bot"]), f"{-d['yoke_bot'] - bh:.1f} below belly")
+    dim((X, bw / 2, -bh * 0.38), (X, d["yi"], -bh * 0.38), f"{d['side_clear']:g} air gap")
     im.save(out / "preview_front.png")
     print("ok")
