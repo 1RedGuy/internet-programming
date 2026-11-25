@@ -179,7 +179,7 @@ if __name__ == "__main__":
     label(im, px, (d["beam_x"], -d["yi"] - 3, -55), "U-clamp", (60, 130))
     label(im, px, (sx, 0, 2), "centre top camera - stays uncovered", (150, -110))
     label(im, px, (sx - 76, 0, 1), "exhaust grille - stays uncovered", (-60, -200))
-    label(im, px, (-L / 2, -d["lock_y"], d["lock_z"]), "2 inserts for the payload rail (later)", (-330, -60))
+    label(im, px, (-L / 2, -d["lock_y"], d["lock_z"]), "2 inserts for the payload rail (later)", (-120, 330))
     im.save(out / "preview_assembly.png")
 
     # 2) exploded
@@ -225,4 +225,11 @@ if __name__ == "__main__":
     ImageDraw.Draw(im).text((30, 24), "ring_gauge_print.stl - two flat pieces, 3 mm thick, as they lie on the print bed",
                             fill=(20, 20, 20), font=font(26))
     im.save(out / "preview_ring_gauge.png")
+
+    # 5) the stepped feeler
+    v, t_ = mesh(m.gap_stair(), 0.03)
+    im, px = render([(v, t_, (240, 150, 60))], eye_dir=(-0.5, -1, 0.9), size=(1400, 760))
+    ImageDraw.Draw(im).text((30, 24), "gap_stair_print.stl - steps of 2 to 16 mm, number engraved on every step",
+                            fill=(20, 20, 20), font=font(26))
+    im.save(out / "preview_gap_stair.png")
     print("ok")

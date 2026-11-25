@@ -255,6 +255,21 @@ def ring_gauge(d):
     return top.union(yoke(dg, x0, x1, holes=False))
 
 
+def gap_stair(steps=(2, 4, 6, 8, 10, 12, 14, 16), run=10.0, width=14.0):
+    """Stepped feeler: push it into a gap until it stops, read the number on the last step that went in."""
+    out = None
+    for i, h in enumerate(steps):
+        b = _box(i * run, (i + 1) * run, 0, width, 0, h)
+        try:
+            txt = (cq.Workplane("XY").workplane(offset=h - 0.6).center(i * run + run / 2, width / 2)
+                   .text(str(h), 6.0, 0.7, halign="center", valign="center"))
+            b = b.cut(txt)
+        except Exception:
+            pass
+        out = b if out is None else out.union(b)
+    return out
+
+
 # ----------------------------------------------------------------------------
 # Preview helpers (not printed)
 def body_proxy(d):
@@ -328,6 +343,10 @@ if __name__ == "__main__":
             continue
         cq.exporters.export(parts[name], str(out / f"{name}.step"))
         cq.exporters.export(wp, str(out / f"{name}_print.stl"), tolerance=0.02, angularTolerance=0.1)
+    cq.exporters.export(gap_stair(), str(out / "gap_stair_print.stl"), tolerance=0.02, angularTolerance=0.1)
+    # one mesh of the assembled mount, only for looking at it in a 3D viewer
+    cq.exporters.export(parts["saddle"].union(parts["yoke"], clean=False), str(out / "mount_assembled_VIEW_ONLY.stl"),
+                        tolerance=0.03, angularTolerance=0.15)
     for hgt in sorted(set(YOKE_SIZES) | {d["body_h"]}):
         dy = derived({k: v for k, v in d.items() if k in P} | dict(body_h=hgt))
         y = yoke(dy)
