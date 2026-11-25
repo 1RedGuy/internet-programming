@@ -103,7 +103,8 @@ def box(d, b):
         s = s.union(cq.Workplane("XY").circle(b["boss_r"]).extrude(zt - z0).translate((x, y, z0)))
     s = s.intersect(_poly(_outline(d, b), zb - 1, zt + 1))                           # nothing may stick out of the outline
     for (x, y) in boss_xy(d, b):
-        s = s.cut(m._cyl_z(x, y, zt - 7.0, zt + 1, d["insert_d"] / 2))
+        s = s.cut(m._cyl_z(x, y, zt - 6.0, zt + 1, d["insert_d"] / 2))     # insert pocket
+        s = s.cut(m._cyl_z(x, y, zt - 14.0, zt + 1, 1.6))                   # free run for the screw tip (3 x 10 or 3 x 16)
         s = s.cut(m._cyl_z(x, y, zt - 0.6, zt + 1, d["insert_d"] / 2 + 0.4))
     # cable notches in the rim (antenna leads) and a service window in the rear wall (USB-C)
     for sy in (+1, -1):
