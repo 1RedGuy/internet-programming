@@ -90,7 +90,7 @@ P = dict(
 )
 
 GAUGE_H = 76.0            # the gauge yoke is made for this height: its gap = clamp_gap + (real height - 76)
-YOKE_SIZES = (79.0, 82.0, 85.0)
+YOKE_SIZES = (79.0, 82.0, 85.0, 88.0, 91.0)
 
 
 def derived(p):
