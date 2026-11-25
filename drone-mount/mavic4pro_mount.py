@@ -10,9 +10,6 @@ What the photos show (positions measured from the centre top camera):
   * the fuselage shell is ~201 mm long, the centre top camera sits in the middle
   * the "waist" behind that camera is ~70 mm wide and 82-88 mm high, the roof
     is nearly flat over ~50 mm
-  * the lower half of the fuselage is a narrower hull, 50.4 mm wide (taken
-    from the inside of a third-party AirTag clip that fits the drone; the
-    photos gave 51 mm, which confirms their scale)
   * 34 mm behind the camera the rear-arm fairings start (93 mm wide),
     66-80 mm behind it is the exhaust grille
   * on both sides, ~10-48 mm behind the camera and ~15-25 mm below the roof,
@@ -24,8 +21,9 @@ Parts
   saddle     - short pad on the roof between the centre top camera and the
                exhaust grille, with one cross beam
   yoke       - one U-clamp that goes round the waist and is pulled up against
-               the cross beam with two M3 screws.  It only touches the belly;
-               the sides stay clear so the side vents keep breathing
+               the cross beam with two M3 screws into heat-set inserts.  It
+               touches the belly through rubber; the side gap is a parameter
+               that still has to be set from a measurement on the real drone
   tray       - payload plate, slides into the saddle's dovetail from the rear,
                locked with M3 screws
   ring_gauge - 3 mm slice of saddle beam + yoke to test the fit
@@ -49,9 +47,8 @@ P = dict(
     body_w=70.0,        # width of the waist
     body_h=85.0,        # roof to underside of the belly (82-88: least certain number)
     roof_flat=50.0,     # nearly flat width of the roof
-    belly_w=50.4,       # width of the lower hull (from an AirTag mount made for this drone)
-    hull_h=44.0,        # height of the lower hull, up to the ledge under the upper shell
-    side_clear=7.0,     # air gap between fuselage sides and the yoke
+    belly_w=51.0,       # width of the metal plate under the belly (FCC photo)
+    side_clear=7.0,     # gap between fuselage sides and the yoke (to be set from a real measurement)
     sensor_gap=12.0,    # saddle front edge to the CENTRE of the top camera
     # --- saddle -------------------------------------------------------------
     pad_top=3.0,        # soft pad between saddle and roof
@@ -65,7 +62,7 @@ P = dict(
     ear_drop=12.0,      # underside of the screw ears below the roof
     ear_len=14.0,       # ear length sideways
     clamp_gap=6.0,      # tightening travel between ear and yoke flange
-    flange_t=6.0,
+    flange_t=8.0,
     upright_t=4.0,
     bar_t=4.0,          # yoke thickness under the belly
     yoke_rb=14.0,       # inner corner radius of the yoke
@@ -81,6 +78,8 @@ P = dict(
     endwall_t=5.0,
     lock_y=23.5,        # lock screws left/right of the channel
     hole_d=3.4,         # M3 clearance
+    insert_d=3.7,       # hole for M3 heat-set inserts with 4.0-4.2 mm outer diameter
+    insert_depth=5.0,   # pocket depth (inserts up to 5 mm long)
 )
 
 
@@ -97,12 +96,13 @@ def derived(p):
     d["yoke_in_bot"] = -p["body_h"] - p["pad_belly"]
     d["yoke_bot"] = d["yoke_in_bot"] - p["bar_t"]
     d["tray_z0"] = d["deck_top"] + 0.15
-    d["lock_z"] = d["deck_top"] - 3.0
+    d["lock_z"] = d["deck_top"] - 3.5
     d["sensor_x"] = p["saddle_len"] / 2 + p["sensor_gap"]
     assert d["chan_bot"] - p["pad_top"] >= 2.0, "deck too thin under the dovetail channel"
     assert p["lock_y"] - 3.0 > d["chan_bot_hw"] + 1.0 and p["lock_y"] + 3.0 < p["deck_w"] / 2, "lock_y"
     assert abs(p["beam_x"]) + p["beam_w"] / 2 <= p["saddle_len"] / 2, "beam outside the saddle"
     assert 2 * d["yi"] - 2 * p["yoke_rb"] >= p["belly_w"], "yoke corners would touch the belly plate"
+    assert p["flange_t"] - p["insert_depth"] >= 2.5, "flange too thin behind the insert"
     assert d["yi"] >= p["deck_w"] / 2 + 8, "fuselage too narrow for this deck_w"
     return d
 
@@ -166,28 +166,28 @@ def saddle(d):
         # clamp screws: through hole + flat seat for the screw head
         s = s.cut(_cyl_z(d["beam_x"], sy * d["ear_y"], eb - 1, d["deck_top"] + 1, d["hole_d"] / 2))
         s = s.cut(_cyl_z(d["beam_x"], sy * d["ear_y"], eb + 5.0, d["deck_top"] + 1, 3.3))
-        # tray lock: M3 along X from the rear, nut dropped in from the top
-        s = s.cut(cq.Workplane("YZ").circle(3.3 / 2).extrude(10.5)
-                  .translate((xr - 0.1, sy * d["lock_y"], d["lock_z"])))
-        s = s.cut(_box(xr + 3.5, xr + 6.3, sy * d["lock_y"] - 2.9, sy * d["lock_y"] + 2.9,
-                       d["lock_z"] - 3.3, d["deck_top"] + 0.1))
+        # lock screws for the future payload rail: M3 heat-set inserts pressed in from the rear face
+        for dia, depth in ((d["insert_d"], d["insert_depth"]), (d["insert_d"] + 0.8, 0.6), (3.2, 10.5)):
+            s = s.cut(cq.Workplane("YZ").circle(dia / 2).extrude(depth + 0.1)
+                      .translate((xr - 0.1, sy * d["lock_y"], d["lock_z"])))
     return s
 
 
 def yoke(d, x0=None, x1=None, holes=True):
-    """U-clamp round the waist. Print lying on its side (profile on the bed)."""
+    """U-clamp round the waist: a plain U, the same width top to bottom.
+    Print lying on its side (profile on the bed)."""
     if x0 is None:
         x0, x1 = d["beam_x"] - d["beam_w"] / 2, d["beam_x"] + d["beam_w"] / 2
-    yi, t = d["yi"], d["upright_t"]
+    yu, t = d["yi"], d["upright_t"]
     zt, zib, zb = d["flange_top"], d["yoke_in_bot"], d["yoke_bot"]
-    outer = _box(x0, x1, -yi - t, yi + t, zb, zt).edges("|X").edges("<Z").fillet(d["yoke_rb"] + t)
-    inner = _box(x0 - 1, x1 + 1, -yi, yi, zib, zt + 5).edges("|X").edges("<Z").fillet(d["yoke_rb"])
+    outer = _box(x0, x1, -yu - t, yu + t, zb, zt).edges("|X").edges("<Z").fillet(d["yoke_rb"] + t)
+    inner = _box(x0 - 1, x1 + 1, -yu, yu, zib, zt + 5).edges("|X").edges("<Z").fillet(d["yoke_rb"])
     y = outer.cut(inner)
     ft = d["flange_t"]
     for sy in (+1, -1):
-        ya, yb = sorted((sy * (yi + t - 0.5), sy * d["ear_out"]))
+        ya, yb = sorted((sy * (yu + t - 0.5), sy * d["ear_out"]))
         y = y.union(_box(x0, x1, ya, yb, zt - ft, zt))
-        yo = sy * (yi + t)
+        yo = sy * (yu + t)
         y = y.union(_prism_x([(yo, zt - ft + 0.1), (yo + sy * 3.5, zt - ft + 0.1), (yo, zt - ft - 3.5)], x0, x1))
     try:                                   # break every edge - friendlier to hands and to the drone
         y = y.edges().chamfer(0.4)
@@ -196,9 +196,11 @@ def yoke(d, x0=None, x1=None, holes=True):
     if holes:
         xc = (x0 + x1) / 2
         for sy in (+1, -1):
+            # screw passes through a plastic shoulder, the insert is pressed in from BELOW,
+            # so the screw pulls it into the part instead of out of it
             y = y.cut(_cyl_z(xc, sy * d["ear_y"], zt - ft - 1, zt + 1, d["hole_d"] / 2))
-            y = y.cut(cq.Workplane("XY").polygon(6, 6.6).extrude(8.0 + 3.0)      # captive M3 nut
-                      .translate((xc, sy * d["ear_y"], zt - ft - 8.0)))
+            y = y.cut(_cyl_z(xc, sy * d["ear_y"], zt - ft - 8.0, zt - ft + d["insert_depth"], d["insert_d"] / 2))
+            y = y.cut(_cyl_z(xc, sy * d["ear_y"], zt - ft - 8.0, zt - ft + 0.6, d["insert_d"] / 2 + 0.4))
     return y
 
 
@@ -263,8 +265,7 @@ def body_proxy(d):
     pts = [(rf, 0.0)]
     for a in range(15, 91, 15):
         pts.append((rf + rs * math.sin(math.radians(a)), -rs + rs * math.cos(math.radians(a))))
-    led = -h + d["hull_h"]                                # ledge under the upper shell
-    pts += [(hw, led + 4), (hw - 4, led), (bw, led), (bw, -h + 8.8), (bw - 7.4, -h)]
+    pts += [(hw, -h + 22), (bw, -h + 6), (bw, -h)]        # lower corners: shape NOT verified
     pts = pts + [(-y, z) for y, z in reversed(pts)]
     body = _prism_x(pts, sx - 101, sx + 100)
     for s in (+1, -1):                                   # rear-arm fairings
@@ -323,7 +324,7 @@ if __name__ == "__main__":
     printable = dict(saddle=flip(parts["saddle"]), yoke=on_side(parts["yoke"]),
                      tray=flip(parts["tray"]), ring_gauge=on_side(parts["ring_gauge"]))
     for name, wp in printable.items():
-        if name == "yoke":
+        if name in ("yoke", "tray"):      # the payload rail / box comes later
             continue
         cq.exporters.export(parts[name], str(out / f"{name}.step"))
         cq.exporters.export(wp, str(out / f"{name}_print.stl"), tolerance=0.02, angularTolerance=0.1)
@@ -336,7 +337,6 @@ if __name__ == "__main__":
     asm = cq.Assembly()
     asm.add(parts["saddle"], name="saddle", color=cq.Color(0.95, 0.45, 0.1))
     asm.add(parts["yoke"], name="yoke", color=cq.Color(0.2, 0.2, 0.22))
-    asm.add(parts["tray"], name="tray", color=cq.Color(0.1, 0.45, 0.5))
     asm.add(body_proxy(d), name="fuselage_APPROX_from_photos", color=cq.Color(0.8, 0.8, 0.8))
     asm.export(str(out / "assembly.step"))
 
@@ -344,9 +344,9 @@ if __name__ == "__main__":
           f"yoke {-d['yoke_bot'] - d['body_h']:.1f} mm below the belly, "
           f"overall width {2 * d['ear_out']:.0f} mm, yoke opening {2 * d['yi']:.0f} x {-d['yoke_in_bot'] + d['flange_top']:.0f}")
     tot = [0.0, 0.0]
-    for name in ("saddle", "yoke", "tray"):
+    for name in ("saddle", "yoke"):
         v = volume_cm3(parts[name]); bb = parts[name].val().BoundingBox()
         tot[0] += v * 1.27 * 0.8; tot[1] += v * 1.27
         print(f"{name:7s} {v:5.1f} cm3 -> about {v * 1.27 * 0.8:.0f}-{v * 1.27:.0f} g in PETG  "
               f"bbox {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f}")
-    print(f"total about {tot[0]:.0f}-{tot[1]:.0f} g (+ 4 screws and nuts ~4 g)")
+    print(f"total about {tot[0]:.0f}-{tot[1]:.0f} g (+ 2 screws and 4 inserts ~3 g)")
