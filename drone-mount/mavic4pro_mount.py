@@ -8,8 +8,11 @@ fuselage numbers - print the ring gauge first.
 
 What the photos show (positions measured from the centre top camera):
   * the fuselage shell is ~201 mm long, the centre top camera sits in the middle
-  * the "waist" behind that camera is ~70 mm wide and ~82 mm high, the roof
+  * the "waist" behind that camera is ~70 mm wide and 82-88 mm high, the roof
     is nearly flat over ~50 mm
+  * the lower half of the fuselage is a narrower hull, 50.4 mm wide (taken
+    from the inside of a third-party AirTag clip that fits the drone; the
+    photos gave 51 mm, which confirms their scale)
   * 34 mm behind the camera the rear-arm fairings start (93 mm wide),
     66-80 mm behind it is the exhaust grille
   * on both sides, ~10-48 mm behind the camera and ~15-25 mm below the roof,
@@ -44,9 +47,10 @@ import cadquery as cq
 P = dict(
     # --- fuselage at the clamp station (from photos, verify with the gauge) ---
     body_w=70.0,        # width of the waist
-    body_h=82.0,        # roof to underside of the belly heat sink
+    body_h=85.0,        # roof to underside of the belly (82-88: least certain number)
     roof_flat=50.0,     # nearly flat width of the roof
-    belly_w=51.0,       # width of the belly heat sink
+    belly_w=50.4,       # width of the lower hull (from an AirTag mount made for this drone)
+    hull_h=44.0,        # height of the lower hull, up to the ledge under the upper shell
     side_clear=7.0,     # air gap between fuselage sides and the yoke
     sensor_gap=12.0,    # saddle front edge to the CENTRE of the top camera
     # --- saddle -------------------------------------------------------------
@@ -60,7 +64,7 @@ P = dict(
     # --- clamp ----------------------------------------------------------------
     ear_drop=12.0,      # underside of the screw ears below the roof
     ear_len=14.0,       # ear length sideways
-    clamp_gap=5.0,      # tightening travel between ear and yoke flange
+    clamp_gap=6.0,      # tightening travel between ear and yoke flange
     flange_t=6.0,
     upright_t=4.0,
     bar_t=4.0,          # yoke thickness under the belly
@@ -161,7 +165,7 @@ def saddle(d):
     for sy in (+1, -1):
         # clamp screws: through hole + flat seat for the screw head
         s = s.cut(_cyl_z(d["beam_x"], sy * d["ear_y"], eb - 1, d["deck_top"] + 1, d["hole_d"] / 2))
-        s = s.cut(_cyl_z(d["beam_x"], sy * d["ear_y"], eb + 6.0, d["deck_top"] + 1, 3.3))
+        s = s.cut(_cyl_z(d["beam_x"], sy * d["ear_y"], eb + 5.0, d["deck_top"] + 1, 3.3))
         # tray lock: M3 along X from the rear, nut dropped in from the top
         s = s.cut(cq.Workplane("YZ").circle(3.3 / 2).extrude(10.5)
                   .translate((xr - 0.1, sy * d["lock_y"], d["lock_z"])))
@@ -238,10 +242,15 @@ def tray(d):
     return t
 
 
+GAUGE_H = 80.0            # the gauge yoke is made for this height, so its gap = clamp_gap + (real height - 80)
+YOKE_SIZES = (82.0, 85.0, 88.0)
+
+
 def ring_gauge(d):
     x0, x1 = d["beam_x"] - 1.5, d["beam_x"] + 1.5
     top = saddle_blank(d, with_channel=False).intersect(_box(x0, x1, -200, 200, -200, 200))
-    return top.union(yoke(d, x0, x1, holes=False))
+    dg = derived({k: v for k, v in d.items() if k in P} | dict(body_h=GAUGE_H))
+    return top.union(yoke(dg, x0, x1, holes=False))
 
 
 # ----------------------------------------------------------------------------
@@ -254,7 +263,8 @@ def body_proxy(d):
     pts = [(rf, 0.0)]
     for a in range(15, 91, 15):
         pts.append((rf + rs * math.sin(math.radians(a)), -rs + rs * math.cos(math.radians(a))))
-    pts += [(hw, -h + 22), (bw, -h + 6), (bw, -h)]
+    led = -h + d["hull_h"]                                # ledge under the upper shell
+    pts += [(hw, led + 4), (hw - 4, led), (bw, led), (bw, -h + 8.8), (bw - 7.4, -h)]
     pts = pts + [(-y, z) for y, z in reversed(pts)]
     body = _prism_x(pts, sx - 101, sx + 100)
     for s in (+1, -1):                                   # rear-arm fairings
@@ -283,7 +293,7 @@ def body_marks(d):
 def screws(d):
     out = None
     for sy in (+1, -1):
-        zh = -d["ear_drop"] + 6.0
+        zh = -d["ear_drop"] + 5.0
         s = (_cyl_z(d["beam_x"], sy * d["ear_y"], zh - 20, zh, 1.5)
              .union(_cyl_z(d["beam_x"], sy * d["ear_y"], zh, zh + 3, 2.75)))
         out = s if out is None else out.union(s)
@@ -313,8 +323,15 @@ if __name__ == "__main__":
     printable = dict(saddle=flip(parts["saddle"]), yoke=on_side(parts["yoke"]),
                      tray=flip(parts["tray"]), ring_gauge=on_side(parts["ring_gauge"]))
     for name, wp in printable.items():
+        if name == "yoke":
+            continue
         cq.exporters.export(parts[name], str(out / f"{name}.step"))
         cq.exporters.export(wp, str(out / f"{name}_print.stl"), tolerance=0.02, angularTolerance=0.1)
+    for hgt in sorted(set(YOKE_SIZES) | {d["body_h"]}):
+        dy = derived({k: v for k, v in d.items() if k in P} | dict(body_h=hgt))
+        y = yoke(dy)
+        cq.exporters.export(y, str(out / f"yoke_H{hgt:g}.step"))
+        cq.exporters.export(on_side(y), str(out / f"yoke_H{hgt:g}_print.stl"), tolerance=0.02, angularTolerance=0.1)
 
     asm = cq.Assembly()
     asm.add(parts["saddle"], name="saddle", color=cq.Color(0.95, 0.45, 0.1))

@@ -147,12 +147,74 @@ def overlay(d, out):
     sheet.save(out)
 
 
+# inside profile of a third-party AirTag clip that is reported to fit the Mavic 4 Pro
+# (measured from its STL): it grips the lower hull from below
+CLIP = dict(in_hw=25.2, flat_hw=17.8, chamfer=8.8, hook_z=41.9, tip_z=47.0, tip_hw=20.6, out_hw=34.0, beam=10.8)
+
+
+def section_check(d, parts, out):
+    """Cross-section at the clamp: assumed fuselage, the third-party clip, and this mount."""
+    k, W, H = 9.0, 1500, 1320
+    cy, cz = W / 2, 215
+    to = lambda y, z: (cy + y * k, cz - z * k)
+    im = Image.new("RGB", (W, H), (250, 250, 248)); dr = ImageDraw.Draw(im, "RGBA")
+    f, fs = font(24), font(20)
+    for g in range(-70, 71, 10):
+        dr.line([to(g, 22), to(g, -108)], fill=(225, 228, 235, 255))
+    for g in range(-100, 21, 10):
+        dr.line([to(-75, g), to(75, g)], fill=(225, 228, 235, 255))
+    # fuselage (same construction as body_proxy)
+    hw, rf, bw, h = d["body_w"] / 2, d["roof_flat"] / 2, d["belly_w"] / 2, d["body_h"]
+    rs, led = hw - rf, -h + d["hull_h"]
+    pts = [(rf, 0.0)] + [(rf + rs * math.sin(math.radians(a)), -rs + rs * math.cos(math.radians(a))) for a in range(15, 91, 15)]
+    pts += [(hw, led + 4), (hw - 4, led), (bw, led), (bw, -h + 8.8), (bw - 7.4, -h)]
+    pts = pts + [(-y, z) for y, z in reversed(pts)]
+    dr.polygon([to(*q) for q in pts], fill=(196, 198, 205, 255), outline=(90, 90, 100, 255))
+    # third-party clip, from below
+    c = CLIP; zb = -h
+    half = [(c["flat_hw"], zb), (c["in_hw"], zb + c["chamfer"]), (c["in_hw"], zb + c["hook_z"]), (c["tip_hw"], zb + c["tip_z"]),
+            (c["tip_hw"] + 8.8, zb + c["tip_z"]), (c["out_hw"], zb + c["hook_z"] - 0.2), (c["out_hw"], zb + c["chamfer"]),
+            (c["flat_hw"] + 1.5, zb - c["beam"]), (0, zb - c["beam"])]
+    clip = half + [(-y, z) for y, z in reversed(half)]
+    dr.line([to(*q) for q in clip] + [to(*clip[0])], fill=(20, 150, 60, 255), width=4)
+    # this mount: slice the real solids at the beam
+    slab = cq.Workplane("XY").box(0.4, 400, 400).translate((d["beam_x"], 0, 0))
+    for name, col in (("saddle", (240, 120, 30, 215)), ("yoke", (60, 62, 72, 215)), ("tray", (40, 130, 140, 215))):
+        v, t = mesh(parts[name].intersect(slab), 0.05)
+        for a, b_, c_ in t:
+            dr.polygon([to(v[a][1], v[a][2]), to(v[b_][1], v[b_][2]), to(v[c_][1], v[c_][2])], fill=col)
+
+    def dim(p0, p1, text, col=(150, 10, 10), dy=-34, dx=0):
+        a, b = to(*p0), to(*p1)
+        dr.line([a, b], fill=col + (255,), width=3)
+        for q in (a, b):
+            dr.ellipse([q[0] - 5, q[1] - 5, q[0] + 5, q[1] + 5], fill=col + (255,))
+        mx, my = (a[0] + b[0]) / 2 + dx, (a[1] + b[1]) / 2 + dy
+        bb = dr.textbbox((0, 0), text, font=fs)
+        dr.rectangle([mx - bb[2] / 2 - 6, my - 4, mx + bb[2] / 2 + 6, my + bb[3] + 6], fill=(255, 255, 255, 235))
+        dr.text((mx - bb[2] / 2, my), text, fill=col + (255,), font=fs)
+
+    dim((-bw, -h + 24), (bw, -h + 24), f"lower hull {2 * bw:g} mm  =  inside of the AirTag clip (photos: 51)", (15, 120, 45))
+    dim((-hw, -24), (hw, -24), f"waist ~{2 * hw:g} mm  (FCC photos; ring model is 73 inside)")
+    dim((0, 0), (0, -h), f"height {h:g} mm  (82-88, least certain)", dx=-230, dy=40)
+    dim((hw, -40), (d["yi"], -40), f"{d['side_clear']:g} mm air", dx=92, dy=-12)
+    dr.text((30, 22), "Section at the clamp, looking forward", fill=(20, 20, 20, 255), font=f)
+    y0 = H - 150
+    for i, (col, txt) in enumerate((((196, 198, 205), "fuselage as reconstructed (FCC photos + the uploaded models)"),
+                                    ((20, 150, 60), "third-party AirTag clip for the Mavic 4 Pro, real STL outline"),
+                                    ((240, 120, 30), "this mount: saddle + beam (orange), U-clamp (dark), tray (teal)"))):
+        dr.rectangle([30, y0 + i * 40, 62, y0 + i * 40 + 24], fill=col + (255,), outline=(60, 60, 60, 255))
+        dr.text((76, y0 + i * 40), txt, fill=(20, 20, 20, 255), font=fs)
+    im.save(out)
+
+
 if __name__ == "__main__":
     override = json.loads(pathlib.Path(sys.argv[1]).read_text()) if len(sys.argv) > 1 else {}
     d, parts = m.build(override)
     out = pathlib.Path(__file__).parent / "out"
     out.mkdir(exist_ok=True)
     overlay(d, out / "preview_on_photos.png")
+    section_check(d, parts, out / "preview_section_check.png")
 
     ORANGE, TEAL, GREY, DARK, BLUE, STEEL, BLACK, WHITE = ((240, 120, 30), (40, 130, 140), (200, 202, 208), (70, 72, 80),
                                                            (150, 185, 235), (175, 180, 190), (25, 25, 28), (235, 235, 230))
