@@ -103,9 +103,9 @@ def label(im, to_px, pt, text, off=(60, -60), fnt=None):
     dr.text((ax, ay), text, fill=(20, 20, 20), font=fnt)
 
 
-# calibration of the FCC photos (ref/): pixel of the centre top camera, mm per pixel, nose = up
+# calibration of the FCC photos (ref/): pixel of the centre top camera, mm per pixel at fuselage height, nose = up
 TOP = dict(file="ref/fcc_top_view.png", cx=612.5, cy=401.0, mm=0.533)
-BOT = dict(file="ref/fcc_bottom_view.png", cx=592.0, cy=340.0, mm=0.524)   # cy +/- 20 px uncertain
+BOT = dict(file="ref/fcc_bottom_view.png", cx=592.0, cy=340.0, mm=0.50)    # cy +/- 20 px uncertain
 
 
 def overlay(d, out):
@@ -127,14 +127,11 @@ def overlay(d, out):
         bx0, bx1 = d["beam_x"] - d["beam_w"] / 2, d["beam_x"] + d["beam_w"] / 2
         f = font(26)
         if not bottom:
-            rect(L / 2 - d["tray_l"], L / 2, -d["tray_w"] / 2, d["tray_w"] / 2, (40, 160, 170, 70), (20, 110, 120, 255))
             rect(-L / 2, L / 2, -d["deck_w"] / 2, d["deck_w"] / 2, (240, 120, 30, 90), (200, 80, 0, 255))
             rect(bx0, bx1, -d["ear_out"], d["ear_out"], (240, 120, 30, 90), (200, 80, 0, 255))
             for sy in (1, -1):
                 c = P(d["beam_x"], sy * d["ear_y"]); dr.ellipse([c[0] - 9, c[1] - 9, c[0] + 9, c[1] + 9], fill=(255, 255, 255, 255), outline=(0, 0, 0, 255))
-            for txt, pt, col in (("tray", (L / 2 - d["tray_l"] + 4, d["tray_w"] / 2 - 2), (10, 80, 90)),
-                                 ("saddle", (-4, 16), (150, 50, 0)),
-                                 ("clamp screws", (bx1 + 9, d["ear_out"] + 2), (150, 50, 0))):
+            for txt, pt, col in (("saddle", (-4, 16), (150, 50, 0)), ("clamp screws", (bx1 + 9, d["ear_out"] + 2), (150, 50, 0))):
                 q = P(*pt); dr.text(q, txt, fill=col + (255,), font=f)
         else:
             rect(bx0, bx1, -d["ear_out"], d["ear_out"], (60, 60, 70, 120), (255, 220, 0, 255))
@@ -147,12 +144,72 @@ def overlay(d, out):
     sheet.save(out)
 
 
+def section(d, parts, out):
+    """Cross-section at the clamp with the rubber strips and the measured numbers."""
+    k, W, H = 9.0, 1500, 1330
+    cy, cz = W / 2, 215
+    to = lambda y, z: (cy + y * k, cz - z * k)
+    im = Image.new("RGB", (W, H), (250, 250, 248)); dr = ImageDraw.Draw(im, "RGBA")
+    f, fs = font(24), font(20)
+    for g in range(-70, 71, 10):
+        dr.line([to(g, 22), to(g, -108)], fill=(225, 228, 235, 255))
+    for g in range(-100, 21, 10):
+        dr.line([to(-75, g), to(75, g)], fill=(225, 228, 235, 255))
+    hw, rf, bf, h = d["body_w"] / 2, d["roof_flat"] / 2, d["belly_flat"] / 2, d["body_h"]
+    rs, rb = hw - rf, hw - bf
+    pts = [(rf + rs * math.sin(math.radians(a)), -rs + rs * math.cos(math.radians(a))) for a in range(0, 91, 10)]
+    pts += [(bf + rb * math.cos(math.radians(a)), -h + rb - rb * math.sin(math.radians(a))) for a in range(0, 91, 10)]
+    pts = pts + [(-y, z) for y, z in reversed(pts)]
+    dr.polygon([to(*q) for q in pts], fill=(196, 198, 205, 255), outline=(90, 90, 100, 255))
+    for sy in (1, -1):                                   # side vents
+        a, b = to(sy * (hw - 1.2), -15), to(sy * (hw + 0.4), -26)
+        dr.rectangle([min(a[0], b[0]), a[1], max(a[0], b[0]), b[1]], fill=(40, 40, 45, 255))
+    slab = cq.Workplane("XY").box(0.4, 400, 400).translate((d["beam_x"] + 4.5, 0, 0))    # beside the air slot
+    for name, col in (("saddle", (240, 120, 30, 220)), ("yoke", (60, 62, 72, 220))):
+        v, t = mesh(parts[name].intersect(slab), 0.05)
+        for a, b_, c_ in t:
+            dr.polygon([to(v[a][1], v[a][2]), to(v[b_][1], v[b_][2]), to(v[c_][1], v[c_][2])], fill=col)
+    rub = (245, 240, 215, 255)
+    def pad(y0, y1, z0, z1):
+        a, b = to(y0, z1), to(y1, z0)
+        dr.rectangle([min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])], fill=rub, outline=(120, 110, 60, 255), width=2)
+    for sy in (1, -1):
+        pad(sy * 13.5, sy * 22.5, 0, d["pad_top"])
+        pad(sy * hw, sy * d["yk"], -h + 22, -h + 31)
+    pad(-17, 17, d["yoke_in_bot"], -h)
+
+    def dim(p0, p1, text, col=(150, 10, 10), dy=-34, dx=0):
+        a, b = to(*p0), to(*p1)
+        dr.line([a, b], fill=col + (255,), width=3)
+        for q in (a, b):
+            dr.ellipse([q[0] - 5, q[1] - 5, q[0] + 5, q[1] + 5], fill=col + (255,))
+        mx, my = (a[0] + b[0]) / 2 + dx, (a[1] + b[1]) / 2 + dy
+        bb = dr.textbbox((0, 0), text, font=fs)
+        dr.rectangle([mx - bb[2] / 2 - 6, my - 4, mx + bb[2] / 2 + 6, my + bb[3] + 6], fill=(255, 255, 255, 235))
+        dr.text((mx - bb[2] / 2, my), text, fill=col + (255,), font=fs)
+
+    dim((-hw, -48), (hw, -48), f"body {2 * hw:g} mm  (measured 68-71)")
+    dim((-12, 0), (-12, -h), f"height {h:g} mm  (80 +/- 4)", dx=-150, dy=130)
+    dim((hw, -20.5), (d["ya"], -20.5), f"{d['arm_clear']:g} mm air at the vent", dx=150, dy=-12)
+    dim((hw, -h + 26.5), (d["yk"], -h + 26.5), f"{d['side_gap']:g} mm, rubber", dx=112, dy=-12)
+    dim((d["ear_out"] + 4, d["ear_bot"]), (d["ear_out"] + 4, d["flange_top"]), f"{d['clamp_gap']:g} mm travel", dx=95, dy=-12)
+    dr.text((30, 22), "Section at the clamp, looking forward", fill=(20, 20, 20, 255), font=f)
+    y0 = H - 140
+    for i, (col, txt) in enumerate((((196, 198, 205), "fuselage as measured from the FCC photos (dark marks = side air vents)"),
+                                    ((240, 120, 30), "saddle with its two arms (orange) and U-clamp (dark), screws at the ears"),
+                                    ((245, 240, 215), "rubber seal strips - the only things that touch the drone"))):
+        dr.rectangle([30, y0 + i * 40, 62, y0 + i * 40 + 24], fill=col + (255,), outline=(60, 60, 60, 255))
+        dr.text((76, y0 + i * 40), txt, fill=(20, 20, 20, 255), font=fs)
+    im.save(out)
+
+
 if __name__ == "__main__":
     override = json.loads(pathlib.Path(sys.argv[1]).read_text()) if len(sys.argv) > 1 else {}
     d, parts = m.build(override)
     out = pathlib.Path(__file__).parent / "out"
     out.mkdir(exist_ok=True)
     overlay(d, out / "preview_on_photos.png")
+    section(d, parts, out / "preview_section.png")
 
     ORANGE, GREY, DARK, STEEL, BLACK, WHITE, BRASS = ((240, 120, 30), (200, 202, 208), (70, 72, 80), (175, 180, 190),
                                                       (25, 25, 28), (235, 235, 230), (205, 165, 60))
@@ -175,50 +232,26 @@ if __name__ == "__main__":
     # 1) assembled, 3/4 rear view
     items = base + [(*yk, DARK), (*sad, ORANGE), (*scr, STEEL), (*ins, BRASS)]
     im, px = render(items, eye_dir=(-0.75, -0.9, 0.62))
-    label(im, px, (d["beam_x"], -d["ear_out"] + 4, -8), "saddle + cross beam", (-140, -160))
-    label(im, px, (d["beam_x"], -d["yi"] - 3, -55), "U-clamp", (60, 130))
+    label(im, px, (d["beam_x"], -d["ya"] - 5, -19), "arm with an air slot in front of the vent", (150, -40))
+    label(im, px, (d["beam_x"], -d["yk"] - 4, -65), "U-clamp, rubber-lined", (60, 130))
     label(im, px, (sx, 0, 2), "centre top camera - stays uncovered", (150, -110))
-    label(im, px, (sx - 76, 0, 1), "exhaust grille - stays uncovered", (-60, -200))
-    label(im, px, (-L / 2, -d["lock_y"], d["lock_z"]), "2 inserts for the payload rail (later)", (-120, 330))
+    label(im, px, (sx - 76, 0, 1), "exhaust grille - stays uncovered", (-30, 130))
+    label(im, px, (sx - 38, -d["body_w"] / 2, -21), "side air vent", (-60, 230))
     im.save(out / "preview_assembly.png")
 
     # 2) exploded
     drop = 26
     yk_x = (yk[0] + np.array([0, 0, -drop]), yk[1])
-    ins_x = (ins[0] + np.array([0, 0, 0]), ins[1])
-    scr_x = (scr[0] + np.array([0, 0, 16]), scr[1])
+    scr_x = (scr[0] + np.array([0, 0, 22]), scr[1])
     items = base + [(*yk_x, DARK), (*sad, ORANGE), (*scr_x, STEEL)]
     im, px = render(items, eye_dir=(-0.8, -0.75, 0.75))
-    label(im, px, (d["beam_x"], -ey, d["ear_top"] + 20), "2 x M3x20 clamp screws", (-330, -30))
+    label(im, px, (d["beam_x"], -ey, d["ear_bot"] + 30), "2 x M3x20 clamp screws", (-330, -30))
     label(im, px, (L / 2 - 4, d["rail_w"] / 2 + 2, d["deck_top"]), "dovetail channel for the payload rail", (120, -90))
-    label(im, px, (d["beam_x"], -d["yi"] - 3, -55 - drop), "clamp comes up from below", (60, 110))
+    label(im, px, (d["beam_x"], -d["yk"] - 4, -65 - drop), "clamp comes up from below", (60, 110))
     label(im, px, (d["beam_x"], -ey, d["flange_top"] - d["flange_t"] - drop), "insert pressed in from BELOW the flange", (-300, 80))
     im.save(out / "preview_exploded.png")
 
-    # 3) front view with dimensions
-    items = [(*bod, GREY), (*yk, DARK), (*sad, ORANGE), (*scr, STEEL)]
-    im, px = render(items, eye_dir=(1, 0, 0), size=(1500, 1250), margin=0.17)
-    dr = ImageDraw.Draw(im); fnt = font(22)
-
-    def dim(p0, p1, text, side=1):
-        a, b = px(p0), px(p1)
-        dr.line([a, b], fill=(180, 20, 20), width=3)
-        for q in (a, b):
-            dr.ellipse([q[0] - 5, q[1] - 5, q[0] + 5, q[1] + 5], fill=(180, 20, 20))
-        mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
-        bb = dr.textbbox((0, 0), text, font=fnt)
-        x0 = mx + 10 if side > 0 else mx - 18 - bb[2]
-        dr.rectangle([x0 - 4, my - 18, x0 + bb[2] + 6, my + 16], fill=(255, 255, 255))
-        dr.text((x0, my - 14), text, fill=(150, 10, 10), font=fnt)
-
-    bw, bh, X = d["body_w"], d["body_h"], 200
-    dim((X, -bw / 2, -bh * 0.45), (X, bw / 2, -bh * 0.45), f"body ~{bw:g} (to be measured)")
-    dim((X, -10, 0), (X, -10, -bh), f"height ~{bh:g}", side=-1)
-    dim((X, -d["ear_out"], d["yoke_bot"] - 9), (X, d["ear_out"], d["yoke_bot"] - 9), f"overall {2 * d['ear_out']:.0f} wide")
-    dim((X, d["yi"] + 8, -bh), (X, d["yi"] + 8, d["yoke_bot"]), f"{-d['yoke_bot'] - bh:.1f} below belly")
-    im.save(out / "preview_front.png")
-
-    # 4) the test ring as it prints
+    # 3) the test ring as it prints
     g = parts["ring_gauge"].rotate((0, 0, 0), (0, 1, 0), -90)
     v, t = mesh(g, 0.05)
     im, px = render([(v, t, (240, 150, 60))], eye_dir=(0.25, -0.35, 1), up=(0, 1, 0), size=(1400, 1000))
@@ -226,7 +259,7 @@ if __name__ == "__main__":
                             fill=(20, 20, 20), font=font(26))
     im.save(out / "preview_ring_gauge.png")
 
-    # 5) the stepped feeler
+    # 4) the stepped feeler
     v, t_ = mesh(m.gap_stair(), 0.03)
     im, px = render([(v, t_, (240, 150, 60))], eye_dir=(-0.5, -1, 0.9), size=(1400, 760))
     ImageDraw.Draw(im).text((30, 24), "gap_stair_print.stl - steps of 2 to 16 mm, number engraved on every step",
