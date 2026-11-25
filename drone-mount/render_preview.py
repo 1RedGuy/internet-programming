@@ -109,59 +109,68 @@ if __name__ == "__main__":
     out = pathlib.Path(__file__).parent / "out"
     out.mkdir(exist_ok=True)
 
-    ORANGE, TEAL, GREY, BLACK, BLUE = (240, 120, 30), (40, 130, 140), (205, 205, 205), (45, 45, 48), (150, 185, 235)
+    ORANGE, TEAL, GREY, DARK, BLUE, STEEL = ((240, 120, 30), (40, 130, 140), (205, 205, 205),
+                                             (70, 72, 80), (150, 185, 235), (175, 180, 190))
     body = m.body_proxy(d)
-    strp = m.straps(d).cut(parts["saddle"]).cut(body)
     L = d["saddle_len"]
     box_h = 30.0
     zt = d["tray_z0"] + d["tray_t"]
-    payload = (cq.Workplane("XY").box(70, 60, box_h).translate((L / 2 + d["tray_front"] - d["tray_l"] / 2, 0, zt + box_h / 2))
-               .edges().fillet(3))
+    payload = (cq.Workplane("XY").box(70, 60, box_h)
+               .translate((L / 2 + d["tray_front"] - d["tray_l"] / 2, 0, zt + box_h / 2)).edges().fillet(3))
 
     sad, tr = mesh(parts["saddle"]), mesh(parts["tray"])
-    bod, st, pl = mesh(body, 0.15), mesh(strp, 0.15), mesh(payload, 0.15)
+    y1, y2 = mesh(parts["yoke"]), mesh(parts["yoke2"])
+    bod, pl, scr = mesh(body, 0.15), mesh(payload, 0.15), mesh(m.screws(d), 0.05)
+    ey, zear = d["ear_y"], -d["skirt_drop"] + d["ear_t"]
 
     # 1) assembled, 3/4 rear view
-    items = [(*bod, GREY), (*st, BLACK), (*sad, ORANGE), (*tr, TEAL), (*pl, BLUE)]
+    items = [(*bod, GREY), (*y1, DARK), (*y2, DARK), (*sad, ORANGE), (*tr, TEAL), (*pl, BLUE), (*scr, STEEL)]
     im, px = render(items, eye_dir=(-0.75, -0.9, 0.62))
-    label(im, px, (0, -d["deck_w"] / 2, d["deck_z"] - 1), "saddle", (-150, 120))
+    label(im, px, (L / 2 - 4, -d["deck_w"] / 2, d["deck_z"] - 2), "saddle", (150, -40))
     label(im, px, (-L / 2 + 5, -d["tray_w"] / 2, zt - 1), "tray (slides on from the rear)", (-260, -90))
-    label(im, px, (d["tunnel_x"], -d["body_w"] / 2 - 6, -30), "2 x 20 mm strap, fully around the body", (-60, 150))
+    label(im, px, (d["yoke_x"], -d["wo"] / 2, -45), "2 x U-clamp under the belly", (60, 130))
+    label(im, px, (-d["yoke_x"], -ey, zear + 3), "4 x M3x16 + nut", (-170, 150))
     label(im, px, (L / 2 - d["tray_l"] / 2, 0, zt + box_h), "your payload (example box)", (120, -70))
     label(im, px, (70, 0, 0), "nose  ->", (40, -50))
     im.save(out / "preview_assembly.png")
 
     # 2) exploded
-    lift = 26
+    lift, drop = 26, 30
     tr_x = (tr[0] + np.array([-38, 0, lift]), tr[1])
-    items = [(*bod, GREY), (*sad, ORANGE), (*tr_x, TEAL)]
+    y1_x, y2_x = (y1[0] + np.array([0, 0, -drop]), y1[1]), (y2[0] + np.array([0, 0, -drop]), y2[1])
+    scr_x = (scr[0] + np.array([0, 0, 14]), scr[1])
+    items = [(*bod, GREY), (*y1_x, DARK), (*y2_x, DARK), (*sad, ORANGE), (*tr_x, TEAL), (*scr_x, STEEL)]
     im, px = render(items, eye_dir=(-0.8, -0.75, 0.75))
-    label(im, px, (-L / 2, 0, d["lock_z"]), "M3 lock screw + nut", (-200, 60))
-    label(im, px, (d["tunnel_x"], -d["deck_w"] / 2, d["pad_t"] + d["floor_t"] + 1.5), "strap tunnel", (-40, 170))
-    label(im, px, (0, 0, d["rail_top_z"]), "dovetail rail", (170, -110))
-    label(im, px, (L / 2 - 10 - 38, d["tray_w"] / 2 - 9, zt + lift), "M3 holes + strap slots", (90, -70))
+    label(im, px, (-L / 2 - 43, 0, d["lock_z"] + lift), "M3x12 tray lock screw", (-150, 90))
+    label(im, px, (L / 2 - 6, d["rail_w"] / 2 - 2, d["rail_top_z"]), "dovetail rail", (170, -110))
+    label(im, px, (L / 2 - 10 - 38, d["tray_w"] / 2 - 9, zt + lift), "M3 holes + slots for the payload", (60, -70))
+    label(im, px, (d["yoke_x"], -d["wo"] / 2, -50 - drop), "clamp comes up from below", (90, 110))
+    label(im, px, (-d["yoke_x"], -ey, d["yoke_top_z"] - drop), "captive nut under the flange", (-330, 60))
     im.save(out / "preview_exploded.png")
 
-    # 3) front view with dimensions
-    items = [(*bod, GREY), (*sad, ORANGE), (*tr, TEAL)]
-    im, px = render(items, eye_dir=(1, 0, 0), size=(1500, 1000))
+    # 3) front view with dimensions (payload hidden)
+    items = [(*bod, GREY), (*y1, DARK), (*sad, ORANGE), (*tr, TEAL), (*scr, STEEL)]
+    im, px = render(items, eye_dir=(1, 0, 0), size=(1500, 1150), margin=0.17)
     dr = ImageDraw.Draw(im); fnt = font(22)
 
-    def dim(p0, p1, text, shift=(0, 0)):
+    def dim(p0, p1, text, side=1):
         a, b = px(p0), px(p1)
-        a = (a[0] + shift[0], a[1] + shift[1]); b = (b[0] + shift[0], b[1] + shift[1])
         dr.line([a, b], fill=(180, 20, 20), width=3)
         for q in (a, b):
             dr.ellipse([q[0] - 5, q[1] - 5, q[0] + 5, q[1] + 5], fill=(180, 20, 20))
         mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
         bb = dr.textbbox((0, 0), text, font=fnt)
-        dr.rectangle([mx + 8, my - 18, mx + 18 + bb[2], my + 16], fill=(255, 255, 255))
-        dr.text((mx + 12, my - 14), text, fill=(150, 10, 10), font=fnt)
+        x0 = mx + 10 if side > 0 else mx - 18 - bb[2]
+        dr.rectangle([x0 - 4, my - 18, x0 + bb[2] + 6, my + 16], fill=(255, 255, 255))
+        dr.text((x0, my - 14), text, fill=(150, 10, 10), font=fnt)
 
-    bw = d["body_w"]
-    dim((0, -bw / 2, -40), (0, bw / 2, -40), f"body_w = {bw:g}  (MEASURE)")
-    dim((0, bw / 2 + 9, 0), (0, bw / 2 + 9, zt), f"{zt:.1f} mm up")
-    dim((0, -d["tray_w"] / 2, zt + 6), (0, d["tray_w"] / 2, zt + 6), f"tray {d['tray_w']:g} x {d['tray_l']:g}")
-    dim((0, -bw / 2 - 12, 0), (0, -bw / 2 - 12, -d["skirt_drop"]), f"skirt {d['skirt_drop']:g}")
+    bw, bh = d["body_w"], d["body_h"]
+    dim((0, -bw / 2, -bh * 0.72), (0, bw / 2, -bh * 0.72), f"body_w = {bw:g}  (MEASURE)")
+    dim((0, -14, 0), (0, -14, -bh), f"body_h = {bh:g}  (MEASURE)", side=-1)
+    dim((0, d["wo"] / 2 + d["ear_out"] + 6, 0), (0, d["wo"] / 2 + d["ear_out"] + 6, zt), f"{zt:.1f} mm up")
+    dim((0, -d["wo"] / 2 - d["ear_out"], -bh - 16), (0, d["wo"] / 2 + d["ear_out"], -bh - 16),
+        f"overall {d['wo'] + 2 * d['ear_out']:.0f} wide")
+    dim((0, d["wo"] / 2 + 4, -bh), (0, d["wo"] / 2 + 4, d["yoke_bot_z"]),
+        f"{-d['yoke_bot_z'] - bh:.1f} below belly", side=1)
     im.save(out / "preview_front.png")
     print("ok")
