@@ -79,6 +79,8 @@ P = dict(
     upright_t=4.0,
     bar_t=4.0,          # yoke thickness under the belly
     yoke_rb=8.0,        # inner corner radius of the yoke (small, so it cannot ride on the body's lower corners)
+    eye_d=4.6,          # hole of the two tie-down eyelets on the sides of the yoke
+    eye_out=10.0,       # how far the eyelets stick out sideways
     # --- dovetail channel for the future payload rail -------------------------
     rail_w=30.0,
     rail_h=4.5,
@@ -206,6 +208,10 @@ def yoke(d, x0=None, x1=None, holes=True):
         y = y.union(_box(x0, x1, ya, yb, zt - ft, zt))
         yo = sy * (yk + t)
         y = y.union(_prism_x([(yo, zt - ft + 0.1), (yo + sy * 3.5, zt - ft + 0.1), (yo, zt - ft - 3.5)], x0, x1))
+        # tie-down eyelet: on the side, above the bottom of the yoke, so it costs no ground clearance
+        ez0 = zb + d["yoke_rb"] + t
+        ea, eb_ = sorted((sy * (yk + t - 0.5), sy * (yk + t + d["eye_out"])))
+        y = y.union(_box(x0, x1, ea, eb_, ez0, ez0 + 9.5))
     try:                                   # break every edge - friendlier to hands and to the drone
         y = y.edges().chamfer(0.4)
     except Exception:
@@ -218,6 +224,14 @@ def yoke(d, x0=None, x1=None, holes=True):
             y = y.cut(_cyl_z(xc, sy * d["ear_y"], zt - ft - 1, zt + 1, d["hole_d"] / 2))
             y = y.cut(_cyl_z(xc, sy * d["ear_y"], zt - ft - 8.0, zt - ft + d["insert_depth"], d["insert_d"] / 2))
             y = y.cut(_cyl_z(xc, sy * d["ear_y"], zt - ft - 8.0, zt - ft + 0.6, d["insert_d"] / 2 + 0.4))
+            ez = zb + d["yoke_rb"] + t + 4.75
+            ey_ = sy * (yk + t + d["eye_out"] / 2 + 0.3)
+            y = y.cut(cq.Workplane("YZ").circle(d["eye_d"] / 2).extrude(x1 - x0 + 2).translate((x0 - 1, ey_, ez)))
+            for xe in (x0, x1):            # soften the hole edges so a cord does not chafe
+                y = y.cut(cq.Workplane("YZ").circle(d["eye_d"] / 2 + 0.6).extrude(1.2).translate((xe - 0.6, ey_, ez)))
+        # two notches in the middle of the belly bar: a cord tied round the bar stays centred
+        for xa, xb in ((x0 - 1, x0 + 1.5), (x1 - 1.5, x1 + 1)):
+            y = y.cut(_box(xa, xb, -2.5, 2.5, zb - 1, zib + 1))
     return y
 
 

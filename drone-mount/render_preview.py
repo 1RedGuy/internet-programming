@@ -203,6 +203,53 @@ def section(d, parts, out):
     im.save(out)
 
 
+# motor axes measured from the top photo (mm, relative to the centre top camera; x forward, y left), symmetrised
+MOTORS = dict(front=(111.0, 185.5), rear=(-165.0, 163.0))
+PROP_R = 133.5
+
+
+def prop_plan(d, out):
+    """Top view: propeller discs, fuselage, clamp and the zone a payload box may use."""
+    k, W, H = 2.6, 1500, 1180
+    ox, oy = W / 2, H / 2 - 40
+    to = lambda x, y: (ox - y * k, oy - x * k)             # nose up, left of the drone on the left
+    im = Image.new("RGB", (W, H), (250, 250, 248)); dr = ImageDraw.Draw(im, "RGBA")
+    f, fs = font(24), font(20)
+    for (mx, my) in MOTORS.values():
+        for s in (1, -1):
+            c = to(mx, s * my); r = PROP_R * k
+            dr.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=(120, 150, 220, 60), outline=(60, 90, 170, 255), width=3)
+            dr.ellipse([c[0] - 15 * k, c[1] - 15 * k, c[0] + 15 * k, c[1] + 15 * k], fill=(70, 72, 80, 255))
+    hw = d["body_w"] / 2
+    body = [(108, -30), (108, 30), (75, 43), (40, 37), (0, hw), (-34.5, hw), (-47, 45.5), (-90, 45.5), (-99, 30), (-99, -30),
+            (-90, -45.5), (-47, -45.5), (-34.5, -hw), (0, -hw), (40, -37), (75, -43)]
+    dr.polygon([to(*q) for q in body], fill=(200, 202, 208, 255), outline=(90, 90, 100, 255))
+    for (cx_, cy_, rr) in ((0, 0, 7.6), (73, 28, 7.5), (73, -28, 7.5)):
+        c = to(cx_, cy_); dr.ellipse([c[0] - rr * k, c[1] - rr * k, c[0] + rr * k, c[1] + rr * k], fill=(25, 25, 28, 255))
+    a, b = to(-71, 25), to(-80, -25); dr.rectangle([a[0], a[1], b[0], b[1]], fill=(235, 235, 230, 255), outline=(90, 90, 100, 255))
+    sg, L = d["sensor_gap"], d["saddle_len"]
+    def rect(x0, x1, hy, fill, outline, w=4):
+        a, b = to(x1, hy), to(x0, -hy); dr.rectangle([a[0], a[1], b[0], b[1]], fill=fill, outline=outline, width=w)
+    rect(-sg - 60, -sg, 42, (40, 160, 170, 70), (20, 110, 120, 255))                      # payload zone 84 x 60
+    rect(-sg - L, -sg, d["deck_w"] / 2, (240, 120, 30, 110), (200, 80, 0, 255))
+    bx = -sg - L / 2 + d["beam_x"]
+    rect(bx - d["beam_w"] / 2, bx + d["beam_w"] / 2, d["ear_out"], (240, 120, 30, 110), (200, 80, 0, 255))
+    # clearance from the rear corner of the payload zone to the rear disc
+    corner = (-sg - 60, 42.0); mx, my = MOTORS["rear"]
+    v = (corner[0] - mx, corner[1] - my); n = math.hypot(*v); edge = (mx + v[0] / n * PROP_R, my + v[1] / n * PROP_R)
+    dr.line([to(*corner), to(*edge)], fill=(190, 20, 20, 255), width=4)
+    dr.text((to(*edge)[0] - 250, to(*edge)[1] + 6), f"about {n - PROP_R:.0f} mm", fill=(170, 10, 10, 255), font=f)
+    dr.text((30, 22), "Top view: propeller discs (267 mm) and the mount", fill=(20, 20, 20, 255), font=f)
+    q = to(125, 0); dr.text((q[0] - 28, q[1] - 30), "nose", fill=(60, 60, 60, 255), font=fs)
+    y0 = H - 150
+    for i, (col, txt) in enumerate((((120, 150, 220), "propeller discs, positions measured from the FCC top photo (+/- 5-8 mm)"),
+                                    ((240, 120, 30), "saddle and the cross beam with the clamp screws"),
+                                    ((40, 160, 170), "zone for the payload box: 84 x 60 mm; its rear corners are the closest point to the propellers"))):
+        dr.rectangle([30, y0 + i * 40, 62, y0 + i * 40 + 24], fill=col + (255,), outline=(60, 60, 60, 255))
+        dr.text((76, y0 + i * 40), txt, fill=(20, 20, 20, 255), font=fs)
+    im.save(out)
+
+
 if __name__ == "__main__":
     override = json.loads(pathlib.Path(sys.argv[1]).read_text()) if len(sys.argv) > 1 else {}
     d, parts = m.build(override)
@@ -210,6 +257,7 @@ if __name__ == "__main__":
     out.mkdir(exist_ok=True)
     overlay(d, out / "preview_on_photos.png")
     section(d, parts, out / "preview_section.png")
+    prop_plan(d, out / "preview_propellers.png")
 
     ORANGE, GREY, DARK, STEEL, BLACK, WHITE, BRASS = ((240, 120, 30), (200, 202, 208), (70, 72, 80), (175, 180, 190),
                                                       (25, 25, 28), (235, 235, 230), (205, 165, 60))
@@ -233,7 +281,8 @@ if __name__ == "__main__":
     items = base + [(*yk, DARK), (*sad, ORANGE), (*scr, STEEL), (*ins, BRASS)]
     im, px = render(items, eye_dir=(-0.75, -0.9, 0.62))
     label(im, px, (d["beam_x"], -d["ya"] - 5, -19), "arm with an air slot in front of the vent", (150, -40))
-    label(im, px, (d["beam_x"], -d["yk"] - 4, -65), "U-clamp, rubber-lined", (60, 130))
+    label(im, px, (d["beam_x"], -d["yk"] - 4, -65), "U-clamp, rubber-lined", (60, 170))
+    label(im, px, (d["beam_x"], -d["yk"] - d["upright_t"] - 6, d["yoke_bot"] + 17), "tie-down eyelet (one per side)", (-380, 110))
     label(im, px, (sx, 0, 2), "centre top camera - stays uncovered", (150, -110))
     label(im, px, (sx - 76, 0, 1), "exhaust grille - stays uncovered", (-30, 130))
     label(im, px, (sx - 38, -d["body_w"] / 2, -21), "side air vent", (-60, 230))
