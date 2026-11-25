@@ -18,7 +18,8 @@ Measured (positions are behind the CENTRE top camera, along the fuselage):
   rear-arm fairings (91 mm wide)   start at 34-35 mm
   side mesh vents                  about 8 .. 42 mm, 15-26 mm below the roof
   fuselage shell                   108 mm ahead of the camera, 99 mm behind it
-  height at the waist              about 80 +/- 4 mm (side photos; least certain)
+  height at the waist              88-91 mm from the owner's test ring on the real drone
+                                   (the oblique side photos alone had suggested 80 +/- 4)
 
 The owner tried a printed ring (84 mm opening) on the real drone: the top
 piece sat well and there was a gap of "almost a finger" on both sides, which
@@ -51,7 +52,7 @@ import cadquery as cq
 P = dict(
     # --- fuselage at the clamp station ----------------------------------------
     body_w=70.0,        # width of the waist (photogrammetry: 68-71)
-    body_h=82.0,        # roof to belly at the waist (80 +/- 4)
+    body_h=90.0,        # roof to belly at the waist (owner's test ring: 88-91)
     roof_flat=50.0,     # nearly flat width of the roof
     belly_flat=48.0,    # flat width of the belly (the metal plate)
     sensor_gap=12.0,    # saddle front edge to the CENTRE of the top camera
@@ -77,7 +78,7 @@ P = dict(
     flange_t=8.0,
     upright_t=4.0,
     bar_t=4.0,          # yoke thickness under the belly
-    yoke_rb=12.0,       # inner corner radius of the yoke
+    yoke_rb=8.0,        # inner corner radius of the yoke (small, so it cannot ride on the body's lower corners)
     # --- dovetail channel for the future payload rail -------------------------
     rail_w=30.0,
     rail_h=4.5,
@@ -90,7 +91,7 @@ P = dict(
 )
 
 GAUGE_H = 76.0            # the gauge yoke is made for this height: its gap = clamp_gap + (real height - 76)
-YOKE_SIZES = (79.0, 82.0, 85.0, 88.0, 91.0)
+YOKE_SIZES = (85.0, 88.0, 90.0, 92.0)
 
 
 def derived(p):
